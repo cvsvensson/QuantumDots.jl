@@ -1,0 +1,13 @@
+name = "QuantumDots"
+uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
+authors = ["Viktor Svensson"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
