@@ -1,8 +1,8 @@
 module QuantumDots
 using LinearAlgebra
 
-export bits,SpinHalfFockBasis,SpinlessFockBasis,SpinHalfFockBasisState,SpinlessFockBasisState,State,focknbr,chainlength,
-    CreationOperator
+export bits,FermionFockBasis,ManyFermionsFockBasis,ManyFermionsFockBasisState,FermionFockBasisState,State,focknbr,chainlength,
+    CreationOperator, amplitude, species,states
 
 include("fock.jl")
 include("operators.jl")
