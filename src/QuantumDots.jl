@@ -1,8 +1,9 @@
 module QuantumDots
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
+using TupleTools
 
-export bits,FermionFockBasis,ManyFermionsFockBasis,ManyFermionsFockBasisState,FermionFockBasisState,State,focknbr,chainlength,
-    CreationOperator, amplitude, species,states
+export bits,FermionFockBasis,FermionBasisState,State,focknbr,chainlength, Fermion,
+    CreationOperator, amplitude, species,states, jwstring,focknbrs
 
 include("fock.jl")
 include("operators.jl")
