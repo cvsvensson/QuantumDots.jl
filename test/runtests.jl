@@ -40,6 +40,9 @@ end
     ψ1 = FermionBasisState(newfocknbr,N,B)
     @test Cdag2*ψ1 == (2,0)
     @test Cdag1*ψ1 == (3,-1)
+
+    ψrand = rand(FermionState{(:a,),Float64},5)
+    @test Cdag1 * ψrand isa FermionState{(:a,),Float64}
 end
 
 @testset "interface" begin
@@ -85,7 +88,7 @@ end
     hamiltonian = emptyoperator()
     species = :🦄,:👹 #(\unicorn_face, \japanese_ogre) 
     N = 2
-    basis = FermionFockBasis(N, species)
+    basis = FermionBasis(N, species)
     ## Can write hamiltonian in terms of elementary fermionic operators as well
     #Intra site
     for i in 1:N

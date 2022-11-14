@@ -14,8 +14,8 @@ bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 struct FermionBasis{S} <: AbstractBasis end
 FermionBasis() = FermionBasis{(DEFAULT_FERMION_SYMBOL,)}()
 FermionBasis(s::Symbol) = FermionBasis{(s,)}()
-#FermionFockBasis(args...) = FermionFockBasis{args}() #Should we allow this type unstable constructor?
 species(::FermionBasis{S}) where S = S
+species(::Type{FermionBasis{S}}) where S = S
 
 struct Fermion{S}
     site::Int
