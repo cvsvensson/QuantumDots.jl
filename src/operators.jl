@@ -6,22 +6,8 @@ abstract type AbstractOperator end
 Count the number of fermions to the right of site.
 """
 jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
-jwstring(f::Fermion{S},::Val{S2},focknbr) where {S,S2} = jwstring(f.site + (S2 < S ? 1 : 0), focknbr) #Assuming we species are ordered by unicode order
-jwstring(site,f::FermionBasisState{S},::Val{S2}) where {S,S2} = jwstring(site + (S2 < S ? 1 : 0), focknbr(f,S2)) #Assuming we species are ordered by unicode order
-function jwstring(f::Fermion{S},focknbrs,::FermionBasis{S2}) where {S,S2}
-    prod(fs->jwstring(f,fs[2],fs[1]), zip(focknbrs,S2))
-end
-
-site_offsets(::Val{S},::Val{SS}) where {S,SS} = map(s->comp_isless(Val(s),Val(S)) ? 0 : 1,SS)
-function jwstring(f::Fermion{S},ψ::FermionBasisState{S2}) where {S,S2} #This is allocation-less
-    offsets = site_offsets(Val(S),Val(S2))
-    prod(ov->jwstring(f.site +ov[1], ov[2]), zip(offsets,focknbrs(ψ)))
-end
-
-function jwstring2(f::Fermion{S},ψ::FermionBasisState{S2}) where {S,S2} #This allocates
-    offsets = S2 .< S
-    prod(ov->jwstring(f.site +ov[1], ov[2]), zip(offsets,focknbrs(ψ)))
-end
+jwstring(f::Fermion{S},ψ::FermionBasisState{S2}) where {S,S2} = jwstring(f,Val(S2),focknbr(ψ))
+jwstring(f::Fermion{S},::Val{S2},focknbr) where {S,S2} = jwstring(digitposition(f,Val(S2)),focknbr) 
 
 @inline @generated function comp_isless(::Val{s1},::Val{s2}) where {s1,s2}
     b = s1<s2

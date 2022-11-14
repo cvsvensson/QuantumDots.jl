@@ -17,7 +17,10 @@ end
     @test bits(ψ) == fbits
 
     Bspin = FermionBasis{(:↑,:↓)}()
-    ψspin = FermionBasisState(focknumber*focknumber,N,Bspin)
+    ψspin = FermionBasisState((:↑=>[1,3],:↓=>[2]),N,Bspin)
+    @test [jwstring(Fermion{:↑}(i), ψspin) for i in 1:N] == (-1) .^ [2,2,0,0,0,0]
+    @test [jwstring(Fermion{:↓}(i), ψspin) for i in 1:N] == (-1) .^ [2,1,0,0,0,0]
+
 end
 
 @testset "Operators" begin
