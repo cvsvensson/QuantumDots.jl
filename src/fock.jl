@@ -2,79 +2,67 @@
 abstract type AbstractBasis end
 abstract type AbstractBasisState{B<:AbstractBasis} end
 abstract type AbstractState{B<:AbstractBasisState} end
-struct SpinlessFockBasis{N} <: AbstractBasis end
-struct SpinHalfFockBasis{N} <: AbstractBasis end
+const DEFAULT_FERMION_SYMBOL = :f
 
-struct SpinlessFockBasisState{N,T} <: AbstractBasisState{SpinlessFockBasis{N}}
-    state::T
-    function SpinlessFockBasisState{N}(num::T) where {N,T}
-        new{N,T}(num)
-    end
+focknbr(bits::Union{BitVector,Vector{Bool}}) = mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits))
+focknbr(sites::Vector{<:Integer}) = mapreduce(site -> 2^(site-1),+, sites)
+focknbr(sites::Vector{<:Integer},cell_length, species_index=1) = mapreduce(site->2^(digitposition(site,cell_length,species_index)-1),+, sites)
+bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
+# bits(s::Integer,N) = BitVector(digits(Bool,s, base=2, pad=N)) #more allocations
+
+
+struct FermionBasis{S} <: AbstractBasis end
+FermionBasis() = FermionBasis{(DEFAULT_FERMION_SYMBOL,)}()
+FermionBasis(s::Symbol) = FermionBasis{(s,)}()
+species(::FermionBasis{S}) where S = S
+species(::Type{FermionBasis{S}}) where S = S
+
+struct Fermion{S}
+    site::Int
 end
-SpinlessFockBasisState(bits::Union{BitVector,Vector{Bool}}) = SpinlessFockBasisState{length(bits)}(mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits)))
-SpinlessFockBasisState{N}(bits::Union{BitVector,Vector{Bool}}) where N = (@assert length(bits) == N;SpinlessFockBasisState{N}(mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits))))
-function SpinlessFockBasisState{N}(sites::Vector{Integer}) where N 
-    @assert length(sites) <= N
-    @assert length(unique(sites)) == length(sites)
-    SpinlessFockBasisState{N}(mapreduce(site -> 2^(site-1),+, sites))
+species(::Fermion{S}) where S = S
+
+struct FermionBasisState{S,M} 
+    focknbr::Int
+    chainlength::Int
+    FermionBasisState{S}(f::Integer,c::Integer) where S = new{S,length(S)}(f,c)
 end
-SpinlessFockBasisState{N}(;site::Integer) where N = SpinlessFockBasisState{N}(2^(site-1))
+FermionBasisState(focknbr::Integer,length::Integer,::FermionBasis{S}) where S = FermionBasisState{S}(focknbr,length)
+FermionBasisState{S}(bits::Union{BitVector,Vector{Bool}}) where S = FermionBasisState{S}(focknbr(bits),length(bits))
+focknbr(state::FermionBasisState)  = state.focknbr
+bits(state::FermionBasisState{S}) where S = bits(focknbr(state),length(S)*chainlength(state))
+species(::FermionBasisState{S}) where S = S
 
-struct SpinHalfFockBasisState{N,T} <: AbstractBasisState{SpinHalfFockBasis{N}}
-    state::T
-    function SpinHalfFockBasisState{N}(num::T) where {N,T}
-        new{N,T}(num)
-    end
+function FermionBasisState{S}(sites,chainlength) where S
+    fn = sum(ss->focknbr(ss[2],length(S),cellindex(Val(ss[1]),Val(S))),sites)
+    FermionBasisState{S}(fn,chainlength)
 end
+FermionBasisState(sites,chainlength,::FermionBasis{S}) where S = FermionBasisState{S}(sites,chainlength)
 
-SpinHalfFockBasisState(bits::Union{BitVector,Vector{Bool}}) = SpinHalfFockBasisState{length(bits) ÷ 2}(mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits)))
-SpinHalfFockBasisState{N}(bits::Union{BitVector,Vector{Bool}}) where N = (@assert length(bits) == 2N;SpinHalfFockBasisState{N}(mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits))))
-function SpinHalfFockBasisState{N}(upsites::Vector{Integer},dnsites::Vector{Integer}) where N 
-    SpinHalfFockBasisState{N}(SpinlessFockBasisState{N}(upsites),SpinlessFockBasisState{N}(dnsites))
+
+@inline @generated function cellindex(::Val{S},::Val{SS}) where {S,SS}
+    idx = findfirst(y->y==S,SS)
+    :($idx)
 end
-
-"""
-    SpinHalfFockBasisState{N}(fup,fdn)
-
-Construct a Fock basis state from fup and fdn
-"""
-SpinHalfFockBasisState{N}(fup::T,fdn::T) where {N,T<:Number} = SpinHalfFockBasisState{N}(fup + (fdn << N))
-function SpinHalfFockBasisState(fup::SpinlessFockBasisState{N},fdn::SpinlessFockBasisState{N}) where N
-    SpinHalfFockBasisState{N}(focknbr(fup) + (focknbr(fdn) << N))
-end
-
-struct State{N,BS<:AbstractBasisState,T} <: AbstractState{BS}
-    basisstates::Vector{BS}
-    amplitudes::Vector{T}
-end
-
-"""
-    focknbr(s)
-
-Gives the underlying number representation of the state
-"""
-focknbr(s::Union{SpinHalfFockBasisState,SpinlessFockBasisState}) = s.state
 
 """
 chainlength(s)
 
 Gives the number of dots in the chain
 """
-chainlength(::Union{SpinHalfFockBasisState{N},SpinlessFockBasisState{N}}) where N = N
-chainlength(::Union{SpinHalfFockBasis{N},SpinlessFockBasis{N}}) where N = N
+chainlength(s::FermionBasisState) = s.chainlength
 
-bits(s::Integer,N) = digits(s, base=2, pad=N)
-bits(::SpinlessFockBasisState{<:Any,Missing}) = missing
-bits(::SpinHalfFockBasisState{<:Any,Missing}) = missing
-bits(state::SpinlessFockBasisState{N}) where N = digits(focknbr(state), base=2, pad=N)
-bits(state::SpinHalfFockBasisState{N}) where N = digits(focknbr(state), base=2, pad=2*N)
-Base.show(io::IO, state::SpinlessFockBasisState{N,T}) where {N,T} = (println("SpinlessFockBasisState{$N,$T}");print.(io,bits(state))) #for b in bits(state) print(io, b) end
-function Base.show(io::IO, state::SpinHalfFockBasisState{N,T}) where {N,T}
-    println("SpinHalfFockBasisState{$N,$T}")
-    b = bits(state)
-    print(io,:↑)
-    print.(io,b[1:N])
-    println(io)
-    print(io,:↓)
-    print.(io,b[N+1:end])
+function Base.pairs(s::FermionBasisState{S}) where S
+    # N = chainlength(s)
+    M = length(S)
+    b = bits(s)
+    ntuple(n->S[n]=>b[n:M:end],M)
+end
+function Base.show(io::IO, state::FermionBasisState{S}) where {S}
+    println(io,"FermionBasisState{$S}")
+    for (species, bits) in pairs(state)
+        print(io,":",species," => ")
+        print.(io,Int.(bits))
+        println(io)
+    end
 end
