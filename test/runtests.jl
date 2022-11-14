@@ -45,7 +45,9 @@ end
     @test Cdag1 * ψrand isa FermionState{(:a,),Float64}
 end
 
-@testset "interface" begin
+wish = false
+if wish == true 
+    @testset "interface" begin
     # We want an interface something like this
     species = :↑,:↓
     N = 4
@@ -105,4 +107,5 @@ end
         hamiltonian += Δ1*Cdag(i,:🦄)*Cdag(i+1,:👹) + hc() #Superconductive pairing
         hamiltonian += V*(Cdag(i,:👹)*C(i,:👹) + Cdag(i,:🦄)*C(i,:🦄)) * (Cdag(i+1,:👹)*C(i+1,:👹) + Cdag(i+1,:🦄)*C(i+1,:🦄)) #Coulomb
     end
+end
 end
