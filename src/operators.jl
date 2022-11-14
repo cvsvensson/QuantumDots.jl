@@ -8,7 +8,7 @@ Count the number of fermions to the right of site.
 jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
 jwstring(f::Fermion{S},::Val{S2},focknbr) where {S,S2} = jwstring(f.site + (S2 < S ? 1 : 0), focknbr) #Assuming we species are ordered by unicode order
 jwstring(site,f::FermionBasisState{S},::Val{S2}) where {S,S2} = jwstring(site + (S2 < S ? 1 : 0), focknbr(f,S2)) #Assuming we species are ordered by unicode order
-function jwstring(f::Fermion{S},focknbrs,::FermionFockBasis{S2}) where {S,S2}
+function jwstring(f::Fermion{S},focknbrs,::FermionBasis{S2}) where {S,S2}
     prod(fs->jwstring(f,fs[2],fs[1]), zip(focknbrs,S2))
 end
 
@@ -28,13 +28,21 @@ end
     :($b)
 end
 
+function fockpos(f::Fermion,::Val{S}) where S
+    f.site + cellindex(Val(species(f)),Val(S)) - 2
+end
+
 struct CreationOperator{P} <: AbstractOperator
     particle::P
 end
+CreationOperator(i::Integer,S::Symbol) = CreationOperator(Fermion{S}(i))
+CreationOperator(S::Symbol,i::Integer) = CreationOperator(i,S)
+CreationOperator{S}(i::Integer) where S = CreationOperator{Fermion{S}}(Fermion{S}(i))
 species(c::CreationOperator) = species(c.particle)
 
-Base.:*(Cdag::CreationOperator{Fermion{P}}, state::FermionBasisState) where P = addfermion(Cdag.site, focknbr(state,P))
-
+Base.:*(Cdag::CreationOperator{Fermion{S}}, state::FermionBasisState{SS}) where {S,SS} = addfermion(digitposition(Cdag.particle,Val(SS)), focknbr(state))
+digitposition(site::Integer,cell_length::Integer,species_index::Integer) = (site-1)*cell_length + species_index
+digitposition(f::Fermion{S},::Val{SS}) where {S,SS} =  digitposition(f.site,length(SS),cellindex(Val(S),Val(SS)))
 
 struct FermionState{M,Tv,Ti}
     sparsevector::SparseVector{Tv,Ti}
@@ -42,11 +50,11 @@ struct FermionState{M,Tv,Ti}
 end
 
 
-function addfermion(site::Integer,focknbr)
-    cdag = 2^(site-1)
+function addfermion(digitpos::Integer,focknbr)
+    cdag = 2^(digitpos-1)
     newfocknbr = cdag | focknbr
     # Check if there already was a fermion at the site. 
     allowed = iszero(cdag & focknbr) # or maybe count_ones(newfocknbr) == 1 + count_ones(focknbr)? 
-    fermionstatistics = jwstring(site,focknbr) #1 or -1, depending on the nbr of fermions to the right of site
+    fermionstatistics = jwstring(digitpos,focknbr) #1 or -1, depending on the nbr of fermions to the right of site
     return newfocknbr, allowed * fermionstatistics
 end

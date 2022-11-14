@@ -7,43 +7,43 @@ end
 
 @testset "Fock" begin
     N = 6
-    B = FermionFockBasis{:🦄}()
+    B = FermionBasis(:🦄)
     focknumber = 20
     fbits = BitVector(bits(focknumber,N))
     ψ = FermionBasisState(focknumber,N,B)
-    ψ == FermionBasisState{:🦄}(focknumber,N)
+    ψ == FermionBasisState(focknumber,N,B)
     @test focknbr(ψ) == focknumber
     @test chainlength(ψ) == N
-    @test bits(ψ)[:🦄] == fbits
+    @test bits(ψ) == fbits
 
-    Bspin = FermionFockBasis{(:↑,:↓)}()
-    ψspin = FermionBasisState((focknumber,focknumber),N,Bspin)
-    Bspin2 = FermionFockBasis{(:↑,)}()
-    ψspin2 = FermionBasisState((focknumber,),2*N,Bspin2)
-    #ψspin takes up more memory than ψspin2. Should switch to using a single focknumber. 
-
-    # @test focknbr(ψspin) == focknbr(ψ) + focknbr(ψ)*2^N 
-    # @test chainlength(ψspin) == N
+    Bspin = FermionBasis{(:↑,:↓)}()
+    ψspin = FermionBasisState(focknumber*focknumber,N,Bspin)
 end
 
 @testset "Operators" begin
     N = 2
-    B = FermionFockBasis(:a)
-    ψ0 = FermionFockBasisState(0,N,B)
-    Cdag1 = CreationOperator{B}(1)
-    Cdag2 = CreationOperator{B}(2)
-    @test focknbr(Cdag1*ψ0) == 1
-    @test bits(Cdag1*ψ0) == [1,0]
-    @test focknbr(Cdag2*ψ0) == 2
-    @test bits(Cdag2*ψ0) == [0,1]
-    @test focknbr(Cdag2*(Cdag2*ψ0)) isa Missing
+    B = FermionBasis(:a)
+    ψ0 = FermionBasisState(0,N,B)
+    CreationOperator(:a,1)
+    Cdag1 = CreationOperator(:a,1)
+    Cdag2 = CreationOperator{:a}(2)
+    newfocknbr, scaling = Cdag1*ψ0
+    @test (newfocknbr, scaling) == (1, 1)
+    @test bits((Cdag1*ψ0)[1],N) == [1,0]
+    newfocknbr, scaling = Cdag2*ψ0
+    @test (newfocknbr, scaling) == (2, 1)
+    @test bits(newfocknbr,N) == [0,1]
+
+    ψ1 = FermionBasisState(newfocknbr,N,B)
+    @test Cdag2*ψ1 == (2,0)
+    @test Cdag1*ψ1 == (3,-1)
 end
 
 @testset "interface" begin
     # We want an interface something like this
     species = :↑,:↓
     N = 4
-    basis = FermionFockBasis(N, species; conserve_parity=false)
+    basis = FermionBasis(N, species; conserve_parity=false)
 
     ψ = randomstate(basis) #Dense or sparse?
     @test chainlength(ψ) == N
