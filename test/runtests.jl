@@ -1,5 +1,5 @@
 using QuantumDots
-using Test
+using Test, LinearAlgebra
 
 @testset "QuantumDots.jl" begin
 
