@@ -1,7 +1,7 @@
 #This function compares standard matrix mult vs the bitwise strategy. Similar memory alloc. Bitwise faster at N>6
 function timetest(N)
     B = FermionBasis(N,:a)
-    ψrand = rand(FermionState,B,Float64)
+    ψrand = rand(State,B,Float64)
     println("Fock")
     focktime(N,ψrand)
     println("Dense")
