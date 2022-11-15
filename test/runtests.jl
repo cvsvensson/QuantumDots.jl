@@ -23,25 +23,25 @@ end
 
 end
 
+@testset "State" begin
+    N = 6
+    basis = FermionBasis(N,:a)
+    v = rand(length(basis))
+    ψ = State(v,basis)
+    using SparseArrays
+    ψsparse = State(sparse(v),basis)
+
+    # ψrand = rand(FermionState,basis,Float64)
+    @test norm(ψ)^2 ≈ ψ'*ψ
+end
+
 @testset "Operators" begin
     N = 2
-    B = FermionBasis(N,:a)
-    #ψ0 = FermionBasisState(0,N,B)
+    basis = FermionBasis(N,:a)
     Cdag1 = FermionCreationOperator(:a1)
-    Cdag2 = FermionCreationOperator(:a2)
-    # newfocknbr, FermionCreationOperator = Cdag1*ψ0
-    # @test (newfocknbr, scaling) == (1, 1)
-    # @test bits((Cdag1*ψ0)[1],N) == [1,0]
-    # newfocknbr, scaling = Cdag2*ψ0
-    # @test (newfocknbr, scaling) == (2, 1)
-    # @test bits(newfocknbr,N) == [0,1]
-
-    # ψ1 = FermionBasisState(newfocknbr,N,B)
-    # @test Cdag2*ψ1 == (2,0)
-    # @test Cdag1*ψ1 == (3,-1)
-
-    ψrand = rand(FermionState,B,Float64)
-    @test Cdag1 * ψrand isa FermionState
+    ψ = rand(State,basis,Float64)
+    @test Cdag1 * ψ isa State
+    @test Cdag1 * State(sparse(vec(ψ)),basis) isa State
 end
 
 wish = false

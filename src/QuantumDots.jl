@@ -1,12 +1,12 @@
 module QuantumDots
-using LinearAlgebra, SparseArrays
+using LinearAlgebra
 
-export bits,FermionBasis,State,focknbr,chainlength, Fermion,
-    FermionCreationOperator, amplitude, species,states, jwstring,focknbrs,FermionState 
+export bits,FermionBasis,State,focknbr,chainlength, Fermion, CreationOperator,
+    FermionCreationOperator, amplitude, species,states, jwstring,focknbrs,State 
 
 include("fock.jl")
 include("operators.jl")
 include("state.jl")
-include("symmetry.jl")
+# include("symmetry.jl")
 
 end

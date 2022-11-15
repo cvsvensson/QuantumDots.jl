@@ -1,33 +1,37 @@
-struct FermionState{IDs,T}
-    amplitudes::Vector{T}
-    function FermionState(amplitudes::Vector{T},::Val{IDs}) where {T,IDs}
-        @assert length(amplitudes) == 2^(length(IDs))
-        new{IDs,T}(amplitudes)
+struct State{S,T,B} <: AbstractArray{T,1}
+    amplitudes::S
+    basis::B
+    function State(amplitudes::S,basis::B) where {S,B}
+        @assert length(amplitudes) == length(basis)
+        new{S,eltype(S),B}(amplitudes)
     end
 end
-FermionState(amplitudes::Vector,::FermionBasis{IDs}) where IDs = FermionState(amplitudes,Val(IDs))
-Base.vec(f::FermionState) = f.amplitudes
-Base.size(f::FermionState) = size(vec(f))
-Base.getindex(f::FermionState,i) = getindex(vec(f),i)
-Base.setindex!(f::FermionState,v,i) = setindex!(vec(f),v,i)
-Base.getindex(f::FermionState{IDs},::Val{ID}) where {IDs,ID} = f[2^siteindex(Val(ID),Val(IDs))]
-Base.setindex!(f::FermionState{IDs},::Val{ID}) where {IDs,ID}= setindex!(vec(f),v,2^siteindex(Val(ID),Val(IDs)))
-Base.similar(f::FermionState) = FermionState(deepcopy(vec(f)),basis(f))
-basis(f::FermionState) = f.basis
-Base.zero(f::FermionState{IDs}) where {IDs} = FermionState(zero(vec(f)),Val(IDs))
-Base.rand(::Type{FermionState{IDs,T}}) where {IDs,T} = FermionState(Base.rand(T,2^(length(IDs))),Val(IDs))
-Base.rand(::Type{<:FermionState},::FermionBasis{IDs},::Type{T}) where {IDs,T} = FermionState(Base.rand(T,2^(length(IDs))),Val(IDs))
-Base.eachindex(f::FermionState) = eachindex(vec(f))
-Base.pairs(f::FermionState) = pairs(vec(f))
+Base.vec(f::State) = f.amplitudes
+Base.size(f::State) = size(vec(f))
+Base.getindex(f::State,i) = getindex(vec(f),i)
+Base.setindex!(f::State,v,i) = setindex!(vec(f),v,i)
+Base.similar(f::State) = State(deepcopy(vec(f)),basis(f))
+basis(f::State) = f.basis
+Base.zero(f::State) = State(zero(vec(f)),basis(f))
+Base.rand(::Type{State{S,T,B}}) where {S,T,B} = State(Base.rand(T,length(B)),B())
+Base.rand(::Type{<:State},basis::FermionBasis,::Type{T}) where T = State(Base.rand(T,length(basis)),basis)
+Base.eachindex(f::State) = eachindex(vec(f))
+Base.pairs(f::State) = pairs(vec(f))
 
-function Base.:*(Cdag::FermionCreationOperator, state::FermionState) 
+function Base.:*(Cdag::CreationOperator, state::State) 
     out = zero(state)
-    mult!(out,Cdag,state)
+    mul!(out,Cdag,state)
 end
-function mult!(state2::FermionState{IDs,T},::FermionCreationOperator{ID}, state::FermionState{IDs,T}) where {T,IDs,ID}
+function LinearAlgebra.mul!(state2::State,op::AbstractOperator, state::State)
     for (ind,val) in pairs(state)
-        newind, amp = addfermion(siteindex(Val(ID),Val(IDs)), ind-1)
-        state2[newind] += val*amp
+        state_amp = apply(op, ind,basis(state))
+        for (basisstate,amp) in state_amp
+            state2[index(basisstate,basis(state2))] += val*amp
+        end
     end
     return state2
 end
+index(basisstate::Integer,::FermionBasis) = basisstate+1
+apply(op::CreationOperator,ind,basis) = addparticle(particle(op),ind,basis)
+addparticle(f::Fermion, ind,basis) = addfermion(siteindex(f,basis), basisstate(ind,basis))
+basisstate(ind::Integer,::FermionBasis) = ind-1
