@@ -1,4 +1,4 @@
-abstract type AbstractOperator{Bin,Bout} end
+abstract type AbstractOperator{Bin<:AbstractBasis,Bout<:AbstractBasis} end
 Base.size(op::AbstractOperator) = (length(imagebasis(op)),length(preimagebasis(op)))
 preimagebasis(::AbstractOperator{Bin}) where Bin = Bin()
 imagebasis(::AbstractOperator{<:Any,Bout}) where Bout = Bout()
