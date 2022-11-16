@@ -9,7 +9,7 @@ end
     N = 6
     B = FermionBasis(N,:🦄)
     focknumber = 20
-    fbits = BitVector(bits(focknumber,N))
+    fbits = bits(focknumber,N)
     # ψ = FermionBasisState(focknumber,N,B)
     # ψ == FermionBasisState(focknumber,N,B)
     # @test focknbr(ψ) == focknumber
@@ -38,7 +38,7 @@ end
 @testset "Operators" begin
     N = 2
     basis = FermionBasis(N,:a)
-    Cdag1 = FermionCreationOperator(:a1)
+    Cdag1 = FermionCreationOperator(:a1,basis)
     ψ = rand(State,basis,Float64)
     @test Cdag1 * ψ isa State
     @test Cdag1 * State(sparse(vec(ψ)),basis) isa State
