@@ -3,7 +3,7 @@ struct State{B,T,S} <: AbstractArray{T,1}
     basis::B
     function State(amplitudes::S,basis::B) where {S,B}
         @assert length(amplitudes) == length(basis)
-        new{B,eltype(S),S}(amplitudes)
+        new{B,eltype(S),S}(amplitudes,basis)
     end
 end
 Base.vec(f::State) = f.amplitudes
@@ -13,7 +13,6 @@ Base.setindex!(f::State,v,i) = setindex!(vec(f),v,i)
 Base.similar(f::State) = State(deepcopy(vec(f)),basis(f))
 basis(f::State) = f.basis
 Base.zero(f::State) = State(zero(vec(f)),basis(f))
-Base.rand(::Type{State{B,T,S}}) where {S,T,B} = State(Base.rand(T,length(B)),B())
 Base.rand(::Type{<:State},basis::FermionBasis,::Type{T}) where T = State(Base.rand(T,length(basis)),basis)
 Base.eachindex(f::State) = eachindex(vec(f))
 Base.pairs(f::State) = pairs(vec(f))
@@ -23,6 +22,3 @@ Base.similar(ψ::State, ::Type{T}, basis::AbstractBasis) where T = State(similar
 Base.similar(ψ::State, ::Type{T}) where T = State(similar(vec(ψ),T),basis(ψ))
 
 
-index(basisstate::Integer,::FermionBasis) = basisstate+1
-addparticle(f::Fermion, ind,basis) = addfermion(siteindex(f,basis), basisstate(ind,basis))
-basisstate(ind::Integer,::FermionBasis) = ind-1

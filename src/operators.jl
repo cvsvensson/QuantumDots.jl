@@ -1,8 +1,8 @@
+abstract type AbstractOperatorTemplate end
 abstract type AbstractOperator{Bin<:AbstractBasis,Bout<:AbstractBasis} end
 Base.size(op::AbstractOperator) = (length(imagebasis(op)),length(preimagebasis(op)))
 Base.size(op::AbstractOperator,k) = (length(imagebasis(op)),length(preimagebasis(op)))[k]
-preimagebasis(::AbstractOperator{Bin}) where Bin = Bin()
-imagebasis(::AbstractOperator{<:Any,Bout}) where Bout = Bout()
+
 
 """
     jwstring(site,focknbr)
@@ -11,31 +11,53 @@ Count the number of fermions to the right of site.
 """
 jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
 
-struct CreationOperator{P,Bin,Bout} <: AbstractOperator{Bin,Bout} end
-Base.eltype(::CreationOperator) = Int
-CreationOperator(::P,::B) where {P<:AbstractParticle,B<:AbstractBasis} = _toLinearMap(CreationOperator{P,B,B}())
-FermionCreationOperator(id::Symbol,::B) where B<:AbstractBasis = _toLinearMap(CreationOperator{Fermion{id},B,B}())
-particle(::CreationOperator{P}) where P = P()
-
-apply(op::CreationOperator,ind,basis) = addparticle(particle(op),ind,basis)
-apply(op::CreationOperator,ind) = addparticle(particle(op),ind,preimagebasis(op))
-function Base.:*(Cdag::CreationOperator, state) 
-    out = zero(state)
-    mul!(out,Cdag,state)
+struct Operator{Bin,Bout,Op} <: AbstractOperator{Bin,Bout} 
+    op::Op
+    preimagebasis::Bin
+    imagebasis::Bout
 end
-function LinearAlgebra.mul!(state2,op::AbstractOperator{Bin,Bout}, state) where {Bin,Bout}
+preimagebasis(op::Operator) = op.preimagebasis
+imagebasis(op::Operator) = op.imagebasis
+Base.eltype(op::Operator) = eltype(op.op)
+
+struct CreationOperator{P} <: AbstractOperatorTemplate
+    particle::P
+end
+Base.eltype(::CreationOperator) = Int
+CreationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = Operator(CreationOperator(p),bin,bout)
+CreationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} =CreationOperator(p,b,b)
+FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
+FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
+particle(c::CreationOperator) = c.particle
+
+
+apply(op::Operator,ind::Integer) = apply(op.op,ind,preimagebasis(op),imagebasis(op))
+apply(op::CreationOperator,ind,bin::B,bout::B) where B<:AbstractBasis = addparticle(particle(op),ind,bin,bout)
+
+addparticle(f::Fermion, ind,bin,bout) = addparticle(f,ind,bin)
+addparticle(f::Fermion, ind,bin) = addfermion(siteindex(f,bin), basisstate(ind,bin))
+index(basisstate::Integer,::FermionBasis) = basisstate+1
+basisstate(ind::Integer,::FermionBasis) = ind-1
+
+# apply(op::Operator,ind::Integer) = addparticle(particle(op),ind,basis)
+# apply(op::CreationOperator,ind) = addparticle(particle(op),ind,preimagebasis(op))
+function Base.:*(op::AbstractOperator, state) 
+    out = zero(state)
+    mul!(out,op,state)
+end
+function LinearAlgebra.mul!(state2,op::AbstractOperator, state)
     state2 .*= 0
     for (ind,val) in pairs(state)
         state_amp = apply(op, ind)
-        for (basisstate,amp) in state_amp
-            state2[index(basisstate,Bout())] += val*amp
+        for (state,amp) in state_amp
+            state2[index(state,imagebasis(op))] += val*amp
         end
     end
     return state2
 end
-_toLinearMap(op::AbstractOperator,args...;kwargs...) = LinearMap{eltype(op)}((y,x)->mul!(y,op,x),(y,x)->mul!(y,op',x),size(op)...,args...,kwargs...)
+LinearMaps.LinearMap(op::AbstractOperator,args...;kwargs...) = LinearMap{eltype(op)}((y,x)->mul!(y,op,x),(y,x)->mul!(y,op',x),size(op)...,args...,kwargs...)
 
-Base.adjoint(::CreationOperator{P,Bin,Bout}) where {P,Bin,Bout} = AnnihilationOperator{P,Bin,Bout}()
+Base.adjoint(c::CreationOperator) = AnnihilationOperator(c)
 
 function addfermion(digitpos::Integer,focknbr)
     cdag = 2^(digitpos-1)
