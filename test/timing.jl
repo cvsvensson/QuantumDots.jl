@@ -1,21 +1,24 @@
-#This function compares standard matrix mult vs the bitwise strategy. Similar memory alloc. Bitwise faster at N>6
+#This function compares standard matrix mult vs the bitwise strategy. 
+using BenchmarkTools,SparseArrays
 function timetest(N)
-    B = FermionBasis(N,:a)
-    ψrand = rand(State,B,Float64)
+    basis = FermionBasis(N,:a)
+    ψ = rand(State,basis,Float64)
+    op = QuantumDots.LinearMap(FermionCreationOperator((:a,1),basis))
+    op = sum([op,2.0op])
+    op = sum([op + QuantumDots.LinearMap(CreationOperator(s,basis)) for s in QuantumDots.particles(basis)])
+    println(typeof(op))
+    @time M = Matrix(op)
+    @time Ms = sparse(op)
+    v = vec(ψ)
     println("Fock")
-    focktime(N,ψrand)
+    _time(op,ψ)
+    println("Sparse")
+    _time(Ms,v)
     println("Dense")
-    densetime(N,ψrand)
+    _time(M,v)
 end
 
-function densetime(N,ψrand)
-    M = rand(2^N,2^N)
-    @time out1 = M*vec(ψrand)
-    return
-end
-function focktime(N,ψrand)
-    op = FermionCreationOperator(:a1)
-    op*ψrand
-    @time out2 = op*ψrand
+function _time(M,v)
+    @time out1 = M*v
     return
 end

@@ -8,19 +8,12 @@ end
 @testset "Fock" begin
     N = 6
     B = FermionBasis(N,:🦄)
-    focknumber = 20
-    fbits = BitVector(bits(focknumber,N))
-    # ψ = FermionBasisState(focknumber,N,B)
-    # ψ == FermionBasisState(focknumber,N,B)
-    # @test focknbr(ψ) == focknumber
-    # @test chainlength(ψ) == N
-    # @test bits(ψ) == fbits
-
+    focknumber = 20 # = 16+4 = 00101
+    fbits = bits(focknumber,N)
+    @test fbits == [0,0,1,0,1,0]
     Bspin = FermionBasis(N,(:↑,:↓))
-    # ψspin = FermionBasisState((:↑=>[1,3],:↓=>[2]),N,Bspin)
-    # @test [jwstring(Fermion{:↑}(i), ψspin) for i in 1:N] == (-1) .^ [2,2,0,0,0,0]
-    # @test [jwstring(Fermion{:↓}(i), ψspin) for i in 1:N] == (-1) .^ [2,1,0,0,0,0]
-
+    @test length(particles(Bspin)) == 2*N
+    @test length(Bspin) == 2^(2N)
 end
 
 @testset "State" begin
@@ -38,7 +31,7 @@ end
 @testset "Operators" begin
     N = 2
     basis = FermionBasis(N,:a)
-    Cdag1 = FermionCreationOperator(:a1)
+    Cdag1 = FermionCreationOperator((:a,1),basis)
     ψ = rand(State,basis,Float64)
     @test Cdag1 * ψ isa State
     @test Cdag1 * State(sparse(vec(ψ)),basis) isa State
