@@ -2,7 +2,7 @@ module QuantumDots
 using LinearAlgebra
 using LinearMaps
 
-export bits,FermionBasis,State,focknbr,chainlength, Fermion, CreationOperator,
+export bits,FermionBasis,State,focknbr,chainlength, Fermion, CreationOperator, particles,
     FermionCreationOperator, amplitude, species,states, jwstring,focknbrs,State 
 
 include("fock.jl")
