@@ -8,19 +8,12 @@ end
 @testset "Fock" begin
     N = 6
     B = FermionBasis(N,:🦄)
-    focknumber = 20
+    focknumber = 20 # = 16+4 = 00101
     fbits = bits(focknumber,N)
-    # ψ = FermionBasisState(focknumber,N,B)
-    # ψ == FermionBasisState(focknumber,N,B)
-    # @test focknbr(ψ) == focknumber
-    # @test chainlength(ψ) == N
-    # @test bits(ψ) == fbits
-
+    @test fbits == [0,0,1,0,1,0]
     Bspin = FermionBasis(N,(:↑,:↓))
-    # ψspin = FermionBasisState((:↑=>[1,3],:↓=>[2]),N,Bspin)
-    # @test [jwstring(Fermion{:↑}(i), ψspin) for i in 1:N] == (-1) .^ [2,2,0,0,0,0]
-    # @test [jwstring(Fermion{:↓}(i), ψspin) for i in 1:N] == (-1) .^ [2,1,0,0,0,0]
-
+    @test length(particles(Bspin)) == 2*N
+    @test length(Bspin) == 2^(2N)
 end
 
 @testset "State" begin
