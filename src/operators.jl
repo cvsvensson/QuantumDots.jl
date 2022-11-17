@@ -57,7 +57,7 @@ function LinearAlgebra.mul!(state2,op::AbstractOperator, state)
 end
 LinearMaps.LinearMap(op::AbstractOperator,args...;kwargs...) = LinearMap{eltype(op)}((y,x)->mul!(y,op,x),(y,x)->mul!(y,op',x),size(op)...,args...,kwargs...)
 
-Base.adjoint(c::CreationOperator) = AnnihilationOperator(c)
+Base.adjoint(c::CreationOperator) = AnnihilationOperator(particle(c))
 
 function addfermion(digitpos::Integer,focknbr)
     cdag = 2^(digitpos-1)
