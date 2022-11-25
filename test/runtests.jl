@@ -16,6 +16,27 @@ end
     @test length(Bspin) == 2^(2N)
 end
 
+@testset "ToggleFermions" begin
+    focknbr = 177 # = 1000 1101, msb to the right
+    digitpositions = Vector([7, 8, 2, 3])
+    daggers = BitVector([1,0,1,1])
+    ((newfocknbr, sign),) = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+    @test newfocknbr == 119 # = 1110 1110
+    @test sign == -1
+    # swap two operators
+    digitpositions = Vector([7, 2, 8, 3])
+    daggers = BitVector([1,1,0,1])
+    ((newfocknbr, sign),) = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+    @test newfocknbr == 119 # = 1110 1110
+    @test sign == 1
+
+    # annihilate twice
+    digitpositions = Vector([5, 3, 5])
+    daggers = BitVector([0, 1, 0])
+    ((_, sign),) = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+    @test sign == 0
+end
+
 @testset "State" begin
     N = 6
     basis = FermionBasis(N,:a)

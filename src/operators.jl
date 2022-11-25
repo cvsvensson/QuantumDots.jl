@@ -68,6 +68,32 @@ function addfermion(digitpos::Integer,focknbr)
     return ((newfocknbr, allowed * fermionstatistics),)
 end
 
+function togglefermions(digitposvec::Vector{<:Integer}, daggers::BitVector, focknbr)
+    newfocknbr = 0
+    allowed = 0
+    fermionstatistics = 1
+    for (digitpos, dagger) in zip(digitposvec, daggers)
+        op = 2^(digitpos - 1)
+        if dagger
+            newfocknbr = op | focknbr
+            # Check if there already was a fermion at the site.
+            allowed = iszero(op & focknbr)
+        else
+            newfocknbr = op ⊻ focknbr
+            # Check if the site was empty.
+            allowed = !iszero(op & focknbr)
+        end
+        # return directly if we create/annihilate an occupied/empty state
+        if !allowed
+            return ((newfocknbr, allowed * fermionstatistics),)
+        end
+        fermionstatistics *= jwstring(digitpos, focknbr)
+        focknbr = newfocknbr
+    end
+    # fermionstatistics better way?
+    return ((newfocknbr, allowed * fermionstatistics),)
+end
+
 # struct OperatorSum{Bo,Bi,T} <: AbstractOperator{Bo,Bi}
 #     amplitudes::
 #     opsum::Vector{AbstractOperator{Bo,Bi}} #Type unstable, but I'm not sure if it's desirable to be type stable here
