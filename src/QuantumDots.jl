@@ -1,6 +1,6 @@
 module QuantumDots
 using LinearAlgebra
-using LinearMaps
+using LinearMaps, SplitApplyCombine
 
 export bits,FermionBasis,State,focknbr,chainlength, Fermion, CreationOperator, particles,
     FermionCreationOperator, amplitude, species,states, jwstring,focknbrs,State 
