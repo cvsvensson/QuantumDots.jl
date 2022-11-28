@@ -12,6 +12,7 @@ bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 struct Fermion{S} <: AbstractParticle 
     id::S
 end
+Base.adjoint(f::Fermion) 
 struct FermionBasis{M,S} <: AbstractBasis
     ids::NTuple{M,S}
     # FermionBasis(ids::NTuple{M,S}) where {M,S} = new{M,S}(ids)

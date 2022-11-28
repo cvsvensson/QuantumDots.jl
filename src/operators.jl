@@ -20,20 +20,25 @@ preimagebasis(op::Operator) = op.preimagebasis
 imagebasis(op::Operator) = op.imagebasis
 Base.eltype(op::Operator) = eltype(op.op)
 
-struct CreationOperator{P} <: AbstractOperator{Missing,Missing}
-    particle::P
+struct AnnihilationOperator{P,M} <: AbstractOperator{Missing,Missing}
+    particles::NTuple{M,P}
+    types::NTuple{M,Bool} # true is creation, false is annihilation
 end
-Base.eltype(::CreationOperator) = Int
-CreationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = Operator(CreationOperator(p),bin,bout)
-CreationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} =CreationOperator(p,b,b)
-FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
-FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
-particle(c::CreationOperator) = c.particle
-Base.adjoint(c::CreationOperator) = AnnihilationOperator(particle(c))
+Base.eltype(::AnnihilationOperator) = Int
+AnnihilationOperator(f::Fermion) = AnnihilationOperator((f,),(false,))
+function Base.:*(c1::AnnihilationOperator,c2::AnnihilationOperator)
+    AnnihilationOperator((particles(c1)...,particles(c2)...),(c1.types...,c2.types...))
+end
+FermionAnnihilationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = AnnihilationOperator(Fermion(id),bin,bout)
+FermionAnnihilationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
+AnnihilationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = Operator(AnnihilationOperator(p),bin,bout)
+AnnihilationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} = AnnihilationOperator(p,b,b)
+particles(c::AnnihilationOperator) = c.particles
+Base.adjoint(c::AnnihilationOperator) = AnnihilationOperator(c.particles,broadcast(!,c.types))
 
 
 apply(op::Operator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)) = apply(op.op,ind,bin,bout)
-apply(op::CreationOperator,ind,bin::B,bout::B) where B<:AbstractBasis = addparticle(particle(op),ind,bin,bout)
+apply(op::AnnihilationOperator,ind,bin::B,bout::B) where B<:AbstractBasis = addparticle(particle(op),ind,bin,bout)
 
 # addparticle(f::Fermion, ind,bin,bout) = addparticle(f,ind,bin)
 function addparticle(f::Fermion, ind,bin, bout) 
