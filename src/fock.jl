@@ -1,18 +1,20 @@
 
 abstract type AbstractBasis end
+abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
+abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} <: AbstractOperator{Bin,Bout} end
 abstract type AbstractParticle end
-
 const DEFAULT_FERMION_SYMBOL = :f
 
 focknbr(bits::Union{BitVector,Vector{Bool}}) = mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits))
 focknbr(sites::Vector{<:Integer}) = mapreduce(site -> 2^(site-1),+, sites)
+focknbr(sites::NTuple{N,<:Integer}) where N = mapreduce(site -> 2^(site-1),+, sites)
 focknbr(sites::Vector{<:Integer},cell_length, species_index=1) = mapreduce(site->2^(digitposition(site,cell_length,species_index)-1),+, sites)
 bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 
 struct Fermion{S} <: AbstractParticle 
     id::S
 end
-Base.adjoint(f::Fermion) 
+Base.adjoint(f::Fermion) = CreationOperator((f,),(true,))
 struct FermionBasis{M,S} <: AbstractBasis
     ids::NTuple{M,S}
     # FermionBasis(ids::NTuple{M,S}) where {M,S} = new{M,S}(ids)

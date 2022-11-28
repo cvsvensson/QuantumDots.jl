@@ -31,8 +31,10 @@ end
 @testset "Operators" begin
     N = 2
     basis = FermionBasis(N,:a)
-    Cdag1 = FermionCreationOperator((:a,1),basis)
-    Cdag2 = FermionCreationOperator((:a,2),basis)
+    fermions = particles(basis)
+    Cdag1 = fermions[1]'
+    @test Cdag1 == FermionCreationOperator((:a,1),basis).op 
+    Cdag2 = fermions[2]'
     ψ = rand(State,basis,Float64)
     @test Cdag1 * ψ isa State
     @test Cdag1 * State(sparse(vec(ψ)),basis) isa State

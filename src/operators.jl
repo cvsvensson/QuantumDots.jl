@@ -1,5 +1,3 @@
-# abstract type AbstractOperatorTemplate end
-abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
 Base.size(op::AbstractOperator) = (length(imagebasis(op)),length(preimagebasis(op)))
 Base.size(op::AbstractOperator,k) = (length(imagebasis(op)),length(preimagebasis(op)))[k]
 
@@ -20,30 +18,34 @@ preimagebasis(op::Operator) = op.preimagebasis
 imagebasis(op::Operator) = op.imagebasis
 Base.eltype(op::Operator) = eltype(op.op)
 
-struct AnnihilationOperator{P,M} <: AbstractOperator{Missing,Missing}
+struct CreationOperator{P,M} <: AbstractFockOperator{Missing,Missing}
     particles::NTuple{M,P}
     types::NTuple{M,Bool} # true is creation, false is annihilation
 end
-Base.eltype(::AnnihilationOperator) = Int
-AnnihilationOperator(f::Fermion) = AnnihilationOperator((f,),(false,))
-function Base.:*(c1::AnnihilationOperator,c2::AnnihilationOperator)
-    AnnihilationOperator((particles(c1)...,particles(c2)...),(c1.types...,c2.types...))
+preimagebasis(::AbstractOperator{Missing}) = missing
+imagebasis(::AbstractOperator{<:Any,Missing}) = missing
+Base.eltype(::CreationOperator) = Int
+CreationOperator(f::Fermion) = CreationOperator((f,),(true,))
+Base.:*(f1::Fermion,f2::Fermion) = CreationOperator(f1)'*CreationOperator(f2)'
+Base.:*(f1::Fermion,f2::CreationOperator) = CreationOperator(f1)*f2
+Base.:*(f1::CreationOperator,f2::Fermion) = f1*CreationOperator(f2)
+function Base.:*(c1::CreationOperator,c2::CreationOperator)
+    CreationOperator((particles(c1)...,particles(c2)...),(c1.types...,c2.types...))
 end
-FermionAnnihilationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = AnnihilationOperator(Fermion(id),bin,bout)
-FermionAnnihilationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
-AnnihilationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = Operator(AnnihilationOperator(p),bin,bout)
-AnnihilationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} = AnnihilationOperator(p,b,b)
-particles(c::AnnihilationOperator) = c.particles
-Base.adjoint(c::AnnihilationOperator) = AnnihilationOperator(c.particles,broadcast(!,c.types))
-
+FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
+FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
+CreationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = Operator(CreationOperator(p),bin,bout)
+CreationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} = CreationOperator(p,b,b)
+particles(c::CreationOperator) = c.particles
+Base.adjoint(c::CreationOperator) = CreationOperator(c.particles,broadcast(!,c.types))
 
 apply(op::Operator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)) = apply(op.op,ind,bin,bout)
-apply(op::AnnihilationOperator,ind,bin::B,bout::B) where B<:AbstractBasis = addparticle(particle(op),ind,bin,bout)
 
 # addparticle(f::Fermion, ind,bin,bout) = addparticle(f,ind,bin)
-function addparticle(f::Fermion, ind,bin, bout) 
-    newstate, newamp = addfermion(siteindex(f,bin), basisstate(ind,bin))
-    newind = index(newstate,bout)#,index.(newstates, bout)
+siteindices(ps,bin) = map(p->siteindex(p,bin),ps)
+function apply(op::CreationOperator{<:Fermion}, ind,bin, bout)
+    newstate, newamp = addfermion(siteindices(particles(op),bin),basisstate(ind,bin))
+    newind = index(newstate,bout)
     newind, newamp
 end
 index(basisstate::Integer,::FermionBasis) = basisstate+1
@@ -55,10 +57,12 @@ function Base.:*(op::AbstractOperator, state)
     out = zero(state)
     mul!(out,op,state)
 end
-function LinearAlgebra.mul!(state2,op::AbstractOperator, state)
+function LinearAlgebra.mul!(state2,op::AbstractFockOperator, state)
     state2 .*= 0
     for (ind,val) in pairs(state)
-        newind, amp = apply(op, ind)
+        bin = promote_basis(preimagebasis(op),basis(state))
+        bout = promote_basis(imagebasis(op),basis(state2))
+        newind, amp = apply(op, ind,bin,bout)
         # for (newind,amp) in zip(newinds,amps)
         state2[newind] += val*amp
         # end
@@ -67,12 +71,12 @@ function LinearAlgebra.mul!(state2,op::AbstractOperator, state)
 end
 LinearMaps.LinearMap(op::AbstractOperator,args...;kwargs...) = LinearMap{eltype(op)}((y,x)->mul!(y,op,x),(y,x)->mul!(y,op',x),size(op)...,args...,kwargs...)
 
-function addfermion(digitpos::Integer,focknbr)
-    cdag = 2^(digitpos-1)
-    newfocknbr = cdag | focknbr
+function addfermion(digitpositions,state) #Currently only works for a single creation operator
+    cdag = focknbr(digitpositions)
+    newfocknbr = cdag | state
     # Check if there already was a fermion at the site. 
-    allowed = iszero(cdag & focknbr) # or maybe count_ones(newfocknbr) == 1 + count_ones(focknbr)? 
-    fermionstatistics = jwstring(digitpos,focknbr) #1 or -1, depending on the nbr of fermions to the right of site
+    allowed = iszero(cdag & state) # or maybe count_ones(newfocknbr) == 1 + count_ones(focknbr)? 
+    fermionstatistics = jwstring(digitpositions[1],state) #1 or -1, depending on the nbr of fermions to the right of site
     return newfocknbr, allowed * fermionstatistics
 end
 const BasisOrMissing = Union{AbstractBasis,Missing}
