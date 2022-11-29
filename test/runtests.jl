@@ -32,23 +32,25 @@ end
     N = 2
     basis = FermionBasis(N,:a)
     fermions = particles(basis)
-    Cdag1 = fermions[1]'
-    @test Cdag1 == FermionCreationOperator((:a,1),basis).op 
+    Cdag1 =  FermionCreationOperator((:a,1),basis)
+    @test Cdag1.op == fermions[1]'
     Cdag2 = fermions[2]'
     ψ = rand(State,basis,Float64)
     @test Cdag1 * ψ isa State
     @test Cdag1 * State(sparse(vec(ψ)),basis) isa State
+    @test Cdag2 * ψ isa State
+    @test Cdag2 * State(sparse(vec(ψ)),basis) isa State
 
     opsum = 2.0Cdag1 - 1.2Cdag1
-    @test opsum isa QuantumDots.OperatorSum
+    @test opsum isa QuantumDots.FockOperatorSum
     @test QuantumDots.imagebasis(opsum) == QuantumDots.imagebasis(Cdag1)
     @test QuantumDots.preimagebasis(opsum) == QuantumDots.preimagebasis(Cdag1)
-    @test opsum * ψ ==  2.0Cdag1*ψ - 1.2Cdag1*ψ
-    @test opsum*ψ == .8*Cdag1*ψ
+    @test opsum * ψ ≈  2.0Cdag1*ψ - 1.2Cdag1*ψ
+    @test opsum*ψ ≈ .8*Cdag1*ψ
     opsum2 = 2.0Cdag1 - 1.2Cdag2
-    @test opsum2 * ψ ==  2.0Cdag1*ψ - 1.2Cdag2*ψ
+    @test opsum2 * ψ ≈  2.0Cdag1*ψ - 1.2Cdag2*ψ
     opsum2squared = opsum2*opsum2
-    @test opsum2squared * ψ ==  0*ψ
+    @test opsum2squared * ψ ≈  0*ψ
 end
 
 wish = false
