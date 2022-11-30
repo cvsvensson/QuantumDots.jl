@@ -1,7 +1,6 @@
 Base.size(op::AbstractFockOperator) = (length(imagebasis(op)),length(preimagebasis(op)))
 Base.size(op::AbstractFockOperator,k) = (length(imagebasis(op)),length(preimagebasis(op)))[k]
 
-
 """
     jwstring(site,focknbr)
     
@@ -9,19 +8,10 @@ Count the number of fermions to the right of site.
 """
 jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
 
-struct FockOperator{Bin,Bout,Op} <: AbstractFockOperator{Bin,Bout} 
-    op::Op
-    preimagebasis::Bin
-    imagebasis::Bout
-end
 preimagebasis(op::FockOperator) = op.preimagebasis
 imagebasis(op::FockOperator) = op.imagebasis
 Base.eltype(op::FockOperator) = eltype(op.op)
 
-struct CreationOperator{P,M} <: AbstractFockOperator{Missing,Missing}
-    particles::NTuple{M,P}
-    types::NTuple{M,Bool} # true is creation, false is annihilation
-end
 preimagebasis(::AbstractFockOperator{Missing}) = missing
 imagebasis(::AbstractFockOperator{<:Any,Missing}) = missing
 Base.eltype(::CreationOperator) = Int
@@ -30,7 +20,7 @@ Base.:*(f1::Fermion,f2::Fermion) = CreationOperator(f1)'*CreationOperator(f2)'
 Base.:*(f1::Fermion,f2::CreationOperator) = CreationOperator(f1)*f2
 Base.:*(f1::CreationOperator,f2::Fermion) = f1*CreationOperator(f2)
 function Base.:*(c1::CreationOperator,c2::CreationOperator)
-    CreationOperator((particles(c1)...,particles(c2)...),(c1.types...,c2.types...))
+    CreationOperator((particles(c2)...,particles(c1)...),(c2.types...,c1.types...))
 end
 FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
 FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
@@ -150,17 +140,17 @@ function groupoperators(ops,amps)
     return ks, vs
 end
 
-function apply(opsum::FockOperatorSum,ind::Integer,bin = preimagebasis(op),bout = imagebasis(op))
-    allinds = typeof(ind)[]
-    allamps = eltype(opsum)[]
-    for (op,scaling) in pairs(opsum)
-        newinds, amps = apply(op,ind,bin,bout)
-        newamps = amps .* (scaling)
-        allinds = vcat(allinds,newinds)
-        allamps = vcat(allamps,newamps)
-    end
-    return groupbykeysandreduce(allinds,allamps,+)
-end
+# function apply(opsum::FockOperatorSum,ind::Integer,bin = preimagebasis(op),bout = imagebasis(op))
+#     allinds = typeof(ind)[]
+#     allamps = eltype(opsum)[]
+#     for (op,scaling) in pairs(opsum)
+#         newinds, amps = apply(op,ind,bin,bout)
+#         newamps = amps .* (scaling)
+#         allinds = vcat(allinds,newinds)
+#         allamps = vcat(allamps,newamps)
+#     end
+#     return groupbykeysandreduce(allinds,allamps,+)
+# end
 Base.pairs(opsum::FockOperatorSum) = zip(operators(opsum),amplitudes(opsum))
 
 function apply(op::FockOperatorProduct,ind,bin = preimagebasis(op),bout = imagebasis(op))
