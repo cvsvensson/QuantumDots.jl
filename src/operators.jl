@@ -143,12 +143,5 @@ function groupbykeysandreduce(k::K,v::V,f) where {K,V}
     vs::V = collect(values(d))
     return ks, vs
 end
-function groupoperators(ops,amps)
-    d = groupreduce(operators ∘ first,last,zip(ops,amps))
-    ks::K = collect(keys(d))
-    vs::V = collect(values(d))
-    return ks, vs
-end
 
 Base.pairs(opsum::FockOperatorSum) = zip(operators(opsum),amplitudes(opsum))
-
