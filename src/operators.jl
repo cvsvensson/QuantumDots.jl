@@ -39,7 +39,7 @@ apply(op::FockOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)
 
 siteindices(ps,bin) = map(p->siteindex(p,bin),ps)
 function apply(op::CreationOperator{<:Fermion}, ind,bin, bout)
-    newstate, newamp = addfermion(siteindices(particles(op),bin),basisstate(ind,bin))
+    newstate, newamp = togglefermions(siteindices(particles(op),bin),op.types,basisstate(ind,bin))
     newind = index(newstate,bout)
     newind, newamp
 end
@@ -101,6 +101,32 @@ Base.:-(opsum::FockOperatorSum) = FockOperatorSum(-amplitudes(opsum),operators(o
 Base.:-(op::FockOperator) = -FockOperatorSum(op)
 
 
+function togglefermions(digitpositions, daggers, focknbr)
+    newfocknbr = 0
+    allowed = 0
+    fermionstatistics = 1
+    for (digitpos, dagger) in zip(digitpositions, daggers)
+        op = 2^(digitpos - 1)
+        if dagger
+            newfocknbr = op | focknbr
+            # Check if there already was a fermion at the site.
+            allowed = iszero(op & focknbr)
+        else
+            newfocknbr = op ⊻ focknbr
+            # Check if the site was empty.
+            allowed = !iszero(op & focknbr)
+        end
+        # return directly if we create/annihilate an occupied/empty state
+        if !allowed
+            return newfocknbr, allowed * fermionstatistics
+        end
+        fermionstatistics *= jwstring(digitpos, focknbr)
+        focknbr = newfocknbr
+    end
+    # fermionstatistics better way?
+    return newfocknbr, allowed * fermionstatistics
+end
+
 Base.:*(x::Number,op::AbstractFockOperator) = x*FockOperatorSum(op)
 Base.:*(op::FockOperator,x::Number) = x*op
 Base.:*(x::Number,op::FockOperator) = x*FockOperatorSum(op)
@@ -113,12 +139,6 @@ end
 
 function groupbykeysandreduce(k::K,v::V,f) where {K,V}
     d = groupreduce(first,last,f,zip(k,v))
-    ks::K = collect(keys(d))
-    vs::V = collect(values(d))
-    return ks, vs
-end
-function groupoperators(ops,amps)
-    d = groupreduce(operators ∘ first,last,zip(ops,amps))
     ks::K = collect(keys(d))
     vs::V = collect(values(d))
     return ks, vs
