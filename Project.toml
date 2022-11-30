@@ -1,7 +1,7 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
-authors = ["Viktor Svensson"]
-version = "0.1.0"
+authors = ["Viktor Svensson, William Samuelson"]
+version = "0.2.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
