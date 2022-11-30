@@ -11,6 +11,7 @@ jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
 preimagebasis(op::FockOperator) = op.preimagebasis
 imagebasis(op::FockOperator) = op.imagebasis
 Base.eltype(op::FockOperator) = eltype(op.op)
+operator(op::FockOperator) = op.op
 
 preimagebasis(::AbstractFockOperator{Missing}) = missing
 imagebasis(::AbstractFockOperator{<:Any,Missing}) = missing
@@ -31,12 +32,24 @@ Base.:-(c1::CreationOperator,c2::CreationOperator) = FockOperator(c1,missing,mis
 Base.:-(c1::CreationOperator,c2::Union{FockOperator,FockOperatorSum}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) - c2
 Base.:-(c1::Union{FockOperator,FockOperatorSum},c2::CreationOperator) = c1 - FockOperator(c2,preimagebasis(c1),imagebasis(c1))
 
+function Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperatorSum)
+    bin = promote_basis(preimagebasis(c1),preimagebasis(c2))
+    bout = promote_basis(imagebasis(c1),imagebasis(c2))
+    FockOperatorSum(amplitudes(c2),[operator(c1) * op for op in operators(c2)] ,bin,bout)
+end
+function Base.:*(c1::FockOperatorSum,c2::FockOperator{<:Any,<:Any,<:CreationOperator})
+    bin = promote_basis(preimagebasis(c1),preimagebasis(c2))
+    bout = promote_basis(imagebasis(c1),imagebasis(c2))
+    FockOperatorSum(amplitudes(c1), [op * operator(c2) for op in operators(c1)],bin,bout)
+end
+
 FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
 FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
 CreationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = FockOperator(CreationOperator(p),bin,bout)
 CreationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} = CreationOperator(p,b,b)
 particles(c::CreationOperator) = c.particles
 Base.adjoint(c::CreationOperator) = CreationOperator(reverse(c.particles),broadcast(!,reverse(c.types)))
+Base.adjoint(op::FockOperator) = FockOperator(operator(op)',imagebasis(op),preimagebasis(op))
 
 apply(op::FockOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)) = apply(op.op,ind,bin,bout)
 

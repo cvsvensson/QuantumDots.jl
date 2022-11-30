@@ -73,6 +73,20 @@ end
     @test opsum2squared * ψ ≈  0*ψ
 end
 
+
+@testset "Hamiltonian" begin
+    N = 2
+    basis = FermionBasis(N,:a)
+    fermions = particles(basis)
+    Cdag1 =  CreationOperator(fermions[1],basis)
+    Cdag2 =  CreationOperator(fermions[2],basis)
+    ham = Cdag1'*Cdag1 + π*Cdag2'*Cdag2
+    ψ = rand(State,basis,Float64)
+    lm = QuantumDots.LinearMap(ham)
+    mat = Matrix(lm)
+    @test eigen(mat).values ≈ [0,1,π,π+1]
+end
+
 wish = false
 if wish == true 
     @testset "interface" begin
