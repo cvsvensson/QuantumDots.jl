@@ -19,21 +19,24 @@ CreationOperator(f::Fermion) = CreationOperator((f,),(true,))
 Base.:*(f1::Fermion,f2::Fermion) = CreationOperator(f1)'*CreationOperator(f2)'
 Base.:*(f1::Fermion,f2::CreationOperator) = CreationOperator(f1)*f2
 Base.:*(f1::CreationOperator,f2::Fermion) = f1*CreationOperator(f2)
-function Base.:*(c1::CreationOperator,c2::CreationOperator)
-    CreationOperator((particles(c2)...,particles(c1)...),(c2.types...,c1.types...))
-end
-function Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperator{<:Any,<:Any,<:CreationOperator})
-    FockOperator(c1.op*c2.op,preimagebasis(c2),imagebasis(c1))
-end
+Base.:*(c1::CreationOperator,c2::CreationOperator) = CreationOperator((particles(c2)...,particles(c1)...),(c2.types...,c1.types...))
+Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1.op*c2.op,preimagebasis(c2),imagebasis(c1))
 Base.:*(c1::CreationOperator,c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1*c2.op,preimagebasis(c2),imagebasis(c2))
 Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::CreationOperator) = FockOperator(c1.op*c2,preimagebasis(c1),imagebasis(c1))
+
+Base.:+(c1::CreationOperator,c2::CreationOperator) = FockOperator(c1,missing,missing) + FockOperator(c2,missing,missing)
+Base.:+(c1::CreationOperator,c2::Union{FockOperator,FockOperatorSum}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) + c2
+Base.:+(c1::Union{FockOperator,FockOperatorSum},c2::CreationOperator) = c1 + FockOperator(c2,preimagebasis(c1),imagebasis(c1))
+Base.:-(c1::CreationOperator,c2::CreationOperator) = FockOperator(c1,missing,missing) - FockOperator(c2,missing,missing)
+Base.:-(c1::CreationOperator,c2::Union{FockOperator,FockOperatorSum}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) - c2
+Base.:-(c1::Union{FockOperator,FockOperatorSum},c2::CreationOperator) = c1 - FockOperator(c2,preimagebasis(c1),imagebasis(c1))
 
 FermionCreationOperator(id,bin::Bin,bout::Bout) where {Bin<:AbstractBasis,Bout<:AbstractBasis} = CreationOperator(Fermion(id),bin,bout)
 FermionCreationOperator(id,b::B) where B<:AbstractBasis = FermionCreationOperator(id,b,b)
 CreationOperator(p::P,bin::Bin,bout::Bout) where {P<:AbstractParticle,Bin<:AbstractBasis,Bout<:AbstractBasis} = FockOperator(CreationOperator(p),bin,bout)
 CreationOperator(p::P,b::B) where {P<:AbstractParticle,B<:AbstractBasis} = CreationOperator(p,b,b)
 particles(c::CreationOperator) = c.particles
-Base.adjoint(c::CreationOperator) = CreationOperator(c.particles,broadcast(!,c.types))
+Base.adjoint(c::CreationOperator) = CreationOperator(reverse(c.particles),broadcast(!,reverse(c.types)))
 
 apply(op::FockOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)) = apply(op.op,ind,bin,bout)
 
