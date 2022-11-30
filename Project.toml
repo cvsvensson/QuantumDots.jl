@@ -1,12 +1,13 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
-authors = ["Viktor Svensson"]
-version = "0.1.0"
+authors = ["Viktor Svensson, William Samuelson"]
+version = "0.2.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
 
 [compat]
 julia = "1.8.2"

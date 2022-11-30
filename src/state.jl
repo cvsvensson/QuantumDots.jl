@@ -22,3 +22,5 @@ Base.similar(ψ::State, ::Type{T}, basis::AbstractBasis) where T = State(similar
 Base.similar(ψ::State, ::Type{T}) where T = State(similar(vec(ψ),T),basis(ψ))
 
 
+
+Base.:*(f::Fermion,v::State) = f''*v
