@@ -34,11 +34,3 @@ struct FockOperatorSum{Bin,Bout,T,Ops} <: AbstractFockOperator{Bin,Bout}
         new{Bin,Bout,promote_type(T,eltype.(ops)...),Ops}(newamps,newops,bin,bout)
     end
 end
-struct FockOperatorProduct{Ops,Bin,Bout} <: AbstractFockOperator{Bin,Bout}
-    operators::Ops
-    preimagebasis::Bin
-    imagebasis::Bout
-    function FockOperatorProduct(ops::Ops,bin::Bin,bout::Bout) where {Ops,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
-        new{Ops,Bin,Bout}(ops,bin,bout)
-    end
-end

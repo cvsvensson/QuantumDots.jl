@@ -1,5 +1,5 @@
 using QuantumDots
-using Test, LinearAlgebra
+using Test, LinearAlgebra, SparseArrays
 
 @testset "QuantumDots.jl" begin
 
@@ -21,7 +21,6 @@ end
     basis = FermionBasis(N,:a)
     v = rand(length(basis))
     ψ = State(v,basis)
-    using SparseArrays
     ψsparse = State(sparse(v),basis)
 
     # ψrand = rand(FermionState,basis,Float64)
