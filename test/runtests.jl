@@ -77,12 +77,13 @@ end
 @testset "Hamiltonian" begin
     N = 2
     basis = FermionBasis(N,:a)
-    fermions = particles(basis)
-    Cdag1 =  CreationOperator(fermions[1],basis)
-    Cdag2 =  CreationOperator(fermions[2],basis)
-    ham = Cdag1'*Cdag1 + π*Cdag2'*Cdag2
+    a1,a2 = particles(basis)
+    # Cdag1 =  CreationOperator(fermions[1],basis)
+    # Cdag2 =  CreationOperator(fermions[2],basis)
+    ham = a1'*a1 + π*a2'*a2
+    hamwithbasis = ham*basis
     ψ = rand(State,basis,Float64)
-    lm = QuantumDots.LinearMap(ham)
+    lm = QuantumDots.LinearMap(hamwithbasis)
     mat = Matrix(lm)
     @test eigen(mat).values ≈ [0,1,π,π+1]
 end
