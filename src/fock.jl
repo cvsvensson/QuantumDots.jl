@@ -18,8 +18,7 @@ siteindex(f::Fermion,b::FermionBasis) = findfirst(x->x==f.id,b.ids)
 function addfermion(digitpositions,state) #Currently only works for a single creation operator
     cdag = focknbr(digitpositions)
     newfocknbr = cdag | state
-    # Check if there already was a fermion at the site. 
-    allowed = iszero(cdag & state) && allunique(digitpositions) # or maybe count_ones(newfocknbr) == 1 + count_ones(focknbr)? 
-    fermionstatistics = jwstring(digitpositions[1],state) #1 or -1, depending on the nbr of fermions to the right of site
+    allowed = iszero(cdag & state) && allunique(digitpositions) 
+    fermionstatistics = jwstring(digitpositions[1],state) 
     return allowed * newfocknbr, allowed * fermionstatistics
 end

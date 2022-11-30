@@ -3,7 +3,7 @@ abstract type AbstractBasis end
 abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
 abstract type AbstractParticle end
 const DEFAULT_FERMION_SYMBOL = :f
-
+basis(::AbstractArray) = missing
 
 struct Fermion{S} <: AbstractParticle 
     id::S

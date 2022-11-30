@@ -56,22 +56,23 @@ function Base.:*(op::AbstractFockOperator, state)
 end
 function LinearAlgebra.mul!(state2,op::AbstractFockOperator, state)
     state2 .*= 0
+    bin = promote_basis(preimagebasis(op),basis(state))
+    bout = promote_basis(imagebasis(op),basis(state2))
     for (ind,val) in pairs(state)
-        bin = promote_basis(preimagebasis(op),basis(state))
-        bout = promote_basis(imagebasis(op),basis(state2))
         newind, amp = apply(op, ind,bin,bout)
         state2[newind] += val*amp
     end
     return state2
 end
-function LinearAlgebra.mul!(state2,op::FockOperatorSum, state)
+
+function LinearAlgebra.mul!(state2,ops::FockOperatorSum, state)
     state2 .*= 0
-    for (ind,val) in pairs(state)
-        bin = promote_basis(preimagebasis(op),basis(state))
-        bout = promote_basis(imagebasis(op),basis(state2))
-        newinds, amps = apply(op, ind,bin,bout)
-        for (newind,amp) in zip(newinds,amps)
-            state2[newind] += val*amp
+    bin = promote_basis(preimagebasis(ops),basis(state))
+    bout = promote_basis(imagebasis(ops),basis(state2))
+    for (op,opamp) in pairs(ops)
+        for (ind,val) in pairs(state)
+            newind, amp = apply(op, ind,bin,bout)
+            state2[newind] += opamp*val*amp
         end
     end
     return state2
