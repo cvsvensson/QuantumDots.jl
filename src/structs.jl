@@ -1,6 +1,7 @@
 abstract type AbstractBasis end
 # abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
 abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
+abstract type AbstractElementaryFockOperator{Bin,Bout} <: AbstractFockOperator
 abstract type AbstractParticle end
 const DEFAULT_FERMION_SYMBOL = :f
 const BasisOrMissing = Union{AbstractBasis,Missing}
