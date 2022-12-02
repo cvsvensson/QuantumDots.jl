@@ -65,8 +65,6 @@ particles(c::CreationOperator) = c.particles
 Base.adjoint(c::CreationOperator) = CreationOperator(reverse(c.particles),broadcast(!,reverse(c.types)))
 Base.adjoint(op::FockOperator) = FockOperator(operator(op)',imagebasis(op),preimagebasis(op))
 
-Base.:*(op::FockOperator,b::BasisOrMissing) = FockOperator(op,b)
-Base.:*(op::FockOperatorSum,b::BasisOrMissing) = FockOperatorSum(op,b)
 FockOperatorSum(op::FockOperatorSum,b::BasisOrMissing) = FockOperatorSum(amplitudes(op),operators(op),b,b)
 
 apply(op::FockOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op)) = apply(op.op,ind,bin,bout)
@@ -166,15 +164,15 @@ function togglefermions(digitpositions, daggers, focknbr)
     return newfocknbr, allowed * fermionstatistics
 end
 
-FockOperator(op::AbstractFockOperator,b::BasisOrMissing) = FockOperator(op,b,b)
+FockOperator(op::AbstractElementaryFockOperator,b::BasisOrMissing) = FockOperator(op,b,b)
 
 Base.:*(x::Number,f::Fermion) = x*FockOperatorSum(f)
-FockOperatorSum(c::CreationOperator) = FockOperatorSum([one(eltype(c))],[c],missing,missing)
-FockOperator(f::Fermion) = FockOperator(AnnihilationOperator(f))
+FockOperatorSum(c::AbstractElementaryFockOperator) = FockOperatorSum([one(eltype(c))],[c],missing,missing)
+FockOperator(f::Fermion,args...) = FockOperator(AnnihilationOperator(f),args...)
 FockOperatorSum(f::Fermion) = FockOperatorSum(AnnihilationOperator(f))
-Base.:*(x::Number,op::AbstractFockOperator) = x*FockOperatorSum(op)
+Base.:*(x::Number,op::Union{FockOperator,FockOperatorProduct,AbstractElementaryFockOperator}) = x*FockOperatorSum(op)
 Base.:*(op::FockOperator,x::Number) = x*op
-Base.:*(x::Number,op::FockOperator) = x*FockOperatorSum(op)
+# Base.:*(x::Number,op::FockOperator) = x*FockOperatorSum(op)
 Base.:*(x::Number,op::FockOperatorSum) = FockOperatorSum(x.*amplitudes(op),operators(op),preimagebasis(op),imagebasis(op))
 function Base.:*(op1::FockOperatorSum,op2::FockOperatorSum)
     newops = vec(map(ops->ops[1]*ops[2],Base.product(operators(op1),operators(op2))))
@@ -196,8 +194,17 @@ Base.:*(op::AbstractFockOperator,f::Fermion) = op*AnnihilationOperator(f)
 
 FockOperatorSum(amps,ops) = FockOperatorSum(amps,ops,preimagebasis(last(ops)),imagebasis(first(ops))) 
 
-Base.:*(c::CreationOperator,op::FockOperator) = FockOperator(c*operator(op),preimagebasis(op),imagebasis(op))
-Base.:*(op::FockOperator,c::CreationOperator) = FockOperator(operator(op)*c,preimagebasis(op),imagebasis(op))
+Base.:*(b::BasisOrMissing,op::AbstractElementaryFockOperator) = FockOperator(op,preimagebasis(op),b)
+Base.:*(op::AbstractElementaryFockOperator,b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
+Base.:*(b::BasisOrMissing,op::FockOperator) = FockOperator(op,preimagebasis(op),b)
+Base.:*(op::FockOperator,b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
+Base.:*(b::BasisOrMissing,op::FockOperatorProduct) = FockOperatorProduct(operators(op),preimagebasis(op),b)
+Base.:*(op::FockOperatorProduct,b::BasisOrMissing) = FockOperatorProduct(operators(op),b,imagebasis(op))
+Base.:*(b::BasisOrMissing,op::FockOperatorSum) = FockOperatorSum(amplitudes(op),operators(op),preimagebasis(op),b)
+Base.:*(op::FockOperatorSum,b::BasisOrMissing) = FockOperatorSum(amplitudes(op),operators(op),b,imagebasis(op))
+
+Base.:*(c::AbstractElementaryFockOperator,op::FockOperator) = imagebasis(op)*(c*operator(op))*preimagebasis(op)
+Base.:*(op::FockOperator,c::AbstractElementaryFockOperator) = imagebasis(op)*(operator(op)*c)*preimagebasis(op)#FockOperator(operator(op)*c,preimagebasis(op),imagebasis(op))
 Base.:*(op1::FockOperator,op2::FockOperator) = FockOperator(operator(op1)*operator(op2),preimagebasis(op2),imagebasis(op1))
 Base.:*(op1::FockOperatorProduct,op2::FockOperator) = op1 * FockOperatorProduct(op2)
 Base.:*(op1::FockOperator,op2::FockOperatorProduct) = FockOperatorProduct(op1) * op2
@@ -217,8 +224,9 @@ function Base.:*(sum::FockOperatorSum,op::AbstractFockOperator)
 end
 
 ##Parity 
-struct ParityOperator <: AbstractFockOperator{Missing,Missing} end
+struct ParityOperator <: AbstractElementaryFockOperator{Missing,Missing} end
 Base.adjoint(::ParityOperator) = ParityOperator()
+Base.eltype(::ParityOperator) = Int
 function apply(op::ParityOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op))
     focknbr = basisstate(ind,bin)
     return index(focknbr,bout), (-1)^count_ones(focknbr)

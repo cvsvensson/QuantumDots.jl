@@ -1,7 +1,7 @@
 abstract type AbstractBasis end
 # abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
 abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
-abstract type AbstractElementaryFockOperator{Bin,Bout} <: AbstractFockOperator
+abstract type AbstractElementaryFockOperator{Bin,Bout} <: AbstractFockOperator{Bin,Bout} end
 abstract type AbstractParticle end
 const DEFAULT_FERMION_SYMBOL = :f
 const BasisOrMissing = Union{AbstractBasis,Missing}
@@ -13,13 +13,12 @@ end
 struct FermionBasis{M,S} <: AbstractBasis
     ids::NTuple{M,S}
 end
-
-struct CreationOperator{P,M} <: AbstractFockOperator{Missing,Missing}
+struct CreationOperator{P,M} <: AbstractElementaryFockOperator{Missing,Missing}
     particles::NTuple{M,P}
     types::NTuple{M,Bool} # true is creation, false is annihilation
 end
 
-struct FockOperator{Bin,Bout,Op} <: AbstractFockOperator{Bin,Bout} 
+struct FockOperator{Bin,Bout,Op<:AbstractElementaryFockOperator} <: AbstractFockOperator{Bin,Bout} 
     op::Op
     preimagebasis::Bin
     imagebasis::Bout
