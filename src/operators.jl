@@ -75,8 +75,10 @@ function apply(op::CreationOperator{<:Fermion}, ind,bin, bout)
     newind = index(newstate,bout)
     newind, newamp
 end
-index(basisstate::Integer,::FermionBasis) = basisstate+1
-basisstate(ind::Integer,::FermionBasis) = ind-1
+
+
+index(basisstate::Integer,b::FermionBasis) = index(basisstate,b)
+basisstate(ind::Integer,b::FermionBasis) = basisstate(ind,b)
 
 function Base.:*(op::AbstractFockOperator, state::AbstractVector)
     out = zero(state)
@@ -227,8 +229,9 @@ end
 struct ParityOperator <: AbstractElementaryFockOperator{Missing,Missing} end
 Base.adjoint(::ParityOperator) = ParityOperator()
 Base.eltype(::ParityOperator) = Int
+parity(fs::Int) = (-1)^count_ones(fs)
 function apply(op::ParityOperator,ind::Integer, bin = preimagebasis(op),bout=imagebasis(op))
     focknbr = basisstate(ind,bin)
-    return index(focknbr,bout), (-1)^count_ones(focknbr)
+    return index(focknbr,bout), parity(focknbr)
 end
 

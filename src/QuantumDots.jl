@@ -9,6 +9,6 @@ include("structs.jl")
 include("fock.jl")
 include("state.jl")
 include("operators.jl")
-# include("symmetry.jl")
+include("symmetry.jl")
 
 end
