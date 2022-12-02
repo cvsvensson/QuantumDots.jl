@@ -107,6 +107,20 @@ end
     @test 1*parityop isa QuantumDots.FockOperatorSum
 end
 
+@testset "Parity" begin
+    N = 2
+    basis = FermionBasis(N,:a)
+    pbasis = QuantumDots.FermionParityBasis(basis)
+    a1,a2 = particles(basis)
+    ham = a1'*a1 + π*a2'*a2
+    hamwithbasis = pbasis*ham*pbasis
+    lm = QuantumDots.LinearMap(hamwithbasis)
+    mat = Matrix(lm)
+    vals,vecs = eigen(mat) 
+    
+end
+
+
 wish = false
 if wish == true 
     @testset "interface" begin

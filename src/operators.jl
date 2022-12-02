@@ -77,8 +77,8 @@ function apply(op::CreationOperator{<:Fermion}, ind,bin, bout)
 end
 
 
-index(basisstate::Integer,b::FermionBasis) = index(basisstate,b)
-basisstate(ind::Integer,b::FermionBasis) = basisstate(ind,b)
+index(basisstate::Integer,::FermionBasis) = basisstate + 1
+basisstate(ind::Integer,::FermionBasis) = ind - 1
 
 function Base.:*(op::AbstractFockOperator, state::AbstractVector)
     out = zero(state)
