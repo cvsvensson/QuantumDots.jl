@@ -42,10 +42,14 @@ end
     basis = FermionBasis(N,:a)
     v = rand(length(basis))
     ψ = State(v,basis)
-    ψsparse = State(sparse(v),basis)
-
+    as = particles(basis)
+    @test as[1]*ψ isa typeof(ψ)
+    @test eltype(ψ) == Float64
+    @test eltype(similar(ψ,Int)) == Int
     # ψrand = rand(FermionState,basis,Float64)
     @test norm(ψ)^2 ≈ ψ'*ψ
+    ψsparse = State(sparse(v),basis)
+    @test norm(ψsparse)^2 ≈ ψsparse'*ψsparse
 end
 
 @testset "Operators" begin
@@ -105,6 +109,10 @@ end
     @test 1*a1 isa QuantumDots.FockOperatorSum
     @test 1*(Fa1) isa QuantumDots.FockOperatorSum 
     @test 1*parityop isa QuantumDots.FockOperatorSum
+
+    v = State(rand(length(basis)),basis)
+    @test (parityop*a1)*v == parityop*(a1*v)
+    @test (1*parityop*a1)*v == parityop*(1*a1*v)
 end
 
 wish = false
