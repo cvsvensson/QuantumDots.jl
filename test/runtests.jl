@@ -78,14 +78,33 @@ end
     N = 2
     basis = FermionBasis(N,:a)
     a1,a2 = particles(basis)
-    # Cdag1 =  CreationOperator(fermions[1],basis)
-    # Cdag2 =  CreationOperator(fermions[2],basis)
     ham = a1'*a1 + π*a2'*a2
-    hamwithbasis = ham*basis
+    hamwithbasis = basis*ham*basis
     ψ = rand(State,basis,Float64)
     lm = QuantumDots.LinearMap(hamwithbasis)
     mat = Matrix(lm)
-    @test eigen(mat).values ≈ [0,1,π,π+1]
+    vals,vecs = eigen(mat) 
+    @test vals ≈ [0,1,π,π+1]
+    parityop = QuantumDots.ParityOperator()
+    @test all([State(v,basis)'* parityop * State(v,basis) for v in eachcol(vecs)] .≈ [1,-1,-1,1])
+end
+
+@testset "OperatorProduct" begin
+    N = 2
+    basis = FermionBasis(N,:a)
+    a1,a2 = particles(basis)
+    parityop = QuantumDots.ParityOperator()
+    @test a1*a1 isa CreationOperator
+    @test a1*a1*a2' isa CreationOperator
+    Fa1 = QuantumDots.FockOperator(a1,basis,basis)
+    @test (Fa1*Fa1).op isa CreationOperator
+    @test (1*a1).operators[1] isa CreationOperator
+    
+    @test a1*parityop isa QuantumDots.FockOperatorProduct 
+    @test Fa1*parityop isa QuantumDots.FockOperatorProduct 
+    @test 1*a1 isa QuantumDots.FockOperatorSum
+    @test 1*(Fa1) isa QuantumDots.FockOperatorSum 
+    @test 1*parityop isa QuantumDots.FockOperatorSum
 end
 
 wish = false

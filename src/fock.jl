@@ -8,6 +8,7 @@ Base.adjoint(f::Fermion) = CreationOperator((f,),(true,))
 Fermion(args...) = Fermion(args)
 FermionBasis(N::Integer) = FermionBasis(ntuple(i->(DEFAULT_FERMION_SYMBOL,i),N))
 particles(b::FermionBasis) = Fermion.(b.ids)
+Base.eltype(::Fermion) = Int
 
 FermionBasis(chainlength::Integer,species) = FermionBasis(Tuple(Base.product(species,1:chainlength)))
 FermionBasis(chainlength::Integer,species::Symbol) = FermionBasis(ntuple(i->(species,i),chainlength))
