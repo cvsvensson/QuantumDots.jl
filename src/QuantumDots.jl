@@ -1,5 +1,5 @@
 module QuantumDots
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using LinearMaps, SplitApplyCombine
 using BlockDiagonals, Dictionaries
 

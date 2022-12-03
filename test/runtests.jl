@@ -81,8 +81,7 @@ end
     ham = a1'*a1 + π*a2'*a2
     hamwithbasis = basis*ham*basis
     ψ = rand(State,basis,Float64)
-    lm = QuantumDots.LinearMap(hamwithbasis)
-    mat = Matrix(lm)
+    mat = Matrix(hamwithbasis)
     vals,vecs = eigen(mat) 
     @test vals ≈ [0,1,π,π+1]
     parityop = QuantumDots.ParityOperator()
@@ -107,15 +106,20 @@ end
     @test 1*parityop isa QuantumDots.FockOperatorSum
 end
 
-@testset "Parity" begin
+@testset "Paritybasis" begin
     N = 2
     basis = FermionBasis(N,:a)
     pbasis = QuantumDots.FermionParityBasis(basis)
     a1,a2 = particles(basis)
-    ham = a1'*a1 + π*a2'*a2
+    ham = a1'*a1 + π*a2'*a2 + a1'a2
     hamwithbasis = pbasis*ham*pbasis
     lm = QuantumDots.LinearMap(hamwithbasis)
-    mat = Matrix(lm)
+    mat = Matrix(hamwithbasis)
+    matlm = Matrix(lm)
+    @test mat ≈ matlm
+    sp = sparse(hamwithbasis)
+    splm = sparse(lm)
+    @test sp ≈ splm
     vals,vecs = eigen(mat) 
     
 end
