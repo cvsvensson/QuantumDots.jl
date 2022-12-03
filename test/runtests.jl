@@ -106,7 +106,7 @@ end
     @test 1*parityop isa QuantumDots.FockOperatorSum
 end
 
-@testset "Paritybasis" begin
+@testset "Paritybasis and conversions" begin
     N = 2
     basis = FermionBasis(N,:a)
     pbasis = QuantumDots.FermionParityBasis(basis)
@@ -120,8 +120,11 @@ end
     sp = sparse(hamwithbasis)
     splm = sparse(lm)
     @test sp ≈ splm
-    vals,vecs = eigen(mat) 
-    
+    bd = QuantumDots.BlockDiagonal(hamwithbasis)
+    bdvals,_ = eigen(bd) 
+    spvals,_ = eigen(Matrix(sp)) 
+    matvals,_ = eigen(mat) 
+    @test bdvals ≈ spvals ≈ matvals
 end
 
 
