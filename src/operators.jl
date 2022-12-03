@@ -15,24 +15,26 @@ operator(op::FockOperator) = op.op
 
 preimagebasis(::AbstractFockOperator{Missing}) = missing
 imagebasis(::AbstractFockOperator{<:Any,Missing}) = missing
+preimagebasis(::Fermion) = missing
+imagebasis(::Fermion) = missing
 Base.eltype(::CreationOperator) = Int
 CreationOperator(f::Fermion) = CreationOperator((f,),(true,))
 AnnihilationOperator(f::Fermion) = CreationOperator(f)'
 Base.:*(f1::Fermion,f2::Fermion) = AnnihilationOperator(f1)*AnnihilationOperator(f2)
-Base.:*(f1::Fermion,f2::CreationOperator) = AnnihilationOperator(f1)*f2
-Base.:*(f1::CreationOperator,f2::Fermion) = f1*AnnihilationOperator(f2)
+# Base.:*(f1::Fermion,f2::CreationOperator) = AnnihilationOperator(f1)*f2
+# Base.:*(f1::CreationOperator,f2::Fermion) = f1*AnnihilationOperator(f2)
 
 Base.:+(f1::Fermion,f2::Fermion) = AnnihilationOperator(f1) + AnnihilationOperator(f2)
 Base.:+(f1::Fermion,f2::CreationOperator) = AnnihilationOperator(f1) + f2
 Base.:+(f1::CreationOperator,f2::Fermion) = f1 + AnnihilationOperator(f2)
 
 Base.:*(c1::CreationOperator,c2::CreationOperator) = CreationOperator((particles(c2)...,particles(c1)...),(c2.types...,c1.types...))
-Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1.op*c2.op,preimagebasis(c2),imagebasis(c1))
-Base.:*(c1::Union{CreationOperator,Fermion},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1*c2.op,preimagebasis(c2),imagebasis(c2))
-Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::Union{CreationOperator,Fermion}) = FockOperator(c1.op*c2,preimagebasis(c1),imagebasis(c1))
+# Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1.op*c2.op,preimagebasis(c2),imagebasis(c1))
+# Base.:*(c1::Union{CreationOperator,Fermion},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1*c2.op,preimagebasis(c2),imagebasis(c2))
+# Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::Union{CreationOperator,Fermion}) = FockOperator(c1.op*c2,preimagebasis(c1),imagebasis(c1))
 
-Base.:*(c1::CreationOperator,c2::FockOperatorSum) = FockOperator(c1)*c2
-Base.:*(c1::FockOperatorSum,c2::CreationOperator) = c1*FockOperator(c2)
+# Base.:*(c1::CreationOperator,c2::FockOperatorSum) = FockOperator(c1)*c2
+# Base.:*(c1::FockOperatorSum,c2::CreationOperator) = c1*FockOperator(c2)
 
 
 FockOperator(c::CreationOperator) = FockOperator(c,missing,missing)
@@ -89,7 +91,7 @@ function Base.:*(state::Adjoint{<:Any,<:AbstractVector},op::AbstractFockOperator
     mul!(out,op',state')'
 end
 function LinearAlgebra.mul!(state2,op::AbstractFockOperator, state)
-    state2 .*= 0
+    state2  .= zero(state2)
     bin = promote_basis(preimagebasis(op),basis(state))
     bout = promote_basis(imagebasis(op),basis(state2))
     for (ind,val) in pairs(state)
@@ -100,7 +102,7 @@ function LinearAlgebra.mul!(state2,op::AbstractFockOperator, state)
 end
 
 function LinearAlgebra.mul!(state2,ops::FockOperatorSum, state)
-    state2 .*= 0
+    state2 .= zero(state2)
     bin = promote_basis(preimagebasis(ops),basis(state))
     bout = promote_basis(imagebasis(ops),basis(state2))
     for (op,opamp) in pairs(ops)
@@ -196,10 +198,10 @@ Base.:*(op::AbstractFockOperator,f::Fermion) = op*AnnihilationOperator(f)
 
 FockOperatorSum(amps,ops) = FockOperatorSum(amps,ops,preimagebasis(last(ops)),imagebasis(first(ops))) 
 
-Base.:*(b::BasisOrMissing,op::AbstractElementaryFockOperator) = FockOperator(op,preimagebasis(op),b)
-Base.:*(op::AbstractElementaryFockOperator,b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
-Base.:*(b::BasisOrMissing,op::FockOperator) = FockOperator(op,preimagebasis(op),b)
-Base.:*(op::FockOperator,b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
+Base.:*(b::BasisOrMissing,op::Union{AbstractElementaryFockOperator,Fermion}) = FockOperator(op,preimagebasis(op),b)
+Base.:*(op::Union{AbstractElementaryFockOperator,Fermion},b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
+Base.:*(b::BasisOrMissing,op::FockOperator) = FockOperator(operator(op),preimagebasis(op),b)
+Base.:*(op::FockOperator,b::BasisOrMissing) = FockOperator(operator(op),b,imagebasis(op))
 Base.:*(b::BasisOrMissing,op::FockOperatorProduct) = FockOperatorProduct(operators(op),preimagebasis(op),b)
 Base.:*(op::FockOperatorProduct,b::BasisOrMissing) = FockOperatorProduct(operators(op),b,imagebasis(op))
 Base.:*(b::BasisOrMissing,op::FockOperatorSum) = FockOperatorSum(amplitudes(op),operators(op),preimagebasis(op),b)
@@ -235,3 +237,32 @@ function apply(op::ParityOperator,ind::Integer, bin = preimagebasis(op),bout=ima
     return index(focknbr,bout), parity(focknbr)
 end
 
+
+
+function LinearAlgebra.Matrix(ops::FockOperatorSum)
+    bin = preimagebasis(ops)
+    bout = imagebasis(ops)
+    mat = zeros(eltype(ops),length(bout),length(bin))
+    for (op,opamp) in pairs(ops)
+        for ind in eachindex(bin)
+            newind, amp = apply(op, ind,bin,bout)
+            mat[newind,ind] +=  opamp*amp
+        end
+    end
+    return mat
+    Matrix(sparse(ops))
+end
+function SparseArrays.sparse(ops::FockOperatorSum)
+    bin = preimagebasis(ops)
+    bout = imagebasis(ops)
+    mat = spzeros(eltype(ops),length(bout),length(bin))
+    for (op,opamp) in pairs(ops)
+        for ind in eachindex(bin)
+            newind, amp = apply(op, ind,bin,bout)
+            mat[newind,ind] += opamp*amp
+        end
+    end
+    return mat
+end
+LinearAlgebra.Matrix(op::AbstractFockOperator) = Matrix(FockOperatorSum(op))
+SparseArrays.sparse(op::AbstractFockOperator) = sparse(FockOperatorSum(op))
