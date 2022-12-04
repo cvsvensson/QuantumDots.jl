@@ -13,6 +13,7 @@ end
 struct FermionBasis{M,S} <: AbstractBasis
     ids::NTuple{M,S}
 end
+
 struct CreationOperator{P,M} <: AbstractElementaryFockOperator{Missing,Missing}
     particles::NTuple{M,P}
     types::NTuple{M,Bool} # true is creation, false is annihilation
