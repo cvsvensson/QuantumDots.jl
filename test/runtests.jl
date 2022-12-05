@@ -114,6 +114,11 @@ end
     @test (1*parityop*a1)*v == parityop*(1*a1*v)
 
     @test ((Fa1+a1)*Fa1).operators == (2*Fa1*a1).operators
+    @test ((a1+Fa1)*Fa1).operators == (2*Fa1*a1).operators
+    @test (Fa1*(Fa1+a1)).operators == (2*a1*Fa1).operators
+    @test (Fa1*(Fa1-a1)).operators == (0*Fa1*a1).operators
+    @test (Fa1*(Fa1-a1)).amplitudes == [0]
+    @test (Fa1*(a1-Fa1)).amplitudes == [0]
 
     @test eltype(a1) == Int
     @test eltype(parityop) == Int
