@@ -141,10 +141,9 @@ end
 Base.:-(opsum::FockOperatorSum) = FockOperatorSum(-amplitudes(opsum),operators(opsum),preimagebasis(opsum),imagebasis(opsum))
 Base.:-(op::FockOperator) = -FockOperatorSum(op)
 
-
 function togglefermions(digitpositions, daggers, focknbr)
     newfocknbr = 0
-    allowed = 0
+    allowed = true
     fermionstatistics = 1
     for (digitpos, dagger) in zip(digitpositions, daggers)
         op = 2^(digitpos - 1)
