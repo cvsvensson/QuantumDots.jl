@@ -39,14 +39,14 @@ Base.:*(c1::CreationOperator,c2::CreationOperator) = CreationOperator((particles
 
 FockOperator(c::CreationOperator) = FockOperator(c,missing,missing)
 
-Base.:+(c1::CreationOperator,c2::CreationOperator) = FockOperator(c1,missing,missing) + FockOperator(c2,missing,missing)
-Base.:+(c1::CreationOperator,c2::Union{FockOperator,FockOperatorSum}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) + c2
-Base.:+(f::Fermion,c::Union{FockOperator,FockOperatorSum}) = AnnihilationOperator(f) + c
-Base.:+(c::Union{FockOperator,FockOperatorSum},f::Fermion) = c + AnnihilationOperator(f) 
-Base.:+(c1::Union{FockOperator,FockOperatorSum},c2::CreationOperator) = c1 + FockOperator(c2,preimagebasis(c1),imagebasis(c1))
-Base.:-(c1::CreationOperator,c2::CreationOperator) = FockOperator(c1,missing,missing) - FockOperator(c2,missing,missing)
-Base.:-(c1::Union{CreationOperator,Fermion},c2::Union{FockOperator,FockOperatorSum}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) - c2
-Base.:-(c1::Union{FockOperator,FockOperatorSum},c2::Union{CreationOperator,Fermion}) = c1 - FockOperator(c2,preimagebasis(c1),imagebasis(c1))
+Base.:+(c1::AbstractElementaryFockOperator,c2::AbstractElementaryFockOperator) = FockOperator(c1,missing,missing) + FockOperator(c2,missing,missing)
+Base.:+(c1::AbstractElementaryFockOperator,c2::Union{FockOperator,FockOperatorSum,FockOperatorProduct}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) + c2
+Base.:+(f::Fermion,c::Union{FockOperator,FockOperatorSum,FockOperatorProduct}) = AnnihilationOperator(f) + c
+Base.:+(c::Union{FockOperator,FockOperatorSum,FockOperatorProduct},f::Fermion) = c + AnnihilationOperator(f) 
+Base.:+(c1::Union{FockOperator,FockOperatorSum,FockOperatorProduct},c2::AbstractElementaryFockOperator) = c1 + FockOperator(c2,preimagebasis(c1),imagebasis(c1))
+Base.:-(c1::AbstractElementaryFockOperator,c2::AbstractElementaryFockOperator) = FockOperator(c1,missing,missing) - FockOperator(c2,missing,missing)
+Base.:-(c1::Union{AbstractElementaryFockOperator,Fermion},c2::Union{FockOperator,FockOperatorSum,FockOperatorProduct}) = FockOperator(c1,preimagebasis(c2),imagebasis(c2)) - c2
+Base.:-(c1::Union{FockOperator,FockOperatorSum,FockOperatorProduct},c2::Union{AbstractElementaryFockOperator,Fermion}) = c1 - FockOperator(c2,preimagebasis(c1),imagebasis(c1))
 
 function Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperatorSum)
     bin = promote_basis(preimagebasis(c1),preimagebasis(c2))
@@ -196,6 +196,7 @@ Base.:*(f::Fermion,op::AbstractFockOperator) = AnnihilationOperator(f)*op
 Base.:*(op::AbstractFockOperator,f::Fermion) = op*AnnihilationOperator(f)
 
 FockOperatorSum(amps,ops) = FockOperatorSum(amps,ops,preimagebasis(last(ops)),imagebasis(first(ops))) 
+FockOperatorSum(prod::FockOperatorProduct) = FockOperatorSum([one(eltype(prod))],[prod],preimagebasis(prod),imagebasis(prod)) 
 
 Base.:*(b::BasisOrMissing,op::Union{AbstractElementaryFockOperator,Fermion}) = FockOperator(op,preimagebasis(op),b)
 Base.:*(op::Union{AbstractElementaryFockOperator,Fermion},b::BasisOrMissing) = FockOperator(op,b,imagebasis(op))
@@ -296,3 +297,9 @@ function measure(ops::FockOperatorSum,v)
     end
     res
 end
+
+Base.show(io::IO, ::ParityOperator) = print(io,  "𝒫")
+Base.show(io::IO, c::CreationOperator) = print(io,join(Iterators.map(ct->repr(ct[1])*(ct[2] ? "†" : ""),Iterators.reverse(zip(c.particles,c.types))), "×"))
+Base.show(io::IO, f::Fermion) = print(io, string(symbol(f))*"["*string(inds(f)...)*"]")
+Base.show(io::IO,ops::FockOperatorProduct) = print(io,join(repr.(operators(ops)), "×"))
+Base.show(io::IO,ops::FockOperatorSum) = (println(io,"OperatorSum{$(preimagebasis(ops)),$(imagebasis(ops))}");print(io,join(Iterators.map(oa->repr(oa[2])*"*"*repr(oa[1]),pairs(ops)), " + ")))
