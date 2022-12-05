@@ -266,3 +266,16 @@ function SparseArrays.sparse(ops::FockOperatorSum)
 end
 LinearAlgebra.Matrix(op::AbstractFockOperator) = Matrix(FockOperatorSum(op))
 SparseArrays.sparse(op::AbstractFockOperator) = sparse(FockOperatorSum(op))
+
+function inner(w,ops::FockOperatorSum,v)
+    bin = preimagebasis(ops)
+    bout = imagebasis(ops)
+    res = zero(eltype(ops))
+    for (op,opamp) in pairs(ops)
+        for (ind,vamp) in pairs(v)
+            newind, amp = apply(op, ind,bin,bout)
+            res += opamp*amp*vamp*w[newind]
+        end
+    end
+    res
+end
