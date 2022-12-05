@@ -3,7 +3,7 @@ using LinearAlgebra, SparseArrays
 using LinearMaps, SplitApplyCombine
 using BlockDiagonals, Dictionaries
 
-export bits,FermionBasis,State, Fermion, CreationOperator, particles, measure,
+export bits,FermionBasis,FermionParityBasis,State, Fermion, CreationOperator, particles, measure,
     amplitude, jwstring
 
 include("structs.jl")
