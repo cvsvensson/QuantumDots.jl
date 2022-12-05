@@ -112,6 +112,22 @@ end
     v = State(rand(length(basis)),basis)
     @test (parityop*a1)*v == parityop*(a1*v)
     @test (1*parityop*a1)*v == parityop*(1*a1*v)
+
+
+    @test eltype(a1) == Int
+    @test eltype(parityop) == Int
+    @test eltype(Fa1) == Int
+    @test eltype(a1*a1) == Int
+    @test eltype(1*a1) == Int
+    @test eltype(1*Fa1) == Int
+    @test eltype(a1+a1) == Int
+    @test eltype(1.0*a1) == Float64
+    @test eltype(1.0*Fa1) == Float64
+    @test eltype(1.0a1+a1) == Float64
+    @test eltype(a1+1.0a1) == Float64
+    @test eltype(1.0Fa1+a1) == Float64
+    @test eltype(a1+1.0Fa1) == Float64
+    @test eltype(parityop*(a1+1.0Fa1)) == Float64
 end
 
 @testset "Paritybasis and conversions" begin
