@@ -269,16 +269,16 @@ end
 LinearAlgebra.Matrix(op::AbstractFockOperator) = Matrix(FockOperatorSum(op))
 SparseArrays.sparse(op::AbstractFockOperator) = sparse(FockOperatorSum(op))
 
-inner(w,op::AbstractFockOperator,v) = inner(w,FockOperatorSum(op),v)
+LinearAlgebra.dot(w,op::AbstractFockOperator,v) = dot(w,FockOperatorSum(op),v)
 measure(op::AbstractFockOperator,v) = measure(FockOperatorSum(op),v)
-function inner(w,ops::FockOperatorSum,v)
+function LinearAlgebra.dot(w,ops::FockOperatorSum,v)
     bin = promote_basis(preimagebasis(ops),basis(v))
     bout = promote_basis(imagebasis(ops),basis(w))
     res = zero(eltype(ops))
     for (op,opamp) in pairs(ops)
         for (ind,vamp) in pairs(v)
             newind, amp = apply(op, ind,bin,bout)
-            res += opamp*amp*vamp*w[newind]
+            res += opamp*amp*vamp*w[newind]'
         end
     end
     res

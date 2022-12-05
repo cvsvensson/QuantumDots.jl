@@ -76,9 +76,9 @@ end
     opsum2squared = opsum2*opsum2
     @test opsum2squared * ψ ≈  0*ψ
 
-    @test ψ'*(opsum2*ψ) ≈ QuantumDots.inner(ψ',opsum2,ψ) ≈ QuantumDots.measure(opsum2,ψ)
+    @test ψ'*(opsum2*ψ) ≈ dot(ψ,opsum2,ψ) ≈ QuantumDots.measure(opsum2,ψ)
     parityop = QuantumDots.ParityOperator()
-    @test ψ'*(parityop*ψ) ≈ QuantumDots.inner(ψ',parityop,ψ) ≈ QuantumDots.measure(parityop,ψ)
+    @test ψ'*(parityop*ψ) ≈ dot(ψ,parityop,ψ) ≈ QuantumDots.measure(parityop,ψ)
 
 end
 
