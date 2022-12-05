@@ -75,6 +75,11 @@ end
     @test opsum2 * ψ ≈  2.0Cdag1*ψ - 1.2Cdag2*ψ
     opsum2squared = opsum2*opsum2
     @test opsum2squared * ψ ≈  0*ψ
+
+    @test ψ'*(opsum2*ψ) ≈ dot(ψ,opsum2,ψ) ≈ QuantumDots.measure(opsum2,ψ)
+    parityop = QuantumDots.ParityOperator()
+    @test ψ'*(parityop*ψ) ≈ dot(ψ,parityop,ψ) ≈ QuantumDots.measure(parityop,ψ)
+
 end
 
 
@@ -112,6 +117,28 @@ end
     v = State(rand(length(basis)),basis)
     @test (parityop*a1)*v == parityop*(a1*v)
     @test (1*parityop*a1)*v == parityop*(1*a1*v)
+
+    @test ((Fa1+a1)*Fa1).operators == (2*Fa1*a1).operators
+    @test ((a1+Fa1)*Fa1).operators == (2*Fa1*a1).operators
+    @test (Fa1*(Fa1+a1)).operators == (2*a1*Fa1).operators
+    @test (Fa1*(Fa1-a1)).operators == (0*Fa1*a1).operators
+    @test (Fa1*(Fa1-a1)).amplitudes == [0]
+    @test (Fa1*(a1-Fa1)).amplitudes == [0]
+
+    @test eltype(a1) == Int
+    @test eltype(parityop) == Int
+    @test eltype(Fa1) == Int
+    @test eltype(a1*a1) == Int
+    @test eltype(1*a1) == Int
+    @test eltype(1*Fa1) == Int
+    @test eltype(a1+a1) == Int
+    @test eltype(1.0*a1) == Float64
+    @test eltype(1.0*Fa1) == Float64
+    @test eltype(1.0a1+a1) == Float64
+    @test eltype(a1+1.0a1) == Float64
+    @test eltype(1.0Fa1+a1) == Float64
+    @test eltype(a1+1.0Fa1) == Float64
+    @test eltype(parityop*(a1+1.0Fa1)) == Float64
 end
 
 @testset "Paritybasis and conversions" begin

@@ -14,7 +14,7 @@ FermionBasis(chainlength::Integer,species) = FermionBasis(Tuple(Base.product(spe
 FermionBasis(chainlength::Integer,species::Symbol) = FermionBasis(ntuple(i->(species,i),chainlength))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 Base.length(b::FermionBasis) = 2^nbr_of_fermions(b)
-siteindex(f::Fermion,b::FermionBasis) = findfirst(x->x==f.id,b.ids)
+siteindex(f::Fermion,b::FermionBasis) = findfirst(x->x==f.id,b.ids)::Int
 Base.eachindex(b::FermionBasis) = 1:length(b)
 
 function addfermion(digitpositions,state) #Currently only works for a single creation operator

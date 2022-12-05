@@ -141,10 +141,9 @@ end
 Base.:-(opsum::FockOperatorSum) = FockOperatorSum(-amplitudes(opsum),operators(opsum),preimagebasis(opsum),imagebasis(opsum))
 Base.:-(op::FockOperator) = -FockOperatorSum(op)
 
-
 function togglefermions(digitpositions, daggers, focknbr)
     newfocknbr = 0
-    allowed = 0
+    allowed = true
     fermionstatistics = 1
     for (digitpos, dagger) in zip(digitpositions, daggers)
         op = 2^(digitpos - 1)
@@ -220,11 +219,15 @@ Base.:*(op1::AbstractFockOperator,op2::AbstractFockOperator) = FockOperatorProdu
 
 function Base.:*(op::AbstractFockOperator,sum::FockOperatorSum)
     newops = [op*sop for sop in operators(sum)]
-    FockOperatorSum(amplitudes(sum),newops)
+    bin = promote_basis(preimagebasis(sum),preimagebasis(op))
+    bout = promote_basis(imagebasis(sum),imagebasis(op))
+    FockOperatorSum(amplitudes(sum),newops,bin,bout)
 end
 function Base.:*(sum::FockOperatorSum,op::AbstractFockOperator)
     newops = [sop*op for sop in operators(sum)]
-    FockOperatorSum(amplitudes(sum),newops)
+    bin = promote_basis(preimagebasis(sum),preimagebasis(op))
+    bout = promote_basis(imagebasis(sum),imagebasis(op))
+    FockOperatorSum(amplitudes(sum),newops,bin,bout)
 end
 
 ##Parity 
@@ -250,7 +253,6 @@ function LinearAlgebra.Matrix(ops::FockOperatorSum)
         end
     end
     return mat
-    Matrix(sparse(ops))
 end
 function SparseArrays.sparse(ops::FockOperatorSum)
     bin = preimagebasis(ops)
@@ -266,3 +268,31 @@ function SparseArrays.sparse(ops::FockOperatorSum)
 end
 LinearAlgebra.Matrix(op::AbstractFockOperator) = Matrix(FockOperatorSum(op))
 SparseArrays.sparse(op::AbstractFockOperator) = sparse(FockOperatorSum(op))
+
+LinearAlgebra.dot(w,op::AbstractFockOperator,v) = dot(w,FockOperatorSum(op),v)
+measure(op::AbstractFockOperator,v) = measure(FockOperatorSum(op),v)
+function LinearAlgebra.dot(w,ops::FockOperatorSum,v)
+    bin = promote_basis(preimagebasis(ops),basis(v))
+    bout = promote_basis(imagebasis(ops),basis(w))
+    res = zero(eltype(ops))
+    for (op,opamp) in pairs(ops)
+        for (ind,vamp) in pairs(v)
+            newind, amp = apply(op, ind,bin,bout)
+            res += opamp*amp*vamp*w[newind]'
+        end
+    end
+    res
+end
+
+function measure(ops::FockOperatorSum,v)
+    bin = promote_basis(preimagebasis(ops),basis(v))
+    bout = promote_basis(imagebasis(ops),basis(v))
+    res = zero(eltype(ops))
+    for (op,opamp) in pairs(ops)
+        for (ind,vamp) in pairs(v)
+            newind, amp = apply(op, ind,bin,bout)
+            res += opamp*amp*vamp*v[newind]'
+        end
+    end
+    res
+end

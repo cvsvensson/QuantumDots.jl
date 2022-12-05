@@ -32,7 +32,7 @@ struct FockOperatorSum{Bin,Bout,T,Ops} <: AbstractFockOperator{Bin,Bout}
     imagebasis::Bout
     function FockOperatorSum(amplitudes::Vector{T},ops::Vector{Ops},bin::Bin,bout::Bout) where {Ops,T,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
         newops, newamps = groupbykeysandreduce(ops,amplitudes,+)
-        new{Bin,Bout,promote_type(T,eltype.(ops)...),Ops}(newamps,newops,bin,bout)
+        new{Bin,Bout,T,Ops}(newamps,newops,bin,bout)
     end
 end
 
