@@ -3,8 +3,8 @@ using LinearAlgebra, SparseArrays
 using LinearMaps, SplitApplyCombine
 using BlockDiagonals, Dictionaries
 
-export bits,FermionBasis,State,focknbr,chainlength, Fermion, CreationOperator, particles,
-    FermionCreationOperator, amplitude, species,states, jwstring,focknbrs,State 
+export bits,FermionBasis,State, Fermion, CreationOperator, particles, measure,
+    amplitude, jwstring
 
 include("structs.jl")
 include("fock.jl")
