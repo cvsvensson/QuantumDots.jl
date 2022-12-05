@@ -250,7 +250,6 @@ function LinearAlgebra.Matrix(ops::FockOperatorSum)
         end
     end
     return mat
-    Matrix(sparse(ops))
 end
 function SparseArrays.sparse(ops::FockOperatorSum)
     bin = preimagebasis(ops)
@@ -275,6 +274,19 @@ function inner(w,ops::FockOperatorSum,v)
         for (ind,vamp) in pairs(v)
             newind, amp = apply(op, ind,bin,bout)
             res += opamp*amp*vamp*w[newind]
+        end
+    end
+    res
+end
+
+function measure(ops::FockOperatorSum,v)
+    bin = preimagebasis(ops)
+    bout = imagebasis(ops)
+    res = zero(eltype(ops))
+    for (op,opamp) in pairs(ops)
+        for (ind,vamp) in pairs(v)
+            newind, amp = apply(op, ind,bin,bout)
+            res += opamp*amp*vamp*v[newind]'
         end
     end
     res
