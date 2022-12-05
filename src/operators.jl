@@ -219,11 +219,15 @@ Base.:*(op1::AbstractFockOperator,op2::AbstractFockOperator) = FockOperatorProdu
 
 function Base.:*(op::AbstractFockOperator,sum::FockOperatorSum)
     newops = [op*sop for sop in operators(sum)]
-    FockOperatorSum(amplitudes(sum),newops)
+    bin = promote_basis(preimagebasis(sum),preimagebasis(op))
+    bout = promote_basis(imagebasis(sum),imagebasis(op))
+    FockOperatorSum(amplitudes(sum),newops,bin,bout)
 end
 function Base.:*(sum::FockOperatorSum,op::AbstractFockOperator)
     newops = [sop*op for sop in operators(sum)]
-    FockOperatorSum(amplitudes(sum),newops)
+    bin = promote_basis(preimagebasis(sum),preimagebasis(op))
+    bout = promote_basis(imagebasis(sum),imagebasis(op))
+    FockOperatorSum(amplitudes(sum),newops,bin,bout)
 end
 
 ##Parity 
