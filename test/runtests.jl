@@ -7,7 +7,7 @@ end
 
 @testset "Fock" begin
     N = 6
-    B = FermionBasis(N,:🦄)
+    B = FermionBasis(N)
     focknumber = 20 # = 16+4 = 00101
     fbits = bits(focknumber,N)
     @test fbits == [0,0,1,0,1,0]
@@ -39,11 +39,11 @@ end
 
 @testset "State" begin
     N = 6
-    basis = FermionBasis(N,:a)
+    basis = FermionBasis(N)
+    a = particles(basis)
     v = rand(length(basis))
     ψ = State(v,basis)
-    as = particles(basis)
-    @test as[1]*ψ isa typeof(ψ)
+    @test a[1]*ψ isa typeof(ψ)
     @test eltype(ψ) == Float64
     @test eltype(similar(ψ,Int)) == Int
     # ψrand = rand(FermionState,basis,Float64)
@@ -54,11 +54,11 @@ end
 
 @testset "Operators" begin
     N = 2
-    basis = FermionBasis(N,:a)
-    fermions = particles(basis)
-    Cdag1 =  FermionCreationOperator((:a,1),basis)
-    @test Cdag1.op == fermions[1]'
-    Cdag2 = fermions[2]'
+    basis = FermionBasis(N)
+    a = particles(basis)
+    Cdag1 =  QuantumDots.FermionCreationOperator(1,basis)
+    @test Cdag1.op == a[1]'
+    Cdag2 = a[2]'
     ψ = rand(State,basis,Float64)
     @test Cdag1 * ψ isa State
     @test Cdag1 * State(sparse(vec(ψ)),basis) isa State
@@ -85,9 +85,9 @@ end
 
 @testset "Hamiltonian" begin
     N = 2
-    basis = FermionBasis(N,:a)
-    a1,a2 = particles(basis)
-    ham = a1'*a1 + π*a2'*a2
+    basis = FermionBasis(N)
+    a = particles(basis)
+    ham = a[1]'*a[1] + π*a[2]'*a[2]
     hamwithbasis = basis*ham*basis
     ψ = rand(State,basis,Float64)
     mat = Matrix(hamwithbasis)
@@ -99,8 +99,10 @@ end
 
 @testset "OperatorProduct" begin
     N = 2
-    basis = FermionBasis(N,:a)
-    a1,a2 = particles(basis)
+    basis = FermionBasis(N)
+    a = particles(basis)
+    a1 = a[1]
+    a2 = a[2]
     parityop = QuantumDots.ParityOperator()
     @test a1*a1 isa CreationOperator
     @test a1*a1*a2' isa CreationOperator
@@ -143,10 +145,12 @@ end
 
 @testset "Paritybasis and conversions" begin
     N = 2
-    basis = FermionBasis(N,:a)
+    basis = FermionBasis(N)
+    a = particles(basis)
     pbasis = QuantumDots.FermionParityBasis(basis)
-    a1,a2 = particles(basis)
-    ham = a1'*a1 + π*a2'*a2 + a1'a2
+    a1 = a[1]
+    a2 = a[2]
+    ham = a[1]'*a[1] + π*a[2]'*a[2] + a[1]'a[2]
     hamwithbasis = pbasis*ham*pbasis
     lm = QuantumDots.LinearMap(hamwithbasis)
     mat = Matrix(hamwithbasis)

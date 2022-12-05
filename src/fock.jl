@@ -6,12 +6,12 @@ bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 
 Base.adjoint(f::Fermion) = CreationOperator((f,),(true,))
 Fermion(args...) = Fermion(args)
-FermionBasis(N::Integer) = FermionBasis(ntuple(i->(DEFAULT_FERMION_SYMBOL,i),N))
-particles(b::FermionBasis) = Fermion.(b.ids)
+FermionBasis(N::Integer) = FermionBasis(ntuple(i->i,N))
+particles(b::FermionBasis) = Dict(zip(b.ids,Fermion.(b.ids)))
 Base.eltype(::Fermion) = Int
 
-FermionBasis(chainlength::Integer,species) = FermionBasis(Tuple(Base.product(species,1:chainlength)))
-FermionBasis(chainlength::Integer,species::Symbol) = FermionBasis(ntuple(i->(species,i),chainlength))
+FermionBasis(chainlength::Integer,species) = FermionBasis(Tuple(Base.product(1:chainlength,species)))
+FermionBasis(chainlength::Integer,species::Symbol) = FermionBasis(ntuple(i->(i,species),chainlength))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 Base.length(b::FermionBasis) = 2^nbr_of_fermions(b)
 siteindex(f::Fermion,b::FermionBasis) = findfirst(x->x==f.id,b.ids)::Int
