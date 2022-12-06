@@ -27,6 +27,9 @@ Base.:*(f1::Fermion,f2::Fermion) = AnnihilationOperator(f1)*AnnihilationOperator
 Base.:+(f1::Fermion,f2::Fermion) = AnnihilationOperator(f1) + AnnihilationOperator(f2)
 Base.:+(f1::Fermion,f2::CreationOperator) = AnnihilationOperator(f1) + f2
 Base.:+(f1::CreationOperator,f2::Fermion) = f1 + AnnihilationOperator(f2)
+Base.:-(f1::Fermion,f2::Fermion) = AnnihilationOperator(f1) - AnnihilationOperator(f2)
+Base.:-(f1::Fermion,f2::CreationOperator) = AnnihilationOperator(f1) - f2
+Base.:-(f1::CreationOperator,f2::Fermion) = f1 - AnnihilationOperator(f2)
 
 Base.:*(c1::CreationOperator,c2::CreationOperator) = CreationOperator((particles(c2)...,particles(c1)...),(c2.types...,c1.types...))
 # Base.:*(c1::FockOperator{<:Any,<:Any,<:CreationOperator},c2::FockOperator{<:Any,<:Any,<:CreationOperator}) = FockOperator(c1.op*c2.op,preimagebasis(c2),imagebasis(c1))
@@ -303,7 +306,8 @@ Base.show(io::IO, c::CreationOperator) = print(io,join(Iterators.map(ct->repr(ct
 Base.show(io::IO, f::Fermion) = print(io, string(symbol(f))*"["*string(inds(f)...)*"]")
 Base.show(io::IO, op::FockOperator) = print(io, "FockOperator{$(typeof(preimagebasis(op))),$(typeof(imagebasis(op)))}: ",repr(operator(op)))
 Base.show(io::IO,ops::FockOperatorProduct) = print(io,join(repr.(operators(ops)), "*"))
-Base.show(io::IO,ops::FockOperatorSum) = (println(io,"OperatorSum{$(preimagebasis(ops)),$(imagebasis(ops))}");print(io,join(Iterators.map(oa->repr(oa[2])*"*"*repr(oa[1]),pairs(ops)), " + ")))
+Base.show(io::IO,ops::FockOperatorSum) = (println(io,"OperatorSum{$(typeof(preimagebasis(ops))),$(typeof(imagebasis(ops)))}");print(io,join(Iterators.map(oa->(oa[2]≈1 ? "" : repr(round(oa[2],digits=3)))*repr(oa[1]),pairs(ops)), " + ")))
+# Base.show(io::IO,::MIME"text/plain", ops::FockOperatorSum) = print(io,"OperatorSum{$(typeof(preimagebasis(ops))),$(typeof(imagebasis(ops)))}\n", repr(join(Iterators.map(oa->repr(oa[2])*"*"*repr(oa[1]),pairs(ops)), " + ")))
 
 Base.show(io::IO, ::MIME"text/plain", ops::FockOperatorProduct) = print(io, "FockOperatorProduct{$(typeof(preimagebasis(ops))),$(typeof(imagebasis(ops)))}(", repr(ops),")")
 Base.show(io::IO, ::MIME"text/plain", ops::ParityOperator) = print(io, typeof(ops))
