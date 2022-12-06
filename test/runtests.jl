@@ -85,7 +85,7 @@ end
 
 @testset "Hamiltonian" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
     ham = a[1]'*a[1] + π*a[2]'*a[2]
     hamwithbasis = basis*ham*basis
@@ -99,7 +99,7 @@ end
 
 @testset "OperatorProduct" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N;symbol=:a)
     a = particles(basis)
     a1 = a[1]
     a2 = a[2]
@@ -155,9 +155,9 @@ end
 
 @testset "Paritybasis and conversions" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N,symbol=:🦄)
     a = particles(basis)
-    pbasis = QuantumDots.FermionParityBasis(basis)
+    pbasis = FermionParityBasis(basis)
     a1 = a[1]
     a2 = a[2]
     ham = a[1]'*a[1] + π*a[2]'*a[2] + a[1]'a[2]
@@ -174,6 +174,18 @@ end
     spvals,_ = eigen(Matrix(sp)) 
     matvals,_ = eigen(mat) 
     @test bdvals ≈ spvals ≈ matvals
+end
+
+@testset "Fast generated hamiltonians" begin
+    N = 2
+    basis = FermionBasis(N,symbol=:a)
+    a = particles(basis)
+    generator(μ, t,Δ) = Matrix(basis*(μ*a[1]'a[1] + μ*a[2]'a[2] + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1]))*basis)
+    fastham, fastham! = QuantumDots.generate_fastham(generator,:μ,:t,:Δ)
+    @test fastham([1,1,1]) ≈ generator(1,1,1)
+    mat = zero(fastham([1,1,1]))
+    fastham!(mat,[1,1,1])
+    @test mat ≈ generator(1,1,1)
 end
 
 

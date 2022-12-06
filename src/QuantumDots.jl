@@ -2,14 +2,15 @@ module QuantumDots
 using LinearAlgebra, SparseArrays
 using LinearMaps, SplitApplyCombine
 using BlockDiagonals, Dictionaries
-
-export bits,FermionBasis,State, Fermion, CreationOperator, particles, measure,
-    amplitude, jwstring
+using Symbolics
+export bits,FermionBasis,FermionParityBasis,State, Fermion, CreationOperator, particles, measure,
+    amplitude, jwstring, ParityOperator
 
 include("structs.jl")
 include("fock.jl")
 include("state.jl")
 include("operators.jl")
 include("symmetry.jl")
+include("symbolic.jl")
 
 end

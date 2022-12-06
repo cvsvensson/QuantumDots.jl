@@ -8,10 +8,15 @@ const BasisOrMissing = Union{AbstractBasis,Missing}
 basis(::AbstractArray) = missing
 
 struct Fermion{S} <: AbstractParticle 
-    id::S
+    inds::S
+    id::Symbol
 end
+Fermion(inds) = Fermion(inds,DEFAULT_FERMION_SYMBOL)
+inds(f::Fermion) = f.inds
+symbol(f::Fermion) = f.id
+
 struct FermionBasis{M,S} <: AbstractBasis
-    ids::NTuple{M,S}
+    fermions::NTuple{M,Fermion{S}}
 end
 
 struct CreationOperator{P,M} <: AbstractElementaryFockOperator{Missing,Missing}
