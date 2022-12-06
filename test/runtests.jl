@@ -127,6 +127,16 @@ end
     @test (Fa1*(Fa1-a1)).amplitudes == [0]
     @test (Fa1*(a1-Fa1)).amplitudes == [0]
 
+    # testing adjoint in sums and products
+    sum = 1im*a1 + 3*a2'
+    @test sum'.amplitudes == [0 - 1im, 3 + 0im]
+    @test sum'.operators[1].types == (true,)
+    @test sum'.operators[2].types == (false,)
+    prod = parityop * a1
+    @test prod'.operators[1] isa CreationOperator
+    @test prod'.operators[2] == QuantumDots.ParityOperator()
+    @test prod'.operators[1].types == (true,)
+
     @test eltype(a1) == Int
     @test eltype(parityop) == Int
     @test eltype(Fa1) == Int
