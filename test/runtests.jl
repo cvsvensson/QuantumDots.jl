@@ -85,7 +85,7 @@ end
 
 @testset "Hamiltonian" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
     ham = a[1]'*a[1] + π*a[2]'*a[2]
     hamwithbasis = basis*ham*basis
@@ -99,7 +99,7 @@ end
 
 @testset "OperatorProduct" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N;symbol=:a)
     a = particles(basis)
     a1 = a[1]
     a2 = a[2]
@@ -145,9 +145,9 @@ end
 
 @testset "Paritybasis and conversions" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N,symbol=:🦄)
     a = particles(basis)
-    pbasis = QuantumDots.FermionParityBasis(basis)
+    pbasis = FermionParityBasis(basis)
     a1 = a[1]
     a2 = a[2]
     ham = a[1]'*a[1] + π*a[2]'*a[2] + a[1]'a[2]
