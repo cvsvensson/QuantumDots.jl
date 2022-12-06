@@ -299,7 +299,15 @@ function measure(ops::FockOperatorSum,v)
 end
 
 Base.show(io::IO, ::ParityOperator) = print(io,  "𝒫")
-Base.show(io::IO, c::CreationOperator) = print(io,join(Iterators.map(ct->repr(ct[1])*(ct[2] ? "†" : ""),Iterators.reverse(zip(c.particles,c.types))), "×"))
+Base.show(io::IO, c::CreationOperator) = print(io,join(Iterators.map(ct->repr(ct[1])*(ct[2] ? "'" : ""),Iterators.reverse(zip(c.particles,c.types))), "*"))
 Base.show(io::IO, f::Fermion) = print(io, string(symbol(f))*"["*string(inds(f)...)*"]")
-Base.show(io::IO,ops::FockOperatorProduct) = print(io,join(repr.(operators(ops)), "×"))
+Base.show(io::IO, op::FockOperator) = print(io, "FockOperator{$(typeof(preimagebasis(op))),$(typeof(imagebasis(op)))}: ",repr(operator(op)))
+Base.show(io::IO,ops::FockOperatorProduct) = print(io,join(repr.(operators(ops)), "*"))
 Base.show(io::IO,ops::FockOperatorSum) = (println(io,"OperatorSum{$(preimagebasis(ops)),$(imagebasis(ops))}");print(io,join(Iterators.map(oa->repr(oa[2])*"*"*repr(oa[1]),pairs(ops)), " + ")))
+
+Base.show(io::IO, ::MIME"text/plain", ops::FockOperatorProduct) = print(io, "FockOperatorProduct{$(typeof(preimagebasis(ops))),$(typeof(imagebasis(ops)))}(", repr(ops),")")
+Base.show(io::IO, ::MIME"text/plain", ops::ParityOperator) = print(io, typeof(ops))
+Base.show(io::IO, ::MIME"text/plain", ops::Fermion) = print(io, typeof(ops),": ", repr(ops))
+Base.show(io::IO, ::MIME"text/plain", ops::CreationOperator) = print(io, typeof(ops),": ", repr(ops))
+# Base.show(io::IO, ::MIME"text/plain", ops::FockOperator) = print(io, typeof(ops),"\n", repr(ops))
+           

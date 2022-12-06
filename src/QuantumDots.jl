@@ -4,7 +4,7 @@ using LinearMaps, SplitApplyCombine
 using BlockDiagonals, Dictionaries
 
 export bits,FermionBasis,FermionParityBasis,State, Fermion, CreationOperator, particles, measure,
-    amplitude, jwstring
+    amplitude, jwstring, ParityOperator
 
 include("structs.jl")
 include("fock.jl")

@@ -99,7 +99,7 @@ end
 
 @testset "OperatorProduct" begin
     N = 2
-    basis = FermionBasis(N)
+    basis = FermionBasis(N;symbol=:a)
     a = particles(basis)
     a1 = a[1]
     a2 = a[2]
