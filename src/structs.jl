@@ -55,6 +55,8 @@ amplitude(op::FockOperatorProduct) = op.amplitude
 operators(op::FockOperatorProduct) = op.operators
 Base.eltype(op::FockOperatorProduct) = promote_type(eltype.(operators(op))...)
 FockOperatorProduct(op::AbstractFockOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
+Base.adjoint(op::FockOperatorProduct) = FockOperatorProduct(reverse(adjoint.(operators(op))), imagebasis(op), preimagebasis(op))
+Base.adjoint(op::FockOperatorSum) = FockOperatorSum(conj(amplitudes(op)), adjoint.(operators(op)), imagebasis(op), preimagebasis(op))
 # FockOperatorProduct(op::CreationOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
 
 
