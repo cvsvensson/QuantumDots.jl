@@ -77,7 +77,7 @@ end
     @test opsum2squared * ψ ≈  0*ψ
 
     @test ψ'*(opsum2*ψ) ≈ dot(ψ,opsum2,ψ) ≈ QuantumDots.measure(opsum2,ψ)
-    parityop = QuantumDots.ParityOperator()
+    parityop = ParityOperator()
     @test ψ'*(parityop*ψ) ≈ dot(ψ,parityop,ψ) ≈ QuantumDots.measure(parityop,ψ)
 
 end
@@ -93,7 +93,7 @@ end
     mat = Matrix(hamwithbasis)
     vals,vecs = eigen(mat) 
     @test vals ≈ [0,1,π,π+1]
-    parityop = QuantumDots.ParityOperator()
+    parityop = ParityOperator()
     @test all([State(v,basis)'* parityop * State(v,basis) for v in eachcol(vecs)] .≈ [1,-1,-1,1])
 end
 
@@ -103,7 +103,7 @@ end
     a = particles(basis)
     a1 = a[1]
     a2 = a[2]
-    parityop = QuantumDots.ParityOperator()
+    parityop = ParityOperator()
     @test a1*a1 isa CreationOperator
     @test a1*a1*a2' isa CreationOperator
     Fa1 = QuantumDots.FockOperator(a1,basis,basis)
@@ -134,7 +134,7 @@ end
     @test sum'.operators[2].types == (false,)
     prod = parityop * a1
     @test prod'.operators[1] isa CreationOperator
-    @test prod'.operators[2] == QuantumDots.ParityOperator()
+    @test prod'.operators[2] == ParityOperator()
     @test prod'.operators[1].types == (true,)
 
     @test eltype(a1) == Int
