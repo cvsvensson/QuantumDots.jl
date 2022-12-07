@@ -180,7 +180,8 @@ end
     N = 2
     basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
-    generator(μ, t,Δ) = Matrix(basis*(μ*a[1]'a[1] + μ*a[2]'a[2] + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1]))*basis)
+    hamiltonian(μ,t,Δ) = μ*a[1]'a[1] + μ*a[2]'a[2] + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
+    generator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
     fastham, fastham! = QuantumDots.generate_fastham(generator,:μ,:t,:Δ)
     @test fastham([1,1,1]) ≈ generator(1,1,1)
     mat = zero(fastham([1,1,1]))
