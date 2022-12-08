@@ -177,14 +177,14 @@ end
 end
 
 @testset "Fast generated hamiltonians" begin
-    N = 2
+    N = 5
     basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
-    generator(μ, t,Δ) = Matrix(basis*(μ*a[1]'a[1] + μ*a[2]'a[2] + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1]))*basis)
+    generator(μ, t,Δ) = (Matrix(basis*(μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1]))*basis))
     fastham, fastham! = QuantumDots.generate_fastham(generator,:μ,:t,:Δ)
-    @test fastham([1,1,1]) ≈ generator(1,1,1)
-    mat = zero(fastham([1,1,1]))
-    fastham!(mat,[1,1,1])
+    @test fastham([1.0,1.0,1.0]) ≈ vec(generator(1.0,1.0,1.0))
+    mat = zero(generator(1.0,1.0,1.0))
+    fastham!(mat,[1.0,1.0,1.0])
     @test mat ≈ generator(1,1,1)
 end
 
