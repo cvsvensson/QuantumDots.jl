@@ -1,6 +1,5 @@
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
-# symmetry(::FermionBasis) = NoSymmetry()
 symmetry(::FermionBasis) = NoSymmetry()
 
 struct FermionParityBasis{M,S,IF,FI} <: AbstractBasis
@@ -32,10 +31,25 @@ siteindex(f::Fermion,b::FermionParityBasis) = siteindex(f,parent(b))
 Base.eachindex(fpb::FermionParityBasis) = eachindex(parent(fpb))
 blocksizes(fpb::FermionParityBasis) = (fpb.blocksizes)
 blocksizes(fpb::FermionBasis) = fill(length(fpb),1)
+particles(fpb::FermionParityBasis) = particles(parent(fpb))
+
 
 BlockDiagonals.BlockDiagonal(op::AbstractFockOperator) = BlockDiagonal(op,preimagebasis(op),imagebasis(op))
 function BlockDiagonals.BlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
     mat = Matrix(bin*op*bout)
+    inblocksizes = deepcopy(blocksizes(bin))
+    outblocksizes = deepcopy(blocksizes(bout))
+    instarts = cumsum(pushfirst!(inblocksizes,1))
+    outstarts =  cumsum(pushfirst!(outblocksizes,1))
+    instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
+    outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
+    blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
+    BlockDiagonal(blocks)
+end
+
+spBlockDiagonal(op::AbstractFockOperator) = spBlockDiagonal(op,preimagebasis(op),imagebasis(op))
+function spBlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
+    mat = sparse(bin*op*bout)
     inblocksizes = deepcopy(blocksizes(bin))
     outblocksizes = deepcopy(blocksizes(bout))
     instarts = cumsum(pushfirst!(inblocksizes,1))
