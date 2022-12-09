@@ -1,0 +1,5 @@
+[deps]
+BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
+Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
