@@ -193,21 +193,25 @@ end
     generator(μ, t,Δ) = QuantumDots.BlockDiagonal(basis*hamiltonian(μ,t,Δ)*basis).blocks
     oddham! = QuantumDots.generate_fastham(first ∘ generator,:μ,:t,:Δ)[2];
     evenham! = QuantumDots.generate_fastham(last ∘ generator ,:μ,:t,:Δ)[2];
-    mat = zero(first(generator(1.0,1.0,1.0)))
-    oddham!(mat,[1.0,1.0,1.0])
-    @test mat ≈ first(generator(1,1,1))
-    evenham!(mat,[1.0,1.0,1.0])
-    @test mat ≈ last(generator(1,1,1))
+    mateven = zero(first(generator(1.0,2.0,3.0)))
+    matodd = zero(last(generator(1.0,2.0,3.0)))
+    oddham!(matodd,[1.0,2.0,3.0])
+    @test matodd ≈ first(generator(1,2,3))
+    evenham!(mateven,[1.0,2.0,3.0])
+    @test mateven ≈ last(generator(1,2,3))
 
-    generator(μ, t,Δ) = QuantumDots.spBlockDiagonal(basis*hamiltonian(μ,t,Δ)*basis).blocks
-    oddham! = QuantumDots.generate_fastham(first ∘ generator,:μ,:t,:Δ)[2];
-    evenham! = QuantumDots.generate_fastham(last ∘ generator ,:μ,:t,:Δ)[2];
-    matodd = sparse(first(generator(1.0,1.0,1.0))) #Need correct sparsity structure
-    mateven = sparse(last(generator(1.0,1.0,1.0)))
-    oddham!(matodd,[1.0,1.0,1.0])
-    @test matodd ≈ first(generator(1,1,1))
-    evenham!(mateven,[1.0,1.0,1.0])
-    @test mateven ≈ last(generator(1,1,1))
+    generatorsp(μ, t,Δ) = QuantumDots.spBlockDiagonal(basis*hamiltonian(μ,t,Δ)*basis).blocks
+    oddhamsp! = QuantumDots.generate_fastham(first ∘ generatorsp ,:μ,:t,:Δ)[2];
+    evenhamsp! = QuantumDots.generate_fastham(last ∘ generatorsp ,:μ,:t,:Δ)[2];
+    matoddsp = sparse(first(generatorsp(1.0,2.0,3.0))) #For correct sparsity structure
+    matevensp = sparse(last(generatorsp(1.0,2.0,3.0)))
+    oddham!(matoddsp,[1.0,2.0,3.0])
+    @test matoddsp ≈ first(generatorsp(1,2,3))
+    evenham!(matevensp,[1.0,2.0,3.0])
+    @test matevensp ≈ last(generatorsp(1,2,3))
+
+    @test matevensp ≈ mateven
+    @test matodd ≈ matodd
 end
 
 
