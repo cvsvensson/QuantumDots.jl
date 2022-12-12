@@ -1,5 +1,6 @@
 [deps]
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 Folds = "41a02a25-b8f0-4f67-bc48-60067656b558"
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
