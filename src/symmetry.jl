@@ -36,7 +36,7 @@ particles(fpb::FermionParityBasis) = particles(parent(fpb))
 
 BlockDiagonals.BlockDiagonal(op::AbstractFockOperator) = BlockDiagonal(op,preimagebasis(op),imagebasis(op))
 function BlockDiagonals.BlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = Matrix(bin*op*bout)
+    mat = Matrix(bout*op*bin)
     inblocksizes = deepcopy(blocksizes(bin))
     outblocksizes = deepcopy(blocksizes(bout))
     instarts = cumsum(pushfirst!(inblocksizes,1))
@@ -49,7 +49,7 @@ end
 
 spBlockDiagonal(op::AbstractFockOperator) = spBlockDiagonal(op,preimagebasis(op),imagebasis(op))
 function spBlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = sparse(bin*op*bout)
+    mat = sparse(bout*op*bin)
     inblocksizes = deepcopy(blocksizes(bin))
     outblocksizes = deepcopy(blocksizes(bout))
     instarts = cumsum(pushfirst!(inblocksizes,1))
