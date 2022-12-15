@@ -6,6 +6,8 @@ version = "0.2.0"
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
+KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"

@@ -12,5 +12,6 @@ include("state.jl")
 include("operators.jl")
 include("symmetry.jl")
 include("symbolic.jl")
+include("lindblad.jl")
 
 end

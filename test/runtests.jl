@@ -214,6 +214,27 @@ end
     @test matodd ≈ matodd
 end
 
+@testset "transport" begin
+    N = 1
+    basis = FermionBasis(N,symbol=:a)
+    a = particles(basis)
+    hamiltonian(μ) = sparse((μ*sum(a[i]'a[i] for i in 1:N)),basis,basis)
+    T = 1.0
+    μL = 1.0
+    μR = 1.0
+    jumpinL = sparse(a[1]',basis,basis)
+    jumpoutL = sparse(a[1],basis,basis)
+    jumpinR = sparse(a[N]',basis,basis)
+    jumpoutR = sparse(a[N],basis,basis)
+    leftlead = QuantumDots.NormalLead(T,μL,jumpinL,jumpoutL)
+    rightlead = QuantumDots.NormalLead(T,μR,jumpinR,jumpoutR)
+    particle_number = sparse(sum(a[i]'a[i] for i in 1:N),basis,basis)
+    system = QuantumDots.OpenSystem(hamiltonian(1.0),[leftlead, rightlead])
+
+    cond = real.(QuantumDots.conductance(system,[particle_number])[1])
+    @test abs(sum(cond)) < 1e-10
+    
+end
 
 wish = false
 if wish == true 
