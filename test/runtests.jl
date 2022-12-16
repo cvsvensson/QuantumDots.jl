@@ -57,7 +57,7 @@ end
 
 @testset "Hamiltonian" begin
     N = 2
-    a = FermionBasis(N)
+    a = FermionBasis(1:N)
     ham = a[1]'*a[1] + π*a[2]'*a[2]
     vals,vecs = eigen(Matrix(ham))
     @test vals ≈ [0,1,π,π+1]
@@ -67,12 +67,10 @@ end
 
 @testset "Paritybasis and conversions" begin
     N = 2
-    basis = FermionBasis(N,symbol=:🦄)
-    a = particles(basis)
+    🦄 = FermionBasis(1:N)
+    pbasis = FermionBasis(1:N; qn = QuantumDots.parity)
     pbasis = FermionParityBasis(basis)
-    a1 = a[1]
-    a2 = a[2]
-    ham = a[1]'*a[1] + π*a[2]'*a[2] + a[1]'a[2]
+    ham = 🦄[1]'*🦄[1] + π*🦄[2]'*🦄[2] + 🦄[1]'🦄[2]
     hamwithbasis = pbasis*ham*pbasis
     lm = QuantumDots.LinearMap(hamwithbasis)
     mat = Matrix(hamwithbasis)

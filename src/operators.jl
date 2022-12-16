@@ -11,6 +11,45 @@ index(basisstate::Integer,::FermionBasis) = basisstate + 1
 basisstate(ind::Integer,::FermionBasis) = ind - 1
 
 
+function removefermion(digitposition,statefocknbr) #Currently only works for a single creation operator
+    cdag = focknbr(digitposition)
+    newfocknbr = cdag ⊻ statefocknbr
+    allowed = !iszero(cdag & statefocknbr) #&& allunique(digitpositions) 
+    fermionstatistics = jwstring(digitposition, statefocknbr) 
+    return allowed * newfocknbr, allowed * fermionstatistics
+end
+
+function parityoperator(basis::FermionBasis{<:Any,<:Any,<:Any,NoSymmetry})
+    mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
+    _fill!(mat, fs->(fs,parity(fs)), NoSymmetry())
+    return mat
+end
+
+
+function fermion_sparse_matrix(fermion_number, total_nbr_of_fermions,::NoSymmetry)
+    mat = spzeros(Int,2^total_nbr_of_fermions,2^total_nbr_of_fermions)
+    _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
+    return mat
+end
+
+function _fill!(mat,op,::NoSymmetry)
+    for ind in axes(mat,2)
+        newfockstate, amp = op(ind-1)
+        newind = newfockstate + 1
+        mat[newind,ind] += amp
+    end
+    return mat
+end
+
+function _fill!(mat,op,sym::AbelianFockSymmetry)
+    for ind in axes(mat,2)
+        newfockstate, amp = op(sym.indtofock(ind))
+        newind = sym.focktoind(newfockstate)
+        mat[newind,ind] += amp
+    end
+    return mat
+end
+
 function togglefermions(digitpositions, daggers, focknbr)
     newfocknbr = 0
     allowed = true

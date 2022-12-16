@@ -1,12 +1,9 @@
 
-struct AbelianFockSymmetry{IF,FI,QN} <: AbstractSymmetry
-    indtofock::IF
-    focktoind::FI
-    blocksizes::Vector{Int}
-    conserved_quantity::QN
-end
+blockinds(dims::Dims{N},sym::AbelianFockSymmetry) where N = blockinds(dims,sym.blocksizes)
+blockinds(dims::Dims{N},sizes) where N = map(n->sizestoinds(sizes)[n],dims)
+sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)
 
-function blockbasis(fermionids::NTuple{M,S},qn) where {M,S}
+function symmetry(fermionids::NTuple{M}, qn) where M
     dict = group(ind->qn(ind-1), 1:2^M)
     sortkeys!(dict)
     oldindfromnew = vcat(dict...)
@@ -16,18 +13,26 @@ function blockbasis(fermionids::NTuple{M,S},qn) where {M,S}
     indtofocklist = oldindfromnew .- 1
     indtofock(ind) = indtofocklist[ind]
     focktoind(f) = newindfromold[f+1]
-    sym = AbelianFockSymmetry(indtofock,focktoind,blocksizes,qn)
-    reps = ntuple(n->blocksparse_fermion(n,sym),M)
-    FermionBasis(fermionids,reps,sym)
-    # new{M,S,typeof(indtofock),typeof(focktoind)}(fb,indtofock,focktoind,blocksizes)
+    AbelianFockSymmetry(indtofock,focktoind,blocksizes,qn)
 end
 
-function blocksparse_fermion(fermion_number,sym)
-    blocksizes = sym.blocksizes
-    blocks = [spzeros(Int,s1,s2) for s1 in blocksizes, s2 in blocksizes]
-    blockarray = mortar(blocks)
-    _fill!(blockarray, fs -> removefermion(fermion_number,fs), sym)
-    sparse(blockarray)
+# function blockbasis(fermionids::NTuple{M,S},qn) where {M,S}
+#     sym = symmetry(fermionids,qn)
+#     reps = ntuple(n->fermion_sparse_matrix(n,sym),M)
+#     FermionBasis(fermionids,reps,sym)
+#     # new{M,S,typeof(indtofock),typeof(focktoind)}(fb,indtofock,focktoind,blocksizes)
+# end
+
+function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry)
+    # blocksizes = sym.blocksizes
+    # totalsize = sum(sym.blocksizes)
+    # blocks = [spzeros(Int,s1,s2) for s1 in blocksizes, s2 in blocksizes]
+    mat = spzeros(Int,totalsize,totalsize)
+    # blockarray = mortar(blocks)
+    # _fill!(blockarray, fs -> removefermion(fermion_number,fs), sym)
+    _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
+    # (blockarray)
+    mat
 end
 
 
@@ -63,27 +68,27 @@ blocksizes(fpb::FermionBasis) = fill(length(fpb),1)
 # particles(fpb::FermionParityBasis) = particles(parent(fpb))
 
 
-function BlockDiagonals.BlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = Matrix(bout*op*bin)
-    inblocksizes = deepcopy(blocksizes(bin))
-    outblocksizes = deepcopy(blocksizes(bout))
-    instarts = cumsum(pushfirst!(inblocksizes,1))
-    outstarts =  cumsum(pushfirst!(outblocksizes,1))
-    instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
-    outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
-    blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
-    BlockDiagonal(blocks)
-end
+# function BlockDiagonals.BlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
+#     mat = Matrix(bout*op*bin)
+#     inblocksizes = deepcopy(blocksizes(bin))
+#     outblocksizes = deepcopy(blocksizes(bout))
+#     instarts = cumsum(pushfirst!(inblocksizes,1))
+#     outstarts =  cumsum(pushfirst!(outblocksizes,1))
+#     instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
+#     outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
+#     blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
+#     BlockDiagonal(blocks)
+# end
 
-spBlockDiagonal(op::AbstractFockOperator) = spBlockDiagonal(op,preimagebasis(op),imagebasis(op))
-function spBlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = sparse(bout*op*bin)
-    inblocksizes = deepcopy(blocksizes(bin))
-    outblocksizes = deepcopy(blocksizes(bout))
-    instarts = cumsum(pushfirst!(inblocksizes,1))
-    outstarts =  cumsum(pushfirst!(outblocksizes,1))
-    instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
-    outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
-    blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
-    BlockDiagonal(blocks)
-end
+# spBlockDiagonal(op::AbstractFockOperator) = spBlockDiagonal(op,preimagebasis(op),imagebasis(op))
+# function spBlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
+#     mat = sparse(bout*op*bin)
+#     inblocksizes = deepcopy(blocksizes(bin))
+#     outblocksizes = deepcopy(blocksizes(bout))
+#     instarts = cumsum(pushfirst!(inblocksizes,1))
+#     outstarts =  cumsum(pushfirst!(outblocksizes,1))
+#     instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
+#     outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
+#     blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
+#     BlockDiagonal(blocks)
+# end
