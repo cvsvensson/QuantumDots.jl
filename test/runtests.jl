@@ -1,5 +1,5 @@
 using QuantumDots
-using Test, LinearAlgebra, SparseArrays, Random
+using Test, LinearAlgebra, SparseArrays, Random, Krylov
 Random.seed!(1234)
 
 @testset "QuantumDots.jl" begin
@@ -182,8 +182,8 @@ end
     basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
     hamiltonian(μ,t,Δ) = μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
-    generator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
-    _, fastham! = QuantumDots.generate_fastham(generator,:μ,:t,:Δ);
+    matrixgenerator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
+    _, fastham! = QuantumDots.generate_fastham(matrixgenerator,:μ,:t,:Δ);
     # @test fastham([1.0,1.0,1.0]) ≈ vec(generator(1.0,1.0,1.0))
     mat = zero(generator(1.0,1.0,1.0))
     fastham!(mat,[1.0,1.0,1.0])
@@ -246,7 +246,7 @@ end
     @test rhod ≈ [p1, p2]
 
     numeric_current = real.(QuantumDots.conductance(system,[particle_number])[1])
-    @test abs(sum(cond)) < 1e-10
+    @test abs(sum(numeric_current)) < 1e-10
     @test sum(numeric_current; dims = 2) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
 end
 
