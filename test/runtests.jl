@@ -1,5 +1,6 @@
 using QuantumDots
-using Test, LinearAlgebra, SparseArrays
+using Test, LinearAlgebra, SparseArrays, Random, Krylov
+Random.seed!(1234)
 
 @testset "QuantumDots.jl" begin
 
@@ -181,12 +182,12 @@ end
     basis = FermionBasis(N,symbol=:a)
     a = particles(basis)
     hamiltonian(μ,t,Δ) = μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
-    generator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
-    _, fastham! = QuantumDots.generate_fastham(generator,:μ,:t,:Δ);
+    matrixgenerator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
+    _, fastham! = QuantumDots.generate_fastham(matrixgenerator,:μ,:t,:Δ);
     # @test fastham([1.0,1.0,1.0]) ≈ vec(generator(1.0,1.0,1.0))
-    mat = zero(generator(1.0,1.0,1.0))
+    mat = zero(matrixgenerator(1.0,1.0,1.0))
     fastham!(mat,[1.0,1.0,1.0])
-    @test mat ≈ generator(1,1,1)
+    @test mat ≈ matrixgenerator(1,1,1)
     
     #parity conservation
     basis = FermionParityBasis(basis)
@@ -214,6 +215,40 @@ end
     @test matodd ≈ matodd
 end
 
+@testset "transport" begin
+    N = 1
+    basis = FermionBasis(N,symbol=:a)
+    a = particles(basis)
+    hamiltonian(μ) = sparse((μ*sum(a[i]'a[i] for i in 1:N)),basis,basis)
+    T = rand()
+    μL,μR,μH = rand(3)
+    jumpinL = sparse(a[1]',basis,basis)
+    jumpoutL = sparse(a[1],basis,basis)
+    jumpinR = sparse(a[N]',basis,basis)
+    jumpoutR = sparse(a[N],basis,basis)
+    leftlead = QuantumDots.NormalLead(T,μL,jumpinL,jumpoutL)
+    rightlead = QuantumDots.NormalLead(T,μR,jumpinR,jumpoutR)
+    particle_number = sparse(sum(a[i]'a[i] for i in 1:N),basis,basis)
+    system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
+
+    diagonalsystem = QuantumDots.diagonalize(system)
+    transformedsystem = QuantumDots.ratetransform(diagonalsystem)
+    superjumpins = QuantumDots.dissipator.(QuantumDots.jumpins(transformedsystem))
+    superjumpouts = QuantumDots.dissipator.(QuantumDots.jumpouts(transformedsystem))
+    superlind = QuantumDots.lindbladian(Diagonal(QuantumDots.eigenvalues(transformedsystem)), vcat(superjumpins,superjumpouts))
+    solver = LsmrSolver(4^N+1,4^N,Vector{ComplexF64})
+    ρ = QuantumDots.stationary_state(superlind; solver)
+    rhom = reshape(ρ,2^N,2^N)
+    rhod = diag(rhom)
+    p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
+    p1 = 1 - p2
+    analytic_current = -1/2*(QuantumDots.fermidirac(μH,T,μL) - QuantumDots.fermidirac(μH,T,μR))
+    @test rhod ≈ [p1, p2]
+
+    numeric_current = real.(QuantumDots.conductance(system,[particle_number])[1])
+    @test abs(sum(numeric_current)) < 1e-10
+    @test sum(numeric_current; dims = 2) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
+end
 
 wish = false
 if wish == true 

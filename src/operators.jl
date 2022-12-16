@@ -244,11 +244,8 @@ function apply(op::ParityOperator,ind::Integer, bin = preimagebasis(op),bout=ima
     return index(focknbr,bout), parity(focknbr)
 end
 
-
-
-function LinearAlgebra.Matrix(ops::FockOperatorSum)
-    bin = preimagebasis(ops)
-    bout = imagebasis(ops)
+##
+function LinearAlgebra.Matrix(ops::FockOperatorSum,bin=preimagebasis(ops),bout=imagebasis(ops))
     mat = zeros(eltype(ops),length(bout),length(bin))
     for (op,opamp) in pairs(ops)
         for ind in eachindex(bin)
@@ -258,9 +255,7 @@ function LinearAlgebra.Matrix(ops::FockOperatorSum)
     end
     return mat
 end
-function SparseArrays.sparse(ops::FockOperatorSum)
-    bin = preimagebasis(ops)
-    bout = imagebasis(ops)
+function SparseArrays.sparse(ops::FockOperatorSum,bin=preimagebasis(ops),bout=imagebasis(ops))
     mat = spzeros(eltype(ops),length(bout),length(bin))
     for (op,opamp) in pairs(ops)
         for ind in eachindex(bin)
@@ -270,8 +265,8 @@ function SparseArrays.sparse(ops::FockOperatorSum)
     end
     return mat
 end
-LinearAlgebra.Matrix(op::AbstractFockOperator) = Matrix(FockOperatorSum(op))
-SparseArrays.sparse(op::AbstractFockOperator) = sparse(FockOperatorSum(op))
+LinearAlgebra.Matrix(op::Union{AbstractFockOperator,AbstractElementaryFockOperator,Fermion},args...) = Matrix(FockOperatorSum(op),args...)
+SparseArrays.sparse(op::Union{AbstractFockOperator,AbstractElementaryFockOperator,Fermion},args...) = sparse(FockOperatorSum(op),args...)
 
 LinearAlgebra.dot(w,op::AbstractFockOperator,v) = dot(w,FockOperatorSum(op),v)
 measure(op::AbstractFockOperator,v) = measure(FockOperatorSum(op),v)
