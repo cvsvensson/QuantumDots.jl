@@ -185,9 +185,9 @@ end
     matrixgenerator(μ, t,Δ) = Matrix(basis*hamiltonian(μ,t,Δ)*basis)
     _, fastham! = QuantumDots.generate_fastham(matrixgenerator,:μ,:t,:Δ);
     # @test fastham([1.0,1.0,1.0]) ≈ vec(generator(1.0,1.0,1.0))
-    mat = zero(generator(1.0,1.0,1.0))
+    mat = zero(matrixgenerator(1.0,1.0,1.0))
     fastham!(mat,[1.0,1.0,1.0])
-    @test mat ≈ generator(1,1,1)
+    @test mat ≈ matrixgenerator(1,1,1)
     
     #parity conservation
     basis = FermionParityBasis(basis)
