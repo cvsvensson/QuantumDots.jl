@@ -1,8 +1,10 @@
 module QuantumDots
 using LinearAlgebra, SparseArrays
 using LinearMaps, SplitApplyCombine
-using BlockDiagonals, Dictionaries
+using BlockDiagonals#, Dictionaries
 using Symbolics
+using Krylov
+
 export bits,FermionBasis,FermionParityBasis,State, Fermion, CreationOperator, particles, measure,
     amplitude, jwstring, ParityOperator
 
