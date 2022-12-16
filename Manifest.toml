@@ -2,7 +2,7 @@
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "9d2a5e8f90a4fe73fd8b4925101711052df282cf"
+project_hash = "a326a83d5cf1442d2ac0177eb8d3b405d9037c02"
 
 [[deps.AbstractAlgebra]]
 deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
@@ -54,6 +54,12 @@ git-tree-sha1 = "93c8ba53d8d26e124a5a8d4ec914c3a16e6a0970"
 uuid = "dd5226c6-a4d4-4bc7-8575-46859f9c95b9"
 version = "0.1.3"
 
+[[deps.ArrayLayouts]]
+deps = ["FillArrays", "LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "1cbe50e27f4df02b8eba54f10a76888b606c47b2"
+uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
+version = "0.8.16"
+
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
@@ -80,6 +86,12 @@ version = "0.1.1"
 git-tree-sha1 = "fe4f8c5ee7f76f2198d5c2a06d3961c249cce7bd"
 uuid = "e2ed5e7c-b2de-5872-ae92-c73ca462fb04"
 version = "0.1.4"
+
+[[deps.BlockArrays]]
+deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra"]
+git-tree-sha1 = "f4563d1b5da6afdb689e24611c92cef2e338d92a"
+uuid = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+version = "0.16.23"
 
 [[deps.BlockDiagonals]]
 deps = ["ChainRulesCore", "FillArrays", "FiniteDifferences", "LinearAlgebra"]
@@ -667,12 +679,6 @@ deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jl
 git-tree-sha1 = "d75bda01f8c31ebb72df80a46c88b25d1c79c56d"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
 version = "2.1.7"
-
-[[deps.SplitApplyCombine]]
-deps = ["Dictionaries", "Indexing"]
-git-tree-sha1 = "48f393b0231516850e39f6c756970e7ca8b77045"
-uuid = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
-version = "1.2.2"
 
 [[deps.SplittablesBase]]
 deps = ["Setfield", "Test"]

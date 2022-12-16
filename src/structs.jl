@@ -1,76 +1,65 @@
 abstract type AbstractBasis end
-# abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
-abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
-abstract type AbstractElementaryFockOperator{Bin,Bout} <: AbstractFockOperator{Bin,Bout} end
-abstract type AbstractParticle end
-const DEFAULT_FERMION_SYMBOL = :f
 const BasisOrMissing = Union{AbstractBasis,Missing}
 basis(::AbstractArray) = missing
 
-struct Fermion{S} <: AbstractParticle 
-    inds::S
-    id::Symbol
-end
-Fermion(inds) = Fermion(inds,DEFAULT_FERMION_SYMBOL)
-inds(f::Fermion) = f.inds
-symbol(f::Fermion) = f.id
+abstract type AbstractSymmetry end
+struct NoSymmetry <: AbstractSymmetry end
 
-struct FermionBasis{M,S} <: AbstractBasis
-    fermions::NTuple{M,Fermion{S}}
-end
-
-struct CreationOperator{P,M} <: AbstractElementaryFockOperator{Missing,Missing}
-    particles::NTuple{M,P}
-    types::NTuple{M,Bool} # true is creation, false is annihilation
-end
-
-struct FockOperator{Bin,Bout,Op<:AbstractElementaryFockOperator} <: AbstractFockOperator{Bin,Bout} 
-    op::Op
-    preimagebasis::Bin
-    imagebasis::Bout
-end
-
-struct FockOperatorSum{Bin,Bout,T,Ops} <: AbstractFockOperator{Bin,Bout}
-    amplitudes::Vector{T}
-    operators::Vector{Ops}
-    preimagebasis::Bin
-    imagebasis::Bout
-    function FockOperatorSum(amplitudes::Vector{T},ops::Vector{Ops},bin::Bin,bout::Bout) where {Ops,T,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
-        newops, newamps = groupbykeysandreduce(ops,amplitudes,+)
-        new{Bin,Bout,T,Ops}(newamps,newops,bin,bout)
+struct FermionBasis{M,S,T,Sym} <: AbstractBasis
+    dict::Dictionary{S,T}
+    symmetry::Sym
+    function FermionBasis(fermionids::NTuple{M,S}, reps::NTuple{M,T}, sym::Sym=NoSymmetry()) where {M,S,T,Sym}
+        new{M,S,T,Sym}(Dictionary(fermionids, reps), sym)
     end
 end
+Base.getindex(b::FermionBasis,i) = b.dict[i]
+Base.getindex(b::FermionBasis,args...) = b.dict[args]
+FermionBasis(fermionids::NTuple{M}) where M = FermionBasis(fermionids, ntuple(n->fermion_sparse_matrix(n,M),M), NoSymmetry())
+FermionBasis(iters...) = FermionBasis(Tuple(Base.product(iters...)))
+FermionBasis(iter) = FermionBasis(Tuple(iter))
 
-struct FockOperatorProduct{Ops,Bin,Bout} <: AbstractFockOperator{Bin,Bout}
-    operators::Ops
-    preimagebasis::Bin
-    imagebasis::Bout
-    function FockOperatorProduct(ops::Ops,bin::Bin,bout::Bout) where {Ops,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
-        new{Ops,Bin,Bout}(ops,bin,bout)
-    end
-end
-preimagebasis(op::FockOperatorProduct) = op.preimagebasis
-imagebasis(op::FockOperatorProduct) = op.imagebasis
-amplitude(op::FockOperatorProduct) = op.amplitude
-operators(op::FockOperatorProduct) = op.operators
-Base.eltype(op::FockOperatorProduct) = promote_type(eltype.(operators(op))...)
-FockOperatorProduct(op::AbstractFockOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
-Base.adjoint(op::FockOperatorProduct) = FockOperatorProduct(reverse(adjoint.(operators(op))), imagebasis(op), preimagebasis(op))
-Base.adjoint(op::FockOperatorSum) = FockOperatorSum(conj(amplitudes(op)), adjoint.(operators(op)), imagebasis(op), preimagebasis(op))
-# FockOperatorProduct(op::CreationOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
+BlockFermionBasis(qn,iters...) = blockbasis(Tuple(Base.product(iters...)),qn)
+BlockFermionBasis(qn,iter) = blockbasis(Tuple(iter),qn)
+# FermionBasis(iters...; kwargs...) = FermionBasis(ntuple(identity,n),iters...)
+# FermionBasis(n::Integer; kwargs...) = FermionBasis(ntuple(i->i,n))
 
 
-function apply(op::FockOperatorProduct,ind,bin = preimagebasis(op),bout = imagebasis(op))
-    function _apply(op,ind,scale)
-        bin = promote_basis(preimagebasis(op), bin)
-        bout = promote_basis(imagebasis(op), bout)
-        newind, newamp = apply(op,ind,bin,bout)
-        newind, scale*newamp
-    end
-    foldr((op,ia) -> _apply(op,ia...),operators(op),init=(ind,one(eltype(op))))
+nbr_of_fermions(::FermionBasis{M}) where M = M
+
+function fermion_sparse_matrix(fermion_number, total_nbr_of_fermions)
+    mat = spzeros(Int,2^total_nbr_of_fermions,2^total_nbr_of_fermions)
+    _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
+    return mat
 end
 
-Base.:*(x::Number,op::FockOperatorProduct) = x*FockOperatorSum(op)
+function _fill!(mat,op,::NoSymmetry)
+    for ind in axes(mat,2)
+        newfockstate, amp = op(ind-1)
+        newind = newfockstate + 1
+        mat[newind,ind] += amp
+    end
+    return mat
+end
 
-Base.:+(o1::Union{FockOperator,FockOperatorProduct,FockOperatorSum},o2::Union{FockOperator,FockOperatorProduct,FockOperatorSum}) = FockOperatorSum(o1) + FockOperatorSum(o2)
-Base.:-(o1::Union{FockOperator,FockOperatorProduct,FockOperatorSum},o2::Union{FockOperator,FockOperatorProduct,FockOperatorSum}) = FockOperatorSum(o1) + (-FockOperatorSum(o2))
+function _fill!(mat,op,sym::AbelianFockSymmetry)
+    for ind in axes(mat,2)
+        newfockstate, amp = op(sym.indtofock(ind))
+        newind = sym.focktoind(newfockstate)
+        mat[newind,ind] += amp
+    end
+    return mat
+end
+
+function removefermion(digitposition,statefocknbr) #Currently only works for a single creation operator
+    cdag = focknbr(digitposition)
+    newfocknbr = cdag ⊻ statefocknbr
+    allowed = !iszero(cdag & statefocknbr) #&& allunique(digitpositions) 
+    fermionstatistics = jwstring(digitposition, statefocknbr) 
+    return allowed * newfocknbr, allowed * fermionstatistics
+end
+
+function parityoperator(basis::FermionBasis{<:Any,<:Any,<:Any,NoSymmetry})
+    mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
+    _fill!(mat, fs->(fs,parity(fs)), NoSymmetry())
+    return mat
+end

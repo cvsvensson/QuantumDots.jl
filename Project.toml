@@ -4,6 +4,7 @@ authors = ["Viktor Svensson, William Samuelson"]
 version = "0.2.0"
 
 [deps]
+BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
@@ -11,14 +12,12 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
 BlockDiagonals = "0.1"
 Dictionaries = "0.3"
 LinearMaps = "3"
-SplitApplyCombine = "1"
 Symbolics = "4"
 julia = "1.8.2"
 
