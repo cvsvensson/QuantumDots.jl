@@ -4,7 +4,7 @@ using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
 using Symbolics: build_function, @variables
 
-export bits,FermionBasis,FermionParityBasis, parityoperator
+export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator
 
 include("structs.jl")
 include("fock.jl")

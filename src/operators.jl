@@ -19,15 +19,19 @@ function removefermion(digitposition,statefocknbr) #Currently only works for a s
     return allowed * newfocknbr, allowed * fermionstatistics
 end
 
-function parityoperator(basis::FermionBasis{<:Any,<:Any,<:Any,NoSymmetry})
+function parityoperator(basis::FermionBasis)
     mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
-    _fill!(mat, fs->(fs,parity(fs)), NoSymmetry())
+    _fill!(mat, fs->(fs,parity(fs)), basis.symmetry)
+    return mat
+end
+function numberoperator(basis::FermionBasis)
+    mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
+    _fill!(mat, fs->(fs,fermionnumber(fs)), basis.symmetry)
     return mat
 end
 
-
-function fermion_sparse_matrix(fermion_number, total_nbr_of_fermions,::NoSymmetry)
-    mat = spzeros(Int,2^total_nbr_of_fermions,2^total_nbr_of_fermions)
+function fermion_sparse_matrix(fermion_number, total_size ,::NoSymmetry)
+    mat = spzeros(Int, total_size, total_size)
     _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
     return mat
 end
