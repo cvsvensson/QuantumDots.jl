@@ -1,10 +1,10 @@
 module QuantumDots
-using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov, BlockArrays
+using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
 using Symbolics: build_function, @variables
 
-export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator
+export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
 
 include("structs.jl")
 include("fock.jl")

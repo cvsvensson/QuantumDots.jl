@@ -1,7 +1,12 @@
+blockinds(i::Integer,sym::AbelianFockSymmetry) = blockinds(i, values(sym.qntoblocksizes))
+blockinds(inds::Dims,sym::AbelianFockSymmetry) = map(i->blockinds(i, sym),inds)
+blockinds(sym::AbelianFockSymmetry) = sizestoinds(values(sym.qntoblocksizes))
 
-blockinds(dims::Dims,sym::AbelianFockSymmetry) = blockinds(dims, values(sym.blocksizes))
-qninds(qns::Dims,sym::AbelianFockSymmetry) = map(sizestoinds, sym.blocksizes[qns])'
-blockinds(dims::Dims{N},sizes) where N = map(n->sizestoinds(sizes)[n],dims)
+qninds(qns::Tuple,sym::AbelianFockSymmetry) = map(qn->qninds(qn,sym), qns)
+qninds(qn,sym::AbelianFockSymmetry) = sym.qntoinds[qn]
+blockinds(inds::Dims,sizes) = map(n->blockinds(n,sizes),inds)
+blockinds(i::Integer,sizes) = sizestoinds(sizes)[i]
+
 sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)
 
 function symmetry(fermionids::NTuple{M}, qn) where M
@@ -22,4 +27,16 @@ function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry
     mat = spzeros(Int,totalsize,totalsize)
     _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
     mat
+end
+
+blockdiagonal(m::AbstractMatrix,basis::FermionBasis) = blockdiagonal(m,basis.symmetry)
+blockdiagonal(::Type{T},m::AbstractMatrix,basis::FermionBasis) where T = blockdiagonal(T, m,basis.symmetry)
+
+function blockdiagonal(m::AbstractMatrix,sym::AbelianFockSymmetry)
+    blockinds = values(sym.qntoinds)
+    BlockDiagonal([m[block,block] for block in blockinds])
+end
+function blockdiagonal(::Type{T}, m::AbstractMatrix,sym::AbelianFockSymmetry) where T
+    blockinds = values(sym.qntoinds)
+    BlockDiagonal([T(m[block,block]) for block in blockinds])
 end

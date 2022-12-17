@@ -1,5 +1,5 @@
 using QuantumDots
-using Test, LinearAlgebra, SparseArrays, Random, Krylov
+using Test, LinearAlgebra, SparseArrays, Random, Krylov, BlockDiagonals
 Random.seed!(1234)
 
 @testset "QuantumDots.jl" begin
@@ -85,31 +85,64 @@ end
 
 end
 
+@testset "BlockDiagonal" begin
+    N = 2
+    a = FermionBasis(1:N; qn = QuantumDots.parity)
+    ham0 = a[1]'*a[1] + π*a[2]'*a[2]
+    ham = blockdiagonal(ham0, a)
+    @test ham isa BlockDiagonal{Float64,SparseMatrixCSC{Float64,Int}}
+    ham = blockdiagonal(Matrix,ham0, a)
+    @test ham isa BlockDiagonal{Float64,Matrix{Float64}}
+    vals,vecs = eigen(ham)
+    @test vals ≈ [0,1,π,π+1]
+    parityop = blockdiagonal(parityoperator(a),a)
+    numberop = blockdiagonal(numberoperator(a),a)
+    
+
+    
+end
 
 @testset "Fast generated hamiltonians" begin
     N = 5
     params = rand(3)
-    hamiltonian(μ,t,Δ; qn) = (a = FermionBasis(1:N; qn); μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1]))
-    normalham(ps...) = hamiltonian(ps...; qn = QuantumDots.NoSymmetry())
-    _, fastham! = QuantumDots.generate_fastham(normalham,:μ,:t,:Δ);
-    # @test fastham([1.0,1.0,1.0]) ≈ vec(generator(1.0,1.0,1.0))
-    mat = normalham((2 .* params)...)
-    fastham!(mat,params)
-    @test mat ≈ normalham(params...)
+    hamiltonian(a,μ,t,Δ) = μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
     
+    a = FermionBasis(1:N) 
+    hamiltonian(params...) = hamiltonian(a,params...)
+    fh, fastham! = QuantumDots.generate_fastham(hamiltonian,3);
+    mat = hamiltonian((2 .* params)...)
+    fastham!(mat,params...)
+    @test mat ≈ hamiltonian(params...)
+
     #parity conservation
-    parityham(ps...) = hamiltonian(ps...; qn = QuantumDots.parity)
-    parityham! = QuantumDots.generate_fastham(parityham,:μ,:t,:Δ)[2];
-    mat = parityham((2 .* params)...)
-    parityham!(mat,params)
-    @test mat ≈ parityham(params...)
-    
+    a = FermionBasis(1:N; qn= QuantumDots.parity) 
+    hamiltonian(params...) = hamiltonian(a,params...)
+    parityham! = QuantumDots.generate_fastham(hamiltonian,3)[2];
+    mat = hamiltonian((2 .* params)...)
+    parityham!(mat,params...)
+    @test mat ≈ hamiltonian(params...)
+
+    _bd(m) = blockdiagonal(m,a).blocks
+    bdham = _bd ∘ hamiltonian
+
+    _, oddham! = QuantumDots.generate_fastham(first ∘ bdham,3);
+    oddmat = bdham((2 .* params)...) |> first
+    oddham!(oddmat,params...)
+    @test oddmat ≈ bdham(params...) |> first
+
+    _, evenham! = QuantumDots.generate_fastham(last ∘ bdham,3);
+    evenmat = bdham((2 .* params)...) |> last
+    evenham!(evenmat,params...)
+    @test evenmat ≈ bdham(params...) |> last
+
     #number conservation
-    numberham(ps...) = hamiltonian(ps...; qn = QuantumDots.fermionnumber)
-    numberham! = QuantumDots.generate_fastham(numberham,:μ,:t,:Δ)[2];
-    mat = numberham((2 .* params)...)
-    numberham!(mat,params)
-    @test mat ≈ numberham(params...)
+    a = FermionBasis(1:N; qn= QuantumDots.fermionnumber) 
+    hamiltonian(params...) = hamiltonian(a,params...)
+
+    numberham! = QuantumDots.generate_fastham(hamiltonian,3)[2];
+    mat = hamiltonian((2 .* params)...)
+    numberham!(mat,params...)
+    @test mat ≈ hamiltonian(params...)
 end
 
 @testset "transport" begin
