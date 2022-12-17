@@ -1,11 +1,11 @@
 
 abstract type AbstractLead end
-struct NormalLead{Op} <: AbstractLead
+struct NormalLead{Opin,Opout} <: AbstractLead
     temperature::Float64
     chemical_potential::Float64
-    jump_in::Op
-    jump_out::Op
-    NormalLead(T,μ,jin::Op,jout::Op) where Op = new{Op}(T,μ,jin,jout)
+    jump_in::Opin
+    jump_out::Opout
+    NormalLead(T,μ,jin::O1,jout::O2) where {O1,O2} = new{O1,O2}(T,μ,jin,jout)
 end
 struct OpenSystem{H,Ls}
     hamiltonian::H

@@ -1,76 +1,38 @@
 abstract type AbstractBasis end
-# abstract type AbstractOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
-abstract type AbstractFockOperator{Bin<:Union{AbstractBasis,Missing},Bout<:Union{AbstractBasis,Missing}} end
-abstract type AbstractElementaryFockOperator{Bin,Bout} <: AbstractFockOperator{Bin,Bout} end
-abstract type AbstractParticle end
-const DEFAULT_FERMION_SYMBOL = :f
 const BasisOrMissing = Union{AbstractBasis,Missing}
 basis(::AbstractArray) = missing
 
-struct Fermion{S} <: AbstractParticle 
-    inds::S
-    id::Symbol
-end
-Fermion(inds) = Fermion(inds,DEFAULT_FERMION_SYMBOL)
-inds(f::Fermion) = f.inds
-symbol(f::Fermion) = f.id
+abstract type AbstractSymmetry end
+struct NoSymmetry <: AbstractSymmetry end
 
-struct FermionBasis{M,S} <: AbstractBasis
-    fermions::NTuple{M,Fermion{S}}
+struct Fermion{S}
+    id::S
 end
+id(f::Fermion) = f.id
 
-struct CreationOperator{P,M} <: AbstractElementaryFockOperator{Missing,Missing}
-    particles::NTuple{M,P}
-    types::NTuple{M,Bool} # true is creation, false is annihilation
-end
-
-struct FockOperator{Bin,Bout,Op<:AbstractElementaryFockOperator} <: AbstractFockOperator{Bin,Bout} 
-    op::Op
-    preimagebasis::Bin
-    imagebasis::Bout
-end
-
-struct FockOperatorSum{Bin,Bout,T,Ops} <: AbstractFockOperator{Bin,Bout}
-    amplitudes::Vector{T}
-    operators::Vector{Ops}
-    preimagebasis::Bin
-    imagebasis::Bout
-    function FockOperatorSum(amplitudes::Vector{T},ops::Vector{Ops},bin::Bin,bout::Bout) where {Ops,T,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
-        newops, newamps = groupbykeysandreduce(ops,amplitudes,+)
-        new{Bin,Bout,T,Ops}(newamps,newops,bin,bout)
+struct FermionBasis{M,S,T,Sym} <: AbstractBasis
+    dict::Dictionary{S,T}
+    symmetry::Sym
+    function FermionBasis(fermions::NTuple{M,Fermion{S}}, sym::Sym=NoSymmetry()) where {M,S,Sym<:AbstractSymmetry}
+        reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M)
+        # FermionBasis(fermionids,reps,sym)
+        new{M,S,eltype(reps),Sym}(Dictionary(map(id,fermions), reps), sym)
     end
 end
+Base.getindex(b::FermionBasis,i) = b.dict[i]
+Base.getindex(b::FermionBasis,args...) = b.dict[args]
 
-struct FockOperatorProduct{Ops,Bin,Bout} <: AbstractFockOperator{Bin,Bout}
-    operators::Ops
-    preimagebasis::Bin
-    imagebasis::Bout
-    function FockOperatorProduct(ops::Ops,bin::Bin,bout::Bout) where {Ops,Bin<:BasisOrMissing,Bout<:BasisOrMissing}
-        new{Ops,Bin,Bout}(ops,bin,bout)
-    end
+symmetry(::NTuple{M},::NoSymmetry) where M = NoSymmetry()
+FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), symmetry(Tuple(Base.product(iters...)), qn))
+FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(iter)), symmetry(Tuple(iter),qn))
+nbr_of_fermions(::FermionBasis{M}) where M = M
+
+
+struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
+    indtofock::IF
+    focktoind::FI
+    qntoblocksizes::Dictionary{QN,Int}
+    qntofockstates::Dictionary{QN,Vector{Int}}
+    qntoinds::Dictionary{QN,Vector{Int}}
+    conserved_quantity::QNfunc
 end
-preimagebasis(op::FockOperatorProduct) = op.preimagebasis
-imagebasis(op::FockOperatorProduct) = op.imagebasis
-amplitude(op::FockOperatorProduct) = op.amplitude
-operators(op::FockOperatorProduct) = op.operators
-Base.eltype(op::FockOperatorProduct) = promote_type(eltype.(operators(op))...)
-FockOperatorProduct(op::AbstractFockOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
-Base.adjoint(op::FockOperatorProduct) = FockOperatorProduct(reverse(adjoint.(operators(op))), imagebasis(op), preimagebasis(op))
-Base.adjoint(op::FockOperatorSum) = FockOperatorSum(conj(amplitudes(op)), adjoint.(operators(op)), imagebasis(op), preimagebasis(op))
-# FockOperatorProduct(op::CreationOperator) = FockOperatorProduct((op,),preimagebasis(op),imagebasis(op))
-
-
-function apply(op::FockOperatorProduct,ind,bin = preimagebasis(op),bout = imagebasis(op))
-    function _apply(op,ind,scale)
-        bin = promote_basis(preimagebasis(op), bin)
-        bout = promote_basis(imagebasis(op), bout)
-        newind, newamp = apply(op,ind,bin,bout)
-        newind, scale*newamp
-    end
-    foldr((op,ia) -> _apply(op,ia...),operators(op),init=(ind,one(eltype(op))))
-end
-
-Base.:*(x::Number,op::FockOperatorProduct) = x*FockOperatorSum(op)
-
-Base.:+(o1::Union{FockOperator,FockOperatorProduct,FockOperatorSum},o2::Union{FockOperator,FockOperatorProduct,FockOperatorSum}) = FockOperatorSum(o1) + FockOperatorSum(o2)
-Base.:-(o1::Union{FockOperator,FockOperatorProduct,FockOperatorSum},o2::Union{FockOperator,FockOperatorProduct,FockOperatorSum}) = FockOperatorSum(o1) + (-FockOperatorSum(o2))

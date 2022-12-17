@@ -1,61 +1,42 @@
-abstract type AbstractSymmetry end
-struct NoSymmetry <: AbstractSymmetry end
-symmetry(::FermionBasis) = NoSymmetry()
+blockinds(i::Integer,sym::AbelianFockSymmetry) = blockinds(i, values(sym.qntoblocksizes))
+blockinds(inds::Dims,sym::AbelianFockSymmetry) = map(i->blockinds(i, sym),inds)
+blockinds(sym::AbelianFockSymmetry) = sizestoinds(values(sym.qntoblocksizes))
 
-struct FermionParityBasis{M,S,IF,FI} <: AbstractBasis
-    fb::FermionBasis{M,S}
-    indtofock::IF
-    focktoind::FI
-    blocksizes::Vector{Int}
-    function FermionParityBasis(fb::FermionBasis{M,S}) where {M,S}
-        dict = group(ind->parity(basisstate(ind,fb)),eachindex(fb))
-        sortkeys!(dict)
-        oldindfromnew = vcat(dict...)
-        blocksizes = collect(values(length.(dict)))
-        newindfromold = map(first,sort(collect(enumerate(oldindfromnew)),by=last))
-        # newindfromold = eachindex(fb)[oldindfromnew]
-        indtofocklist = map(ind->basisstate(ind,fb),oldindfromnew)
-        indtofock(ind) = indtofocklist[ind]
-        focktoind(f) = newindfromold[index(f,fb)]
-        new{M,S,typeof(indtofock),typeof(focktoind)}(fb,indtofock,focktoind,blocksizes)
-    end
-end
-index(basisstate::Integer,b::FermionParityBasis) = b.focktoind(basisstate)
-basisstate(ind::Integer,b::FermionParityBasis) = b.indtofock(ind)
-Base.parent(fpb::FermionParityBasis) = fpb.fb
-preimagebasis(fpb::FermionParityBasis) = preimagebasis(parent(fpb))
-imagebasis(fpb::FermionParityBasis) = imagebasis(parent(fpb))
-nbr_of_fermions(fpb::FermionParityBasis) = nbr_of_fermions(parent(fpb))
-Base.length(fpb::FermionParityBasis) = length(parent(fpb))
-siteindex(f::Fermion,b::FermionParityBasis) = siteindex(f,parent(b))
-Base.eachindex(fpb::FermionParityBasis) = eachindex(parent(fpb))
-blocksizes(fpb::FermionParityBasis) = (fpb.blocksizes)
-blocksizes(fpb::FermionBasis) = fill(length(fpb),1)
-particles(fpb::FermionParityBasis) = particles(parent(fpb))
+qninds(qns::Tuple,sym::AbelianFockSymmetry) = map(qn->qninds(qn,sym), qns)
+qninds(qn,sym::AbelianFockSymmetry) = sym.qntoinds[qn]
+blockinds(inds::Dims,sizes) = map(n->blockinds(n,sizes),inds)
+blockinds(i::Integer,sizes) = sizestoinds(sizes)[i]
 
+sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)
 
-BlockDiagonals.BlockDiagonal(op::AbstractFockOperator) = BlockDiagonal(op,preimagebasis(op),imagebasis(op))
-function BlockDiagonals.BlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = Matrix(bout*op*bin)
-    inblocksizes = deepcopy(blocksizes(bin))
-    outblocksizes = deepcopy(blocksizes(bout))
-    instarts = cumsum(pushfirst!(inblocksizes,1))
-    outstarts =  cumsum(pushfirst!(outblocksizes,1))
-    instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
-    outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
-    blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
-    BlockDiagonal(blocks)
+function symmetry(fermionids::NTuple{M}, qn) where M
+    qntooldinds = group(ind->qn(ind-1), 1:2^M)
+    sortkeys!(qntooldinds)
+    oldindfromnew = vcat(qntooldinds...)
+    blocksizes = map(length,qntooldinds)
+    newindfromold = map(first,sort(collect(enumerate(oldindfromnew)),by=last))
+    indtofocklist = oldindfromnew .- 1
+    indtofock(ind) = indtofocklist[ind]
+    focktoind(f) = newindfromold[f+1]
+    qntoinds = map(oldinds->map(oldind->newindfromold[oldind],oldinds), qntooldinds)
+    qntofockstates = map(oldinds-> oldinds .-1 , qntooldinds)
+    AbelianFockSymmetry(indtofock,focktoind,blocksizes,qntofockstates,qntoinds,qn)
 end
 
-spBlockDiagonal(op::AbstractFockOperator) = spBlockDiagonal(op,preimagebasis(op),imagebasis(op))
-function spBlockDiagonal(op::AbstractFockOperator,bin::AbstractBasis,bout::AbstractBasis)
-    mat = sparse(bout*op*bin)
-    inblocksizes = deepcopy(blocksizes(bin))
-    outblocksizes = deepcopy(blocksizes(bout))
-    instarts = cumsum(pushfirst!(inblocksizes,1))
-    outstarts =  cumsum(pushfirst!(outblocksizes,1))
-    instartends = zip(instarts,Iterators.drop(instarts,1) .- 1)
-    outstartends = zip(outstarts,Iterators.drop(outstarts,1) .- 1)
-    blocks = [mat[os:oe,is:ie] for ((os,oe),(is,ie)) in zip(outstartends,instartends)]
-    BlockDiagonal(blocks)
+function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry)
+    mat = spzeros(Int,totalsize,totalsize)
+    _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
+    mat
+end
+
+blockdiagonal(m::AbstractMatrix,basis::FermionBasis) = blockdiagonal(m,basis.symmetry)
+blockdiagonal(::Type{T},m::AbstractMatrix,basis::FermionBasis) where T = blockdiagonal(T, m,basis.symmetry)
+
+function blockdiagonal(m::AbstractMatrix,sym::AbelianFockSymmetry)
+    blockinds = values(sym.qntoinds)
+    BlockDiagonal([m[block,block] for block in blockinds])
+end
+function blockdiagonal(::Type{T}, m::AbstractMatrix,sym::AbelianFockSymmetry) where T
+    blockinds = values(sym.qntoinds)
+    BlockDiagonal([T(m[block,block]) for block in blockinds])
 end
