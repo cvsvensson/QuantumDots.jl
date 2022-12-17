@@ -7,8 +7,6 @@ bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 parity(fs::Int) = (-1)^count_ones(fs)
 fermionnumber(fs::Int) = count_ones(fs)
 
-
-# Base.length(b::FermionBasis) = 2^nbr_of_fermions(b)
 siteindex(id::S,b::FermionBasis{<:Any,S}) where S = findfirst(x->x==id,keys(b.dict))::Int
 siteindex(ids::Union{NTuple{<:Any,S},Vector{S}},b::FermionBasis{<:Any,S}) where S = map(id->siteindex(id,b),ids)::Int
 

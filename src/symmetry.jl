@@ -8,9 +8,8 @@ function symmetry(fermionids::NTuple{M}, qn) where M
     qntooldinds = group(ind->qn(ind-1), 1:2^M)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)
-    blocksizes = map(length,qntooldinds) #collect(values(length.(dict)))
+    blocksizes = map(length,qntooldinds)
     newindfromold = map(first,sort(collect(enumerate(oldindfromnew)),by=last))
-    # newindfromold = eachindex(fb)[oldindfromnew]
     indtofocklist = oldindfromnew .- 1
     indtofock(ind) = indtofocklist[ind]
     focktoind(f) = newindfromold[f+1]
