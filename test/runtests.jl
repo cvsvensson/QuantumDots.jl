@@ -109,7 +109,7 @@ end
     
     a = FermionBasis(1:N) 
     hamiltonian(params...) = hamiltonian(a,params...)
-    fh, fastham! = QuantumDots.generate_fastham(hamiltonian,3);
+    fastham! = QuantumDots.fastgenerator(hamiltonian,3);
     mat = hamiltonian((2 .* params)...)
     fastham!(mat,params...)
     @test mat ≈ hamiltonian(params...)
@@ -117,7 +117,7 @@ end
     #parity conservation
     a = FermionBasis(1:N; qn= QuantumDots.parity) 
     hamiltonian(params...) = hamiltonian(a,params...)
-    parityham! = QuantumDots.generate_fastham(hamiltonian,3)[2];
+    parityham! = QuantumDots.fastgenerator(hamiltonian,3);
     mat = hamiltonian((2 .* params)...)
     parityham!(mat,params...)
     @test mat ≈ hamiltonian(params...)
@@ -125,24 +125,40 @@ end
     _bd(m) = blockdiagonal(m,a).blocks
     bdham = _bd ∘ hamiltonian
 
-    _, oddham! = QuantumDots.generate_fastham(first ∘ bdham,3);
+    oddham! = QuantumDots.fastgenerator(first ∘ bdham,3);
     oddmat = bdham((2 .* params)...) |> first
     oddham!(oddmat,params...)
     @test oddmat ≈ bdham(params...) |> first
 
-    _, evenham! = QuantumDots.generate_fastham(last ∘ bdham,3);
+    evenham! = QuantumDots.fastgenerator(last ∘ bdham,3);
     evenmat = bdham((2 .* params)...) |> last
     evenham!(evenmat,params...)
     @test evenmat ≈ bdham(params...) |> last
+    
+    _bd2(xs...) = blockdiagonal(hamiltonian(xs...), a)
+    paritybd! = QuantumDots.fastblockdiagonal(_bd2,3);
+    bdham = _bd2(2params...)
+    paritybd!(bdham,params...)
+    @test bdham ≈ _bd2(params...)
+    @test bdham.blocks |> first ≈ oddmat
+    @test bdham.blocks |> last ≈ evenmat
 
     #number conservation
     a = FermionBasis(1:N; qn= QuantumDots.fermionnumber) 
     hamiltonian(params...) = hamiltonian(a,params...)
 
-    numberham! = QuantumDots.generate_fastham(hamiltonian,3)[2];
+    numberham! = QuantumDots.fastgenerator(hamiltonian,3);
     mat = hamiltonian((2 .* params)...)
     numberham!(mat,params...)
     @test mat ≈ hamiltonian(params...)
+
+    numberbdham(params...) = blockdiagonal(hamiltonian(params...), a)
+    numberbd! = QuantumDots.fastblockdiagonal(numberbdham,3);
+    bdham = numberbdham(2params...)
+    numberbd!(bdham,params...)
+    @test bdham ≈ numberbdham(params...)
+    @test bdham ≈ hamiltonian(params[1:end-1]...,0.0)
+
 end
 
 @testset "transport" begin
