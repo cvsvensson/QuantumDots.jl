@@ -84,30 +84,15 @@ _lindblad_with_normalizer_adj(lindblad,idvec) = (out,in) -> (mul!(out,lindblad',
 function stationary_state(lindblad; solver = LsmrSolver(size(lindblad,1)+1,size(lindblad,1),Vector{ComplexF64}))
     n = Int(sqrt(size(lindblad,1)))
     idvec = vec(Matrix(I,n,n))
-    newmult! = _lindblad_with_normalizer(lindblad,n)#(out,in) = (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,n); out)
-    #newmult(in) = pushfirst!(lindblad*in,trnorm(in))
-    #newmult2(in) = pushfirst!(lindblad*in[2:end],trnorm(in[2:end]))
-    #newmultadj(in) = lindblad'*(@view in[2:end])  + in[1]*idvec
-    newmultadj! = _lindblad_with_normalizer_adj(lindblad,idvec)#(out,in) = (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*idvec; out)
-    #vin = rand(ComplexF64,n^2)
-    #vout = similar(vin,n^2+1)
-    #newmult!(vout,vin)
-    #vout2 = newmult(vin)
-    #println(norm(vout-vout2))
-    #lm = LinearMap{ComplexF64}(newmult,newmultadj,n^2+1,n^2)
+    newmult! = _lindblad_with_normalizer(lindblad,n)
+    newmultadj! = _lindblad_with_normalizer_adj(lindblad,idvec)
     lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n^2+1,n^2)
-    #lm2 = LinearMap{ComplexF64}(newmult2,newmultadj2,n^2+1)
     v = Vector(sparsevec([1],ComplexF64[1.0],n^2+1))
     solver.x .= idvec ./ n
     sol = solve!(solver, lm!, v)
-    # (xlsmr, stats!) = lsmr(lm!, v)
-    #(xlsmr!, stats!) = lsmr(lm!, v)
-    # display(stats)
-    # display(stats!)
-    # xlsmr
+
     sol.x
 end
-#(L::LinearMaps.LinearMap)(out,in::AbstractVector,p,t) = mul!(out,L,in)
 
 function conductance(system::OpenSystem, measureops; kwargs...)
     diagonalsystem = diagonalize(system)
