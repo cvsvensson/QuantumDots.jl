@@ -15,10 +15,12 @@ struct DiagonalizedHamiltonian{Vals,Vecs}
     eigenvalues::Vals
     eigenvectors::Vecs
 end
-#kron(B,A)*vec(rho) ∼ A*rho*B'
+#kron(B,A)*vec(rho) ∼ A*rho*B' ∼ 
+# A*rho*B = transpose(B)⊗A = kron(transpose(B),A)
+# A*rho*transpose(B) = B⊗A = kron(B,A)
 
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
-dissipator(L) = L⊗L - 1/2*kronsum(L'*L, L'*L)
+dissipator(L) = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
 current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1
 commutator(A) = kron(one(A),A) - kron(A,one(A))
@@ -51,7 +53,22 @@ function ratetransform(lead::NormalLead, commutator_hamiltonian)
 end
 
 diagonalize(S,lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S'*lead.jump_in*S,  S'*lead.jump_out*S)
-diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(DiagonalizedHamiltonian(eigen(Matrix(system.hamiltonian))...),leads(system))
+diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system))
+
+function diagonalize(m::AbstractMatrix)
+    vals, vecs = eigen(m)
+    DiagonalizedHamiltonian(Diagonal(vals), vecs)
+end
+diagonalize(m::SparseMatrixCSC) = diagonalize(Matrix(m))
+function diagonalize(m::BlockDiagonal)
+    vals,vecs = BlockDiagonals.eigen_blockwise(m)
+    blockinds = sizestoinds(map(first,blocksizes(vecs)))
+    bdvals = BlockDiagonal(map(inds -> Diagonal(vals[inds]), blockinds))
+    DiagonalizedHamiltonian(bdvals,vecs)
+end
+diagonalize(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize(BlockDiagonal(Matrix.(m.blocks)))
+diagonalize(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize(BlockDiagonal(Hermitian.(Matrix.(m.blocks))))
+
 diagonalize_leads(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), [diagonalize(eigenvectors(system), lead) for lead in leads(system)])
 diagonalize(system::OpenSystem) = diagonalize_leads(diagonalize_hamiltonian(system))
 
@@ -63,6 +80,43 @@ function LinearAlgebra.eigen((Heven,Hodd); kwargs...)
     D = Diagonal(eigvals)
     return D, S
 end
+kronblocksizes(A,B) = map(Ab->size(Ab) .* size(B),A.blocks)
+
+function LinearAlgebra.kron(A::BlockDiagonal{TA,VA}, B::BlockDiagonal{TB,VB}) where {TA,TB,VA,VB}
+    VC = promote_type(VA,VB)
+    TC = promote_type(TA,TB)
+    C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> similar(Ab,size(Ab) .* size(B)), A.blocks))
+    # C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> VC(zeros(size(Ab) .* size(B))), A.blocks))
+    kron!(C,A,B)
+end
+function LinearAlgebra.kron(A::BlockDiagonal{TA,VA}, B::BlockDiagonal{TB,VB}) where {TA,TB,VA<:Diagonal,VB<:Diagonal}
+    VC = promote_type(VA,VB)
+    TC = promote_type(TA,TB)
+    C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> Diagonal{TC}(undef, size(Ab,1) .* size(B,1)), A.blocks))
+    kron!(C,A,B)
+end
+Base.convert(::Type{D},bd::BlockDiagonal{<:Any,D}) where D<:Diagonal = Diagonal(bd)
+function LinearAlgebra.kron!(C::BlockDiagonal, A::BlockDiagonal, B::BlockDiagonal{<:Any,V}) where V
+    bmat = convert(V,B)
+    for (Cb,Ab) in zip(C.blocks,A.blocks)
+        kron!(Cb, Ab, bmat)
+    end
+    return C
+end
+
+LinearAlgebra.exp(D::BlockDiagonal) = BlockDiagonal(map(LinearAlgebra.exp, D.blocks))
+LinearAlgebra.sqrt(D::BlockDiagonal) = BlockDiagonal([promote(map(LinearAlgebra.sqrt, D.blocks)...)...])
+
+for f in (:cis, :log,
+    :cos, :sin, :tan, :csc, :sec, :cot,
+    :cosh, :sinh, :tanh, :csch, :sech, :coth,
+    :acos, :asin, :atan, :acsc, :asec, :acot,
+    :acosh, :asinh, :atanh, :acsch, :asech, :acoth,
+    :one)
+@eval Base.$f(D::BlockDiagonal) = BlockDiagonal(map(Base.$f, D.blocks))
+end
+
+# LinearAlgebra.sqrt(A::BlockDiagonal) = BlockDiagonal([promote(map(sqrt, A.blocks)...)...])
 
 fermidirac(E,T,μ) = (I + exp(E/T)exp(-μ/T))^(-1)
 
@@ -90,7 +144,6 @@ function stationary_state(lindblad; solver = LsmrSolver(size(lindblad,1)+1,size(
     v = Vector(sparsevec([1],ComplexF64[1.0],n^2+1))
     solver.x .= idvec ./ n
     sol = solve!(solver, lm!, v)
-
     sol.x
 end
 
