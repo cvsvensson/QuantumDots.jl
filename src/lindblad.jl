@@ -15,16 +15,41 @@ struct DiagonalizedHamiltonian{Vals,Vecs}
     eigenvalues::Vals
     eigenvectors::Vecs
 end
+Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals, Vecs}= promote_type(eltype(Vals),eltype(Vecs))
+
+abstract type AbstractVectorizer end
+struct KronVectorizer{T} <: AbstractVectorizer
+    size::Int
+    idvec::Vector{T}
+end
+struct KhatriRaoVectorizer{T} <: AbstractVectorizer
+    sizes::Vector{Int}
+    idvec::Vector{T}
+end
+function KronVectorizer(ham::DiagonalizedHamiltonian)
+    n = size(ham.eigenvalues,1)
+    KronVectorizer{eltype(ham)}(n, vec(Matrix(I,n,n)))
+end
+function KhatriRaoVectorizer(ham::DiagonalizedHamiltonian)
+    sizes = first.(blocksizes(ham.eigenvalues))
+    blockid = BlockDiagonal([Matrix{eltype(ham)}(I,size,size) for size in sizes])
+    KhatriRaoVectorizer{eltype(ham)}(sizes, vecdp(blockid))
+end
+default_vectorizer(ham::DiagonalizedHamiltonian{<:BlockDiagonal}) = KhatriRaoVectorizer(ham)
+default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
+
 #kron(B,A)*vec(rho) ∼ A*rho*B' ∼ 
 # A*rho*B = transpose(B)⊗A = kron(transpose(B),A)
 # A*rho*transpose(B) = B⊗A = kron(B,A)
-
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
-dissipator(L) = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
+dissipator(L,krv::KhatriRaoVectorizer) = khatri_rao_lazy_dissipator(L,krv.sizes)
+commutator(A,krv::KhatriRaoVectorizer) = khatri_rao_commutator(A,krv.sizes)
+dissipator(L,::KronVectorizer) = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
+commutator(A,::KronVectorizer) = commutator(A)
+commutator(A) = kron(one(A),A) - kron(transpose(A),one(A))
 current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1
 # commutator(A) = -transpose(A)⊗one(A) + one(A)⊗A
-commutator(A) = kron(one(A),A) - kron(transpose(A),one(A))
 function transform_jump_op(H::Diagonal,L,T,μ)
     comm = commutator(H)
     reshape(sqrt(fermidirac(comm,T,μ))*vec(L),size(L))
@@ -35,14 +60,17 @@ eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamil
 eigenvalues(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvalues
 eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
 
-khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes)
+# lindbladian(system::OpenSystem{<:DiagonalizedHamiltonian}) = lindbladian(eigenvalues(system), jumpops(system))
+# function lindbladian(hamiltonian, dissipators)
+#     #id = one(hamiltonian)
+#     -1im*commutator(hamiltonian) + sum(dissipators)#, init = 0*kron(id,id))
+# end
 
+khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes)
 function khatri_rao_lindblad(ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal},Ls)
     bz = blocksizes(eigenvectors(ham))
     inds = sizestoinds(first.(bz))
     @error inds = sizestoinds(last.(bz)) "Only square diagonals supported"
-
-
 
 end
 
@@ -213,37 +241,52 @@ jumpins(system::OpenSystem) = [lead.jump_in for lead in leads(system)]
 jumpouts(system::OpenSystem) = [lead.jump_out for lead in leads(system)]
 jumpops(system::OpenSystem) = vcat(jumpins(system),jumpouts(system))
 
-
-lindbladian(system::OpenSystem{<:DiagonalizedHamiltonian}) = lindbladian(eigenvalues(system), jumpops(system))
-function lindbladian(hamiltonian,Ls)
-    id = one(hamiltonian)
-    -1im*commutator(hamiltonian) + sum(Ls, init = 0*kron(id,id))
-end
-
-abstract type AbstractVectorizer end
-struct KronVectorizer <: AbstractVectorizer
-    size::Int
-end
-struct KhatriRaoVectorizer <: AbstractVectorizer
-    sizes::Vector{Int}
-end
-
 trnorm(rho,n) = tr(reshape(rho,n,n))
-khatri_rao_trnorm(rho,blocksizes) = mapreduce(+,trnorm,rho,blocksizes)
-vecdp(bd::BlockDiagonal) = reduce(vcat, vec(blocks(bd)))
+#khatri_rao_trnorm(rho,blocksizes) =  [ for size in blocksizes]  #mapreduce(trnorm,+,rho,blocksizes)
+vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
-_lindblad_with_normalizer(lindblad,n) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,n);)
-_lindblad_with_normalizer_adj(lindblad,idvec) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*idvec;)
-function stationary_state(lindblad; solver = LsmrSolver(size(lindblad,1)+1,size(lindblad,1),Vector{ComplexF64}))
-    n = Int(sqrt(size(lindblad,1)))
-    idvec = vec(Matrix(I,n,n))
-    newmult! = _lindblad_with_normalizer(lindblad,n)
-    newmultadj! = _lindblad_with_normalizer_adj(lindblad,idvec)
-    lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n^2+1,n^2)
-    v = Vector(sparsevec([1],ComplexF64[1.0],n^2+1))
-    solver.x .= idvec ./ n
+_lindblad_with_normalizer(lindblad,kv::KronVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,kv.size);)
+_lindblad_with_normalizer_adj(lindblad ,kv::KronVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*kv.idvec;)
+_lindblad_with_normalizer(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)#khatri_rao_trnorm(in,krv.sizes);)
+_lindblad_with_normalizer_adj(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
+
+function stationary_state(lindblad, vectorizer, solver)
+    newmult! = _lindblad_with_normalizer(lindblad,vectorizer)
+    newmultadj! = _lindblad_with_normalizer_adj(lindblad,vectorizer)
+    n = size(lindblad,2)
+    lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
+    v = Vector(sparsevec([1],ComplexF64[1.0],n+1))
+    solver.x .= vectorizer.idvec ./ n
     sol = solve!(solver, lm!, v)
     sol.x
+end
+
+stationary_state(lindblad, vectorizer; solver = LsmrSolver(size(lindblad,1)+1, size(lindblad,1), Vector{ComplexF64})) = stationary_state(lindblad, vectorizer, solver)
+#     n = Int(sqrt(size(lindblad,1)))
+#     idvec = vec(Matrix(I,n,n))
+#     newmult! = _lindblad_with_normalizer(lindblad,n)
+#     newmultadj! = _lindblad_with_normalizer_adj(lindblad,idvec)
+#     lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n^2+1,n^2)
+#     v = Vector(sparsevec([1],ComplexF64[1.0],n^2+1))
+#     solver.x .= idvec ./ n
+#     sol = solve!(solver, lm!, v)
+#     sol.x
+# end
+
+function prepare_lindblad(system, measurements)
+    diagonalsystem = diagonalize(system)
+    transformedsystem = ratetransform(diagonalsystem)
+    vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
+    superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))
+    superjumpouts = map(op->dissipator(op,vectorizer), jumpouts(transformedsystem))
+    unitary = -1im*commutator(eigenvalues(transformedsystem), vectorizer)
+    dissipators = vcat(superjumpins,superjumpouts)
+    
+    S = eigenvectors(transformedsystem)
+    transformedmeasureops = map(op->S'*(op)*S, measurements)
+    
+    return unitary + sum(dissipators), transformedmeasureops, vectorizer
+    # superlind = lindbladian(eigenvalues(transformedsystem), vcat(superjumpins,superjumpouts))
 end
 
 function conductance(system::OpenSystem, measureops; kwargs...)

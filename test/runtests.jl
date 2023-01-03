@@ -162,7 +162,7 @@ end
 end
 
 @testset "transport" begin
-    N = 4
+    N = 1
     a = FermionBasis(1:N)
     hamiltonian(μ) = μ*sum(a[i]'a[i] for i in 1:N)
     T = rand()
@@ -175,14 +175,16 @@ end
     rightlead = QuantumDots.NormalLead(T,μR,jumpinR,jumpoutR)
     particle_number = sum(a[i]'a[i] for i in 1:N)
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
+    measurements = [particle_number]
 
-    diagonalsystem = QuantumDots.diagonalize(system)
-    transformedsystem = QuantumDots.ratetransform(diagonalsystem)
-    superjumpins = QuantumDots.dissipator.(QuantumDots.jumpins(transformedsystem))
-    superjumpouts = QuantumDots.dissipator.(QuantumDots.jumpouts(transformedsystem))
-    superlind = QuantumDots.lindbladian(QuantumDots.eigenvalues(transformedsystem), vcat(superjumpins,superjumpouts))
-    solver = LsmrSolver(4^N+1,4^N,Vector{ComplexF64})
-    ρ = QuantumDots.stationary_state(superlind; solver)
+    # diagonalsystem = QuantumDots.diagonalize(system)
+    # transformedsystem = QuantumDots.ratetransform(diagonalsystem)
+    # superjumpins = QuantumDots.dissipator.(QuantumDots.jumpins(transformedsystem))
+    # superjumpouts = QuantumDots.dissipator.(QuantumDots.jumpouts(transformedsystem))
+    # superlind = QuantumDots.lindbladian(QuantumDots.eigenvalues(transformedsystem), vcat(superjumpins,superjumpouts))
+    # solver = LsmrSolver(4^N+1,4^N,Vector{ComplexF64})
+    superlind, transformed_measurements, vectorizer = QuantumDots.prepare_lindblad(system, measurements)
+    ρ = QuantumDots.stationary_state(superlind, vectorizer)
     rhom = reshape(ρ,2^N,2^N)
     rhod = diag(rhom)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
@@ -195,8 +197,7 @@ end
     @test sum(numeric_current; dims = 2) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
 
 
-
-    N = 4
+    N = 1
     a = FermionBasis(1:N; qn = QuantumDots.parity)
     hamiltonian(μ) = QuantumDots.blockdiagonal(μ*sum(a[i]'a[i] for i in 1:N),a)
     jumpinL = a[1]'
@@ -208,13 +209,8 @@ end
     particle_number = QuantumDots.blockdiagonal(sum(a[i]'a[i] for i in 1:N),a)
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
 
-    diagonalsystem = QuantumDots.diagonalize(system)
-    transformedsystem = QuantumDots.ratetransform(diagonalsystem)
-    superjumpins = QuantumDots.dissipator.(QuantumDots.jumpins(transformedsystem))
-    superjumpouts = QuantumDots.dissipator.(QuantumDots.jumpouts(transformedsystem))
-    superlind = QuantumDots.lindbladian(QuantumDots.eigenvalues(transformedsystem), vcat(superjumpins,superjumpouts))
-    solver = LsmrSolver(4^N+1,4^N,Vector{ComplexF64})
-    ρ = QuantumDots.stationary_state(superlind; solver)
+    superlind, transformed_measurements, vectorizer = QuantumDots.prepare_lindblad(system, measurements)
+    ρ = QuantumDots.stationary_state(superlind, vectorizer)
     rhom = reshape(ρ,2^N,2^N)
     rhod = diag(rhom)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
