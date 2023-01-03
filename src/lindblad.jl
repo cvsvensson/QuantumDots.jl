@@ -47,35 +47,24 @@ function khatri_rao_lindblad(ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:Bloc
 end
 
 function khatri_rao_lazy_dissipator(L,blocksizes)
-    LL = L'*L
+    L2 = L'*L
     inds = sizestoinds(blocksizes)
     T = eltype(L)
-    mapsboth = LinearMap{T}[]
-    # mapsleft = LinearMap{T}[]
-    # mapsright = LinearMap{T}[]
-    mapsleftright = LinearMap{T}[]
+    prodmaps = LinearMap{T}[]
+    summaps = LinearMap{T}[]
     for ind1 in inds, ind2 in inds
         Lblock = L[ind1,ind2]
-        leftmap = LinearMap{T}(Lblock)
-        rightmap = LinearMap{T}(conj(Lblock))
-        push!(mapsboth, kron(rightmap,leftmap))
+        leftprodmap = LinearMap{T}(Lblock)
+        rightprodmap = LinearMap{T}(conj(Lblock))
+        push!(prodmaps, kron(rightprodmap,leftprodmap))
         if ind1==ind2
-            LLblock = LL[ind1,ind2]
-            leftmap2 = LinearMap{T}(LLblock)
-            rightmap2 = LinearMap{T}(transpose(LLblock))
-            # idblock = LinearMap(I,length(ind1))
-            push!(mapsleftright, kronsum(rightmap2,leftmap2))
-            # push!(mapsleft, kron(idblock,leftmap2))
-            # push!(mapsright, kron(rightmap2,idblock))
-        else
-            # push!(mapsleftright, kronsum(rightmap2,leftmap2))
-            # push!(mapsleft, FillMap(zero(T), (length.((ind1,ind2)).^2)))
-            # push!(mapsright, FillMap(zero(T), (length.((ind1,ind2))).^2))
+            L2block = L2[ind1,ind2]
+            leftsummap = LinearMap{T}(L2block)
+            rightsummap = LinearMap{T}(transpose(L2block))
+            push!(summaps, kronsum(rightsummap,leftsummap))
         end
     end
-    # sum(maps->hvcat(length(inds),maps...), [mapsleft,mapsboth,mapsright])
-    hvcat(length(inds),mapsboth...) - 1/2*cat(mapsleftright...; dims=(1,2))
-    # sum(maps->hvcat(length(inds),maps...), [mapsboth,mapsleftright])
+    hvcat(length(inds),prodmaps...) - 1/2*cat(summaps...; dims=(1,2))
 end
 
 function khatri_rao_lazy(L1,L2,blocksizes)
