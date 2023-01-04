@@ -140,7 +140,7 @@ function khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal,bz)
         return khatri_rao(sparse(L1),sparse(L2),bz)
     end
 end
-
+remove_high_energy_states(dE,system::OpenSystem) = OpenSystem(remove_high_energy_states(dE,hamiltonian(system)),leads(system))
 function remove_high_energy_states(ΔE,ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal})
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
@@ -196,8 +196,13 @@ diagonalize(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize(BlockDiagon
 diagonalize(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize(BlockDiagonal(Hermitian.(Matrix.(m.blocks))))
 
 diagonalize_leads(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), [diagonalize(eigenvectors(system), lead) for lead in leads(system)])
-diagonalize(system::OpenSystem) = diagonalize_leads(diagonalize_hamiltonian(system))
-
+function diagonalize(system::OpenSystem; dE = 0.0) 
+    diagonal_system = diagonalize_hamiltonian(system)
+    if dE > 0
+        diagonal_system = remove_high_energy_states(dE, diagonal_system)
+    end
+    diagonalize_leads(diagonal_system)
+end
 function LinearAlgebra.eigen((Heven,Hodd); kwargs...)
     oeigvals, oeigvecs = eigen(Heven; kwargs...)
 	eeigvals, eeigvecs = eigen(Hodd; kwargs...)
@@ -240,8 +245,8 @@ Base.Matrix(rho::Vector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((s
 stationary_state(lindbladsystem; solver = solver(lindbladsystem)) = stationary_state(lindbladsystem, solver)
 solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
 
-function prepare_lindblad(system, measurements)
-    diagonalsystem = diagonalize(system)
+function prepare_lindblad(system, measurements; kwargs...)
+    diagonalsystem = diagonalize(system; kwargs...)
     transformedsystem = ratetransform(diagonalsystem)
     vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
     superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))

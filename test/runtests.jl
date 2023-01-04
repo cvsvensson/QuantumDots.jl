@@ -199,7 +199,7 @@ end
     leftlead = QuantumDots.NormalLead(T,μL; in = a[1]', out = a[1])
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
-    lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, [particle_number])
+    lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, [particle_number]);
     ρ = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
