@@ -66,10 +66,7 @@ measure(rho::BlockDiagonal, op::BlockDiagonal,::KhatriRaoVectorizer, dissipators
 # current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1
 # commutator(A) = -transpose(A)⊗one(A) + one(A)⊗A
-function transform_jump_op(H::Diagonal,L,T,μ)
-    comm = commutator(H)
-    reshape(sqrt(fermidirac(comm,T,μ))*vec(L),size(L))
-end
+
 hamiltonian(system) = system.hamiltonian
 eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
 eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
@@ -82,13 +79,7 @@ eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
 #     -1im*commutator(hamiltonian) + sum(dissipators)#, init = 0*kron(id,id))
 # end
 
-khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes)
-function khatri_rao_lindblad(ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal},Ls)
-    bz = blocksizes(eigenvectors(ham))
-    inds = sizestoinds(first.(bz))
-    @error inds = sizestoinds(last.(bz)) "Only square diagonals supported"
-
-end
+khatri_rao_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
 
 function khatri_rao_lazy_dissipator(L,blocksizes)
     L2 = L'*L
@@ -135,16 +126,25 @@ function khatri_rao(L1,L2,blocksizes)
     end
     hvcat(length(inds),maps...)
 end
-function khatri_rao(L1::Diagonal,L2::Diagonal,blocksizes)
-    inds = sizestoinds(blocksizes)
-    T = promote_type(eltype(L1),eltype(L2))
-    l1 = parent(L1)
-    l2 = parent(L2)
-    diagonals = Vector{T}[]
-    for inds in inds#, j in eachindex(blocksizes)
-        push!(diagonals, diag(kron(Diagonal(l1[inds]),Diagonal(l2[inds]))))
+# function khatri_rao(L1::Diagonal,L2::Diagonal,blocksizes)
+#     inds = sizestoinds(blocksizes)
+#     T = promote_type(eltype(L1),eltype(L2))
+#     l1 = parent(L1)
+#     l2 = parent(L2)
+#     diagonals = Vector{T}[]
+#     for inds in inds#, j in eachindex(blocksizes)
+#         push!(diagonals, diag(kron(Diagonal(l1[inds]),Diagonal(l2[inds]))))
+#     end
+#     Diagonal(reduce(vcat,diagonals))
+# end
+khatri_rao(L1::Diagonal,L2::Diagonal) = kron(L1,L2)
+khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal) = cat([khatri_rao(B1,B2) for (B1,B2) in zip(blocks(L1),blocks(L2))]...; dims=(1,2))
+function khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal,bz) 
+    if bz == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
+        return khatri_rao(L1,L2)
+    else
+        return khatri_rao(sparse(L1),sparse(L2),bz)
     end
-    Diagonal(reduce(vcat,diagonals))
 end
 
 function remove_high_energy_states(ΔE,ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal})
@@ -177,12 +177,12 @@ temperature(lead::NormalLead) = lead.temperature
 function ratetransform(lead::NormalLead, commutator_hamiltonian)
     μ = chemical_potential(lead)
     T = temperature(lead)
-    Lin = lead.jump_in
-    Lout = lead.jump_out
-    newjumpin = reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(Lin),size(Lin))
-    newjumpout = reshape(sqrt(fermidirac(commutator_hamiltonian,T,-μ))*vec(Lout),size(Lout))
+    newjumpin = ratetransform(lead.jump_in,commutator_hamiltonian,T,μ) #reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(Lin),size(Lin))
+    newjumpout = ratetransform(lead.jump_out,commutator_hamiltonian,T,-μ) #reshape(sqrt(fermidirac(commutator_hamiltonian,T,-μ))*vec(Lout),size(Lout))
     return NormalLead(T, μ, newjumpin, newjumpout)
 end
+ratetransform(op,commutator_hamiltonian,T,μ) = reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(op),size(op))
+
 
 diagonalize(S,lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S'*lead.jump_in*S,  S'*lead.jump_out*S)
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system))
