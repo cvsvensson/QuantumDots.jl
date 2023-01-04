@@ -169,7 +169,7 @@ end
     μL,μR,μH = rand(3)
     leftlead = QuantumDots.NormalLead(T,μL; in = a[1]', out = a[1])
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
-    particle_number = sum(a[i]'a[i] for i in 1:N)
+    particle_number = numberoperator(a)
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
     measurements = [particle_number]
 
@@ -195,7 +195,7 @@ end
     N = 1
     a = FermionBasis(1:N; qn = QuantumDots.parity)
     hamiltonian(μ) = QuantumDots.blockdiagonal(μ*sum(a[i]'a[i] for i in 1:N),a)
-    particle_number = QuantumDots.blockdiagonal(sum(a[i]'a[i] for i in 1:N),a)
+    particle_number = QuantumDots.blockdiagonal(numberoperator(a),a)
     leftlead = QuantumDots.NormalLead(T,μL; in = a[1]', out = a[1])
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
@@ -213,7 +213,7 @@ end
     N = 1
     a = FermionBasis(1:N; qn = QuantumDots.fermionnumber)
     hamiltonian(μ) = QuantumDots.blockdiagonal(μ*sum(a[i]'a[i] for i in 1:N),a)
-    particle_number = QuantumDots.blockdiagonal(sum(a[i]'a[i] for i in 1:N),a)
+    particle_number = QuantumDots.blockdiagonal(numberoperator(a),a)
     leftlead = QuantumDots.NormalLead(T,μL; in = a[1]', out = a[1])
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])

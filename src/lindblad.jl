@@ -9,7 +9,6 @@ struct NormalLead{Opin,Opout} <: AbstractLead
 end
 NormalLead(T,μ; in = jin, out = jout) = NormalLead(T,μ,in,out)
 
-
 abstract type AbstractOpenSystem end
 struct OpenSystem{H,Ls} <: AbstractOpenSystem
     hamiltonian::H
@@ -73,11 +72,6 @@ eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamil
 eigenvalues(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvalues
 eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
 
-# lindbladian(system::OpenSystem{<:DiagonalizedHamiltonian}) = lindbladian(eigenvalues(system), jumpops(system))
-# function lindbladian(hamiltonian, dissipators)
-#     #id = one(hamiltonian)
-#     -1im*commutator(hamiltonian) + sum(dissipators)#, init = 0*kron(id,id))
-# end
 
 khatri_rao_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
 
@@ -212,43 +206,6 @@ function LinearAlgebra.eigen((Heven,Hodd); kwargs...)
     D = Diagonal(eigvals)
     return D, S
 end
-kronblocksizes(A,B) = map(Ab->size(Ab) .* size(B),A.blocks)
-
-function LinearAlgebra.kron(A::BlockDiagonal{TA,VA}, B::BlockDiagonal{TB,VB}) where {TA,TB,VA,VB}
-    VC = promote_type(VA,VB)
-    TC = promote_type(TA,TB)
-    C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> similar(Ab,size(Ab) .* size(B)), A.blocks))
-    # C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> VC(zeros(size(Ab) .* size(B))), A.blocks))
-    kron!(C,A,B)
-end
-function LinearAlgebra.kron(A::BlockDiagonal{TA,VA}, B::BlockDiagonal{TB,VB}) where {TA,TB,VA<:Diagonal,VB<:Diagonal}
-    VC = promote_type(VA,VB)
-    TC = promote_type(TA,TB)
-    C::BlockDiagonal{TC,VC} = BlockDiagonal(map(Ab-> Diagonal{TC}(undef, size(Ab,1) .* size(B,1)), A.blocks))
-    kron!(C,A,B)
-end
-Base.convert(::Type{D},bd::BlockDiagonal{<:Any,D}) where D<:Diagonal = Diagonal(bd)
-function LinearAlgebra.kron!(C::BlockDiagonal, A::BlockDiagonal, B::BlockDiagonal{<:Any,V}) where V
-    bmat = convert(V,B)
-    for (Cb,Ab) in zip(C.blocks,A.blocks)
-        kron!(Cb, Ab, bmat)
-    end
-    return C
-end
-
-LinearAlgebra.exp(D::BlockDiagonal) = BlockDiagonal(map(LinearAlgebra.exp, D.blocks))
-LinearAlgebra.sqrt(D::BlockDiagonal) = BlockDiagonal([promote(map(LinearAlgebra.sqrt, D.blocks)...)...])
-
-for f in (:cis, :log,
-    :cos, :sin, :tan, :csc, :sec, :cot,
-    :cosh, :sinh, :tanh, :csch, :sech, :coth,
-    :acos, :asin, :atan, :acsc, :asec, :acot,
-    :acosh, :asinh, :atanh, :acsch, :asech, :acoth,
-    :one)
-@eval Base.$f(D::BlockDiagonal) = BlockDiagonal(map(Base.$f, D.blocks))
-end
-
-# LinearAlgebra.sqrt(A::BlockDiagonal) = BlockDiagonal([promote(map(sqrt, A.blocks)...)...])
 
 fermidirac(E,T,μ) = (I + exp(E/T)exp(-μ/T))^(-1)
 
@@ -258,12 +215,11 @@ jumpouts(system::AbstractOpenSystem) = [lead.jump_out for lead in leads(system)]
 jumpops(system::AbstractOpenSystem) = hcat(jumpins(system),jumpouts(system))
 
 trnorm(rho,n) = tr(reshape(rho,n,n))
-#khatri_rao_trnorm(rho,blocksizes) =  [ for size in blocksizes]  #mapreduce(trnorm,+,rho,blocksizes)
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
 _lindblad_with_normalizer(lindblad,kv::KronVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,kv.size);)
 _lindblad_with_normalizer_adj(lindblad ,kv::KronVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*kv.idvec;)
-_lindblad_with_normalizer(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)#khatri_rao_trnorm(in,krv.sizes);)
+_lindblad_with_normalizer(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)
 _lindblad_with_normalizer_adj(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
 
 function stationary_state(lindbladsystem, solver)
@@ -279,22 +235,10 @@ function stationary_state(lindbladsystem, solver)
     Matrix(sol.x, vectorizer)
 end
 
-# Base.Vector(mat, vectorizer::KronVectorizer) = vec(mat)
-# Base.Vector(mat, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map(inds->reshape(rho[inds],length(inds),length(inds)), sizestoinds(vectorizer.sizes)))
 Base.Matrix(rho::Vector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size,vectorizer.size)
 Base.Matrix(rho::Vector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
 stationary_state(lindbladsystem; solver = solver(lindbladsystem)) = stationary_state(lindbladsystem, solver)
 solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
-#     n = Int(sqrt(size(lindblad,1)))
-#     idvec = vec(Matrix(I,n,n))
-#     newmult! = _lindblad_with_normalizer(lindblad,n)
-#     newmultadj! = _lindblad_with_normalizer_adj(lindblad,idvec)
-#     lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n^2+1,n^2)
-#     v = Vector(sparsevec([1],ComplexF64[1.0],n^2+1))
-#     solver.x .= idvec ./ n
-#     sol = solve!(solver, lm!, v)
-#     sol.x
-# end
 
 function prepare_lindblad(system, measurements)
     diagonalsystem = diagonalize(system)
@@ -311,15 +255,3 @@ function prepare_lindblad(system, measurements)
     return lindbladsystem, transformedmeasureops
 end
 changebasis(op,ls::LindbladSystem) = ls.system.hamiltonian.eigenvectors' * op * ls.system.hamiltonian.eigenvectors
-
-function conductance(system::OpenSystem, measureops; kwargs...)
-    diagonalsystem = diagonalize(system)
-    transformedsystem = ratetransform(diagonalsystem)
-    superjumpins = dissipator.(jumpins(transformedsystem))
-    superjumpouts = dissipator.(jumpouts(transformedsystem))
-    superlind = lindbladian(Diagonal(eigenvalues(transformedsystem)), vcat(superjumpins,superjumpouts))
-    ρ = stationary_state(superlind; kwargs...)
-    S = eigenvectors(transformedsystem)
-    transformedmeasureops = map(op->S'*(op)*S,measureops)
-    [hcat(map(sj->current(ρ, op, sj), superjumpins), map(sj->current(ρ, op, sj), superjumpouts)) for op in transformedmeasureops]
-end
