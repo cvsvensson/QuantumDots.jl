@@ -137,7 +137,7 @@ function khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal,bz)
     if bz == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
         return khatri_rao(L1,L2)
     else
-        return khatri_rao(sparse(L1),sparse(L2),bz)
+        return khatri_rao(cat(L1.blocks...;dims=(1,2)),cat(L2.blocks...;dims=(1,2)),bz)
     end
 end
 remove_high_energy_states(dE,system::OpenSystem) = OpenSystem(remove_high_energy_states(dE,hamiltonian(system)),leads(system))
@@ -202,14 +202,6 @@ function diagonalize(system::OpenSystem; dE = 0.0)
         diagonal_system = remove_high_energy_states(dE, diagonal_system)
     end
     diagonalize_leads(diagonal_system)
-end
-function LinearAlgebra.eigen((Heven,Hodd); kwargs...)
-    oeigvals, oeigvecs = eigen(Heven; kwargs...)
-	eeigvals, eeigvecs = eigen(Hodd; kwargs...)
-	eigvals = vcat(oeigvals,eeigvals)
-	S = cat(sparse(oeigvecs),sparse(eeigvecs); dims=[1,2])
-    D = Diagonal(eigvals)
-    return D, S
 end
 
 fermidirac(E,T,μ) = (I + exp(E/T)exp(-μ/T))^(-1)
