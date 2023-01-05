@@ -7,7 +7,7 @@ qninds(qn,sym::AbelianFockSymmetry) = sym.qntoinds[qn]
 blockinds(inds::Dims,sizes) = map(n->blockinds(n,sizes),inds)
 blockinds(i::Integer,sizes) = sizestoinds(sizes)[i]
 
-sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)
+sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)::Vector{UnitRange{Int}}
 
 function symmetry(fermionids::NTuple{M}, qn) where M
     qntooldinds = group(ind->qn(ind-1), 1:2^M)
