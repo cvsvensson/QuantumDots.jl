@@ -172,14 +172,11 @@ end
     particle_number = numberoperator(a)
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
     measurements = [particle_number]
-
-    # diagonalsystem = QuantumDots.diagonalize(system)
-    # transformedsystem = QuantumDots.ratetransform(diagonalsystem)
-    # superjumpins = QuantumDots.dissipator.(QuantumDots.jumpins(transformedsystem))
-    # superjumpouts = QuantumDots.dissipator.(QuantumDots.jumpouts(transformedsystem))
-    # superlind = QuantumDots.lindbladian(QuantumDots.eigenvalues(transformedsystem), vcat(superjumpins,superjumpouts))
-    # solver = LsmrSolver(4^N+1,4^N,Vector{ComplexF64})
     lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, measurements)
+    @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ [0.0, μH]
+    lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH/2)
+    @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
+
     ρ = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
@@ -200,6 +197,10 @@ end
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
     lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, [particle_number]);
+    @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ [μH, 0.0]
+    lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH/2)
+    @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
+
     ρ = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
@@ -218,6 +219,10 @@ end
     rightlead = QuantumDots.NormalLead(T,μR; in = a[N]', out = a[N])
     system = QuantumDots.OpenSystem(hamiltonian(μH),[leftlead, rightlead])
     lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, [particle_number])
+    @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ [0.0, μH]
+    lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH/2)
+    @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
+
     ρ = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH,T,μL) + QuantumDots.fermidirac(μH,T,μR))/2
