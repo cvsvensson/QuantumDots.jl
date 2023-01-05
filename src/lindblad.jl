@@ -9,6 +9,9 @@ struct NormalLead{Opin,Opout} <: AbstractLead
 end
 NormalLead(T,μ; in = jin, out = jout) = NormalLead(T,μ,in,out)
 
+Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "NormalLead{$Opin,$Opout}(", "T=",lead.temperature,", μ=", lead.chemical_potential,")")
+Base.show(io::IO, lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "Lead(", "T=", round(lead.temperature,digits=4),", μ=", round(lead.chemical_potential, digits=4),")")
+
 abstract type AbstractOpenSystem end
 struct OpenSystem{H,Ls} <: AbstractOpenSystem
     hamiltonian::H
@@ -21,6 +24,21 @@ struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     lindblad::L
     vectorizer::V
 end
+
+Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io,system)
+Base.show(io::IO, system::OpenSystem{H,Ls}) where {H,Ls} = print(io, "OpenSystem:\nHamiltonian: ",repr(system.hamiltonian),"\nleads: ", repr(system.leads))
+
+Base.show(io::IO, ::MIME"text/plain", system::LindbladSystem) = show(io,system)
+Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:","\nOpenSystem",repr(system.system), 
+    "\nUnitary: ", reprlindblad(system.unitary),"\ndissipators: ", reprdissipators(system.dissipators),
+    "\nlindblad: ", reprlindblad(system.lindblad),
+    "\nvectorizer: ", typeof(system.vectorizer))
+
+reprlindblad(lm::LM) where {LM<:LinearMap} = "LinearMap{$(eltype(lm))}"
+reprlindblad(m::AbstractMatrix) = typeof(m)
+reprdissipators(lms::Matrix{LM}) where {LM<:LinearMap} = "Matrix{LinearMap{$(eltype(first(lms)))}}"
+reprdissipators(ms::Matrix{<:AbstractArray}) = typeof(ms)
+
 
 struct DiagonalizedHamiltonian{Vals,Vecs}
     eigenvalues::Vals
