@@ -232,10 +232,13 @@ jumpops(system::AbstractOpenSystem) = hcat(jumpins(system),jumpouts(system))
 trnorm(rho,n) = tr(reshape(rho,n,n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
-_lindblad_with_normalizer(lindblad,kv::KronVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,kv.size);)
-_lindblad_with_normalizer_adj(lindblad ,kv::KronVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*kv.idvec;)
-_lindblad_with_normalizer(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)
-_lindblad_with_normalizer_adj(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
+_lindblad_with_normalizer(lindblad,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer(out,in,lindblad,kv)
+_lindblad_with_normalizer_adj(lindblad ,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer_adj(out,in,lindblad,kv)
+
+_lindblad_with_normalizer(out,in,lindblad,kv::KronVectorizer) = (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,kv.size);)
+_lindblad_with_normalizer_adj(out,in, lindblad ,kv::KronVectorizer) = (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*kv.idvec;)
+_lindblad_with_normalizer(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)
+_lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
 
 function stationary_state(lindbladsystem, solver; kwargs...)
     lindblad = lindbladsystem.lindblad
