@@ -237,7 +237,7 @@ _lindblad_with_normalizer_adj(lindblad ,kv::KronVectorizer) = (out,in) -> (mul!(
 _lindblad_with_normalizer(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)
 _lindblad_with_normalizer_adj(lindblad, krv::KhatriRaoVectorizer) = (out,in) -> (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
 
-function stationary_state(lindbladsystem, solver)
+function stationary_state(lindbladsystem, solver; kwargs...)
     lindblad = lindbladsystem.lindblad
     vectorizer = lindbladsystem.vectorizer
     newmult! = _lindblad_with_normalizer(lindblad,vectorizer)
@@ -246,13 +246,13 @@ function stationary_state(lindbladsystem, solver)
     lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
     v = Vector(sparsevec([1],ComplexF64[1.0],n+1))
     solver.x .= vectorizer.idvec ./ n
-    sol = solve!(solver, lm!, v)
+    sol = solve!(solver, lm!, v; kwargs...)
     Matrix(sol.x, vectorizer)
 end
 
 Base.Matrix(rho::Vector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size,vectorizer.size)
 Base.Matrix(rho::Vector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
-stationary_state(lindbladsystem; solver = solver(lindbladsystem)) = stationary_state(lindbladsystem, solver)
+stationary_state(lindbladsystem; solver = solver(lindbladsystem), kwargs...) = stationary_state(lindbladsystem, solver; kwargs...)
 solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
 
 function prepare_lindblad(system, measurements; kwargs...)
