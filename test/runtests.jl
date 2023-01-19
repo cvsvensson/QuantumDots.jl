@@ -105,7 +105,7 @@ end
 @testset "Fast generated hamiltonians" begin
     N = 5
     params = rand(3)
-    hamiltonian(a,μ,t,Δ) = μ*sum(a[i]'a[i] for i in 1:N) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
+    hamiltonian(a,μ,t,Δ) = μ*sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_fermions(a)) + t*(a[1]'a[2] + a[2]'a[1]) + Δ*(a[1]'a[2]' + a[2]a[1])
     
     a = FermionBasis(1:N) 
     hamiltonian(params...) = hamiltonian(a,params...)

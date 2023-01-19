@@ -71,9 +71,14 @@ default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
 # A*rho*B = transpose(B)⊗A = kron(transpose(B),A)
 # A*rho*transpose(B) = B⊗A = kron(B,A)
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
-dissipator(L,krv::KhatriRaoVectorizer) = khatri_rao_lazy_dissipator(L,krv.sizes)
-commutator(A,krv::KhatriRaoVectorizer) = khatri_rao_commutator(A,krv.sizes)
-dissipator(L,::KronVectorizer) = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
+const DENSE_CUTOFF = 6
+dissipator(L,krv::KhatriRaoVectorizer) = sum(krv.sizes) > DENSE_CUTOFF ? khatri_rao_lazy_dissipator(L,krv.sizes) : khatri_rao_dissipator(Matrix(L),krv.sizes)
+commutator(A,krv::KhatriRaoVectorizer) = sum(krv.sizes) > DENSE_CUTOFF ? khatri_rao_lazy_commutator(A,krv.sizes) : khatri_rao_commutator(Matrix(A),krv.sizes)
+
+function dissipator(L,kv::KronVectorizer)
+    D = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
+    return kv.size > DENSE_CUTOFF ? D : Matrix(D)
+end
 commutator(A,::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A),A) - kron(transpose(A),one(A))
 measure(rho, op, ls::LindbladSystem) = measure(rho,op,ls.vectorizer, ls.dissipators)
@@ -91,7 +96,8 @@ eigenvalues(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvalues
 eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
 
 
-khatri_rao_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
+khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
+khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
 
 function khatri_rao_lazy_dissipator(L,blocksizes)
     L2 = L'*L
@@ -108,6 +114,26 @@ function khatri_rao_lazy_dissipator(L,blocksizes)
             L2block = L2[ind1,ind2]
             leftsummap = LinearMap{T}(L2block)
             rightsummap = LinearMap{T}(transpose(L2block))
+            push!(summaps, kronsum(rightsummap,leftsummap))
+        end
+    end
+    hvcat(length(inds),prodmaps...) - 1/2*cat(summaps...; dims=(1,2))
+end
+function khatri_rao_dissipator(L,blocksizes)
+    L2 = L'*L
+    inds = sizestoinds(blocksizes)
+    T = eltype(L)
+    prodmaps = Matrix{T}[]
+    summaps = Matrix{T}[]
+    for ind1 in inds, ind2 in inds
+        Lblock = L[ind1,ind2]
+        leftprodmap = Lblock
+        rightprodmap = conj(Lblock)
+        push!(prodmaps, kron(rightprodmap,leftprodmap))
+        if ind1==ind2
+            L2block = L2[ind1,ind2]
+            leftsummap = L2block
+            rightsummap = transpose(L2block)
             push!(summaps, kronsum(rightsummap,leftsummap))
         end
     end
