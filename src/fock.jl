@@ -20,3 +20,9 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     end
     return t
 end
+
+function reduced_density_matrix(v::AbstractVector{T}, b::FermionBasis{M})
+    t = tensor(v,b)
+    sum(t)
+
+end
