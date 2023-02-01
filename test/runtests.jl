@@ -65,6 +65,8 @@ end
     t1 = QuantumDots.tensor(v,a)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0,1), i2 in (0,1), i3 in (0,1)]
     @test t1 == t2
+
+    @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.partialtrace(v,(2,3),a))
 end
 
 @testset "Hamiltonian" begin
