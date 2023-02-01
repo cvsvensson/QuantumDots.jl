@@ -20,22 +20,32 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     return t
 end
 
-function partialtrace(v::AbstractVector{T}, labels::NTuple{N}, b::FermionBasis{M}) where {T,N,M}
-    cinds = siteindices(labels, b) #::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
-    _partialtrace(tensor(v,b), cinds)
+function reduced_density_matrix(v::AbstractVector{T}, labels::NTuple{N}, b::FermionBasis{M}) where {T,N,M}
+    outinds = siteindices(labels, b) #::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
+    #_partialtrace(tensor(v,b), outinds)
+    mat = Matrix(tensor(v,b), outinds)
+    mat*mat'
 end
-function _partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
+function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
     ncinds::NTuple{N-NC,Int} = Tuple(setdiff(ntuple(identity,N),cinds))
-    tp = permutedims(t,(ncinds...,cinds...))
-    tpr = reshape(tp,prod(i->size(tp,i),ncinds, init=1),prod(i->size(tp,i),cinds,init=1))
-    tpr*tpr'
+    Matrix(t,ncinds,cinds)
+    mat*mat'
+end
+
+function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
+    rightindices::NTuple{N-NL,Int} = Tuple(setdiff(ntuple(identity,N), leftindices))
+    Matrix(t,leftindices,rightindices)
+end
+function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rightindices::NTuple{NR,Int}) where {N,NL,NR}
+    @assert NL+NR == N
+    tperm = permutedims(t,(leftindices...,rightindices...))
+    lsize = prod(i->size(tperm,i), leftindices, init=1)
+    rsize = prod(i->size(tperm,i), rightindices, init=1)
+    reshape(tperm, lsize, rsize)
 end
 
 function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple{N}, b::FermionBasis{M}) where {N,M}
     linds = siteindices(leftlabels, b)
-    rinds::NTuple{M-N,Int} = Tuple(setdiff(ntuple(identity,M),linds))
     t = tensor(v,b)
-    tp = permutedims(t,(linds..., rinds...))
-    tpr = reshape(tp,prod(i->size(tp,i),linds, init=1), prod(i->size(tp,i),rinds,init=1))
-    svd(tpr)
+    svd(Matrix(t,linds))
 end
