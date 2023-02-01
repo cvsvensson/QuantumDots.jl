@@ -20,8 +20,6 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     return t
 end
 
-#_fermionindex(labels::NTuple{N},b::FermionBasis{M}) where {N,M} = cinds::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
-
 function partialtrace(v::AbstractVector{T}, labels::NTuple{N}, b::FermionBasis{M}) where {T,N,M}
     cinds = siteindices(labels, b) #::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
     _partialtrace(tensor(v,b), cinds)
