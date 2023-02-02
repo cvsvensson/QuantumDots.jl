@@ -53,6 +53,20 @@ end
     @test Bspin[1,:↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
+
+    a = FermionBasis(1:3)
+    v = [QuantumDots.indtofock(i,a) for i in 1:8]
+    t1 = QuantumDots.tensor(v,a)
+    t2 = [i1 + 2i2 + 4i3 for i1 in (0,1), i2 in (0,1), i3 in (0,1)]
+    @test t1 == t2
+
+    a = FermionBasis(1:3; qn = QuantumDots.parity)
+    v = [QuantumDots.indtofock(i,a) for i in 1:8]
+    t1 = QuantumDots.tensor(v,a)
+    t2 = [i1 + 2i2 + 4i3 for i1 in (0,1), i2 in (0,1), i3 in (0,1)]
+    @test t1 == t2
+
+    @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.reduced_density_matrix(v,(1,),a))
 end
 
 @testset "Hamiltonian" begin
