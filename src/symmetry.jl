@@ -40,3 +40,12 @@ function blockdiagonal(::Type{T}, m::AbstractMatrix,sym::AbelianFockSymmetry) wh
     blockinds = values(sym.qntoinds)
     BlockDiagonal([T(m[block,block]) for block in blockinds])
 end
+
+focktoind(fs,b::FermionBasis) = focktoind(fs,b.symmetry)
+indtofock(ind,b::FermionBasis) = indtofock(ind,b.symmetry)
+
+focktoind(fs,sym::AbelianFockSymmetry) = sym.focktoind(fs)
+indtofock(fs,sym::AbelianFockSymmetry) = sym.indtofock(fs)
+
+focktoind(fs,::NoSymmetry) = fs + 1
+indtofock(ind,::NoSymmetry) = ind -1
