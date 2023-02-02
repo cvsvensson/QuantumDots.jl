@@ -7,7 +7,7 @@ _kitaev_2site(f1, f2; t, Δ, V) = -t * hopping(f1, f2) + 4V * coulomb(f1, f2) + 
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(basis::FermionBasis{N}; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0) where {N}
-    dbias = bias * range(-0.5, 0.5, length=N)
+    dbias = bias * collect(range(-0.5, 0.5, length=N))
     _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N), Δ=fill(Δ, N), V=fill(V, N), bias=dbias)
 end
 
@@ -17,7 +17,6 @@ function _kitaev_hamiltonian(c::FermionBasis{N}; μ, t, Δ, V, bias) where {N}
     hs = Iterators.flatten((h1s, h2s))
     sum(hs)
 end
-
 
 
 function _BD1_2site((c1up,c1dn),(c2up,c2dn); t, α, Δk, Δ1, V)
@@ -35,7 +34,7 @@ end
 function BD1_hamiltonian(c::FermionBasis{M}; μ, h, Δ1, t, α, Δ, U, V, θ=0.0, bias=0.0) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
-    dbias =  bias * range(-0.5, 0.5, length=N)
+    dbias =  bias * collect(range(-0.5, 0.5, length=N))
     αnew = cos(θ/2)*α + sin(θ/2)*t
     tnew = cos(θ/2)*t - sin(θ/2)*α
     Δk = Δ1*sin(θ/2)
@@ -49,7 +48,7 @@ end
 function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, α, Δ, U, V, θ=0.0, bias=0.0) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
-    dbias =  bias*range(-0.5, 0.5, length=N)
+    dbias =  bias* collect(range(-0.5, 0.5, length=N))
     αnew = cos(θ/2)*α + sin(θ/2)*t
     tnew = cos(θ/2)*t - sin(θ/2)*α
     Δk = Δ1*sin(θ/2)
