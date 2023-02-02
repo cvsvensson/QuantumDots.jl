@@ -14,6 +14,5 @@ include("lattice.jl")
 include("symbolic.jl")
 include("lindblad.jl")
 include("hamiltonians.jl")
-include("measurements.jl")
 
 end
