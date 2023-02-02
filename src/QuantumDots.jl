@@ -12,5 +12,7 @@ include("operators.jl")
 include("symmetry.jl")
 include("symbolic.jl")
 include("lindblad.jl")
+include("hamiltonians.jl")
+include("measurements.jl")
 
 end
