@@ -41,8 +41,8 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, Δ1, t, α, Δ, U, V, θ=0.0
     Δ1 = Δ1*cos(θ/2)
     t = tnew
     α = αnew
-    h1s = (_BD1_1site((c[j,:↑],c[j,:↓]); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site((c[j,:↑],c[j,:↓]),(c[j+1,:↑],c[j+1,:↓]);t,α,Δ1,Δk,V) for j in 1:N-1)
+    h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
+    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,α,Δ1,Δk,V) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end
 function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, α, Δ, U, V, θ=0.0, bias=0.0) where M
@@ -54,7 +54,7 @@ function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, α, Δ, U,
     Δ1 = Δ1*cos(θ/2)
     t = tnew
     α = αnew
-    h1s = (_BD1_1site((c[j,:↑],c[j,:↓]); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site((c[j,:↑],c[j,:↓]),(c[j+1,:↑],c[j+1,:↓]); t,α,Δ1,Δk,V) for j in 1:N-1)
+    h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
+    h2s = (_BD1_2site(cell(j,c), cell(j,c+1); t,α,Δ1,Δk,V) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end

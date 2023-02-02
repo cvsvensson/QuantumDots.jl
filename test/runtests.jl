@@ -53,6 +53,12 @@ end
     @test Bspin[1,:↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
+
+    (c,) = QuantumDots.cell(1,B)
+    @test c == B[1]
+    (c1,c2) = QuantumDots.cell(1,Bspin)
+    @test c1 == Bspin[1,:↑]
+    @test c2 == Bspin[1,:↓]
 end
 
 @testset "Hamiltonian" begin
