@@ -54,7 +54,13 @@ end
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
 
-    a = FermionBasis(1:3)
+    (c,) = QuantumDots.cell(1,B)
+    @test c == B[1]
+    (c1,c2) = QuantumDots.cell(1,Bspin)
+    @test c1 == Bspin[1,:↑]
+    @test c2 == Bspin[1,:↓]
+    
+        a = FermionBasis(1:3)
     v = [QuantumDots.indtofock(i,a) for i in 1:8]
     t1 = QuantumDots.tensor(v,a)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0,1), i2 in (0,1), i3 in (0,1)]
@@ -67,6 +73,33 @@ end
     @test t1 == t2
 
     @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.reduced_density_matrix(v,(1,),a))
+end
+
+@testset "Kitaev" begin
+    N = 4
+    c = FermionBasis(1:N)
+    ham = Matrix(QuantumDots.kitaev_hamiltonian(c; μ = 0, t = 1, Δ = 1))
+    vals, vecs = eigen(ham)
+    @test abs(vals[1] - vals[2]) < 1e-12
+    p = parityoperator(c)
+    v1,v2 = eachcol(vecs[:,1:2])
+    @test dot(v1,p,v1)*dot(v2,p,v2) ≈ -1
+    w = [dot(v1,f+f',v2) for f in c.dict]
+    z = [dot(v1,(f'-f),v2) for f in c.dict]
+    @test abs.(w.^2 - z.^2) ≈ [1,0,0,1]
+    
+    N = 4
+    c = FermionBasis(1:N; qn = QuantumDots.parity)
+    ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ = 0, t = 1, Δ = 1)), c)
+    vals, vecs = BlockDiagonals.eigen_blockwise(ham)
+    @test abs(vals[1] - vals[1+size(vecs.blocks[1],1)]) < 1e-12
+    p = parityoperator(c)
+    v1 = vecs[:,1]
+    v2 = vecs[:,1+size(vecs.blocks[1],1)]
+    @test dot(v1,p,v1)*dot(v2,p,v2) ≈ -1
+    w = [dot(v1,f+f',v2) for f in c.dict]
+    z = [dot(v1,(f'-f),v2) for f in c.dict]
+    @test abs.(w.^2 - z.^2) ≈ [1,0,0,1]
 end
 
 @testset "Hamiltonian" begin

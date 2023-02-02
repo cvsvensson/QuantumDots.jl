@@ -10,7 +10,9 @@ include("structs.jl")
 include("fock.jl")
 include("operators.jl")
 include("symmetry.jl")
+include("lattice.jl")
 include("symbolic.jl")
 include("lindblad.jl")
+include("hamiltonians.jl")
 
 end
