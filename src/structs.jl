@@ -21,6 +21,11 @@ struct FermionBasis{M,S,T,Sym} <: AbstractBasis
 end
 Base.getindex(b::FermionBasis,i) = b.dict[i]
 Base.getindex(b::FermionBasis,args...) = b.dict[args]
+Base.keys(b::FermionBasis) = keys(b.dict)
+
+Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io,b)
+Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
+
 
 symmetry(::NTuple{M},::NoSymmetry) where M = NoSymmetry()
 FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), symmetry(Tuple(Base.product(iters...)), qn))
