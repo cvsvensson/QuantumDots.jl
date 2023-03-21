@@ -23,6 +23,7 @@ end
 function reduced_density_matrix(v::AbstractVector{T}, labels::NTuple{N}, b::FermionBasis{M}) where {T,N,M}
     outinds = siteindices(labels, b) #::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
     #_partialtrace(tensor(v,b), outinds)
+    @assert all(==(1),diff([outinds...])) "Only local subsystems supported"
     mat = Matrix(tensor(v,b), outinds)
     mat*mat'
 end
