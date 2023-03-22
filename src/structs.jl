@@ -28,10 +28,7 @@ Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "Fer
 
 
 symmetry(::NTuple{M},::NoSymmetry) where M = NoSymmetry()
-function FermionBasis(iters...; qn = NoSymmetry()) 
-    labels = Tuple(permutedims(collect(Base.product(iters...))))
-    FermionBasis(Fermion.(labels), symmetry(labels, qn))
-end
+FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), symmetry(Tuple(Base.product(iters...)), qn))
 FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(iter)), symmetry(Tuple(iter),qn))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 

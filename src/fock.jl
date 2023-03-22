@@ -21,35 +21,9 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
 _bit(f,k) = Bool(sign(f & 2^(k-1)))
-function subjw(f,i,subinds)
-    (-1)^sum(k-> i<k ? _bit(f,k) : 0, subinds)
-end
-function subjw2(f,i,subinds)
-    bitmask = focknbr(subinds)
-    jwstring(i, bitmask & f)
-end
-phase_factor2(focknbr1,focknbr2,subinds) = (-1)^(sum(i-> _bit(focknbr2,i)*sum(k-> i<k ? _bit(focknbr1,k) + _bit(focknbr2,k) : 0, subinds),subinds))
 function phase_factor(focknbr1,focknbr2,subinds) 
     bitmask = focknbr(subinds)
     prod(i-> (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i),subinds)
-end
-# function phase_factor(focknbr1,focknbr2,subinds,N)
-#     v1 = bits(focknbr1,N)
-#     v2 = bits(focknbr2,N)
-#     (-1)^(sum(i->v1[i]*sum(k-> i<k ? v1[k]+v2[k] : 0, subinds),subinds))::Int
-# end
-# function _f2(f1,f2,subinds)
-#     bitmask = focknbr(subinds)
-#     # jwstring(f1 & bitmask)
-#     #prod(i->(jwstring(i, f1 & bitmask)*jwstring(i, f2 & bitmask))^sign(f1 & 2^(i-1)), subinds)
-# end
-
-function reduced_density_matrix2(v::AbstractVector{T}, labels::NTuple{N}, b::FermionBasis{M}) where {T,N,M}
-    outinds = siteindices(labels, b) #::NTuple{N,Int} = map(label->findfirst(l->label==l, keys(b.dict)), labels)
-    #_partialtrace(tensor(v,b), outinds)
-    @warn all(==(1),diff([outinds...])) "Only local subsystems supported"
-    mat = Matrix(tensor(v,b), outinds)
-    mat*mat'
 end
 function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
     ncinds::NTuple{N-NC,Int} = Tuple(setdiff(ntuple(identity,N),cinds))
