@@ -60,7 +60,7 @@ end
     @test c1 == Bspin[1,:↑]
     @test c2 == Bspin[1,:↓]
     
-        a = FermionBasis(1:3)
+    a = FermionBasis(1:3)
     v = [QuantumDots.indtofock(i,a) for i in 1:8]
     t1 = QuantumDots.tensor(v,a)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0,1), i2 in (0,1), i3 in (0,1)]
@@ -73,6 +73,28 @@ end
     @test t1 == t2
 
     @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.reduced_density_matrix(v,(1,),a))
+    
+    c = FermionBasis(1:2,(:a,:b))
+    ρ = Matrix(Hermitian(rand(2^4,2^4) .- .5))
+    ρ = ρ/tr(ρ)
+    function bilinears(c,labels)
+        ops = reduce(vcat,[[c[l], c[l]'] for l in labels])
+        return [op1*op2 for (op1,op2) in Base.product(ops,ops)]
+    end
+    function bilinear_equality(c,csub,ρ)
+        subsystem = Tuple(keys(csub))
+        ρsub = QuantumDots.reduced_density_matrix(ρ,subsystem,c)
+        @test tr(ρsub) ≈ 1
+        all((tr(op1*ρ) ≈ tr(op2*ρsub)) for (op1,op2) in zip(bilinears(c,subsystem), bilinears(csub,subsystem)))
+    end
+    function get_subsystems(c,N)
+        t = collect(Base.product(ntuple(i->keys(c),N)...))
+        (t[I] for I in CartesianIndices(t) if issorted(Tuple(I)) && allunique(Tuple(I)))
+    end
+    for N in 1:4
+        @test all(bilinear_equality(c,FermionBasis(subsystem),ρ) for subsystem in get_subsystems(c,N))
+    end
+    @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
 end
 
 @testset "Kitaev" begin
