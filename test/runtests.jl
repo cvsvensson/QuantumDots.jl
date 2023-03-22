@@ -75,6 +75,7 @@ end
     @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.reduced_density_matrix(v,(1,),a))
     
     c = FermionBasis(1:2,(:a,:b))
+    cparity = FermionBasis(1:2,(:a,:b); qn = QuantumDots.parity)
     ρ = Matrix(Hermitian(rand(2^4,2^4) .- .5))
     ρ = ρ/tr(ρ)
     function bilinears(c,labels)
@@ -83,7 +84,7 @@ end
     end
     function bilinear_equality(c,csub,ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = QuantumDots.reduced_density_matrix(ρ,subsystem,c)
+        ρsub = QuantumDots.reduced_density_matrix(ρ,csub,c)
         @test tr(ρsub) ≈ 1
         all((tr(op1*ρ) ≈ tr(op2*ρsub)) for (op1,op2) in zip(bilinears(c,subsystem), bilinears(csub,subsystem)))
     end
@@ -93,6 +94,9 @@ end
     end
     for N in 1:4
         @test all(bilinear_equality(c,FermionBasis(subsystem),ρ) for subsystem in get_subsystems(c,N))
+        @test all(bilinear_equality(c,FermionBasis(subsystem; qn = QuantumDots.parity),ρ) for subsystem in get_subsystems(c,N))
+        @test all(bilinear_equality(c,FermionBasis(subsystem; qn = QuantumDots.parity),ρ) for subsystem in get_subsystems(cparity,N))
+        @test all(bilinear_equality(c,FermionBasis(subsystem),ρ) for subsystem in get_subsystems(cparity,N))
     end
     @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
 end
