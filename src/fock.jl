@@ -30,8 +30,11 @@ function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
     Matrix(t,ncinds,cinds)
     mat*mat'
 end
-reduced_density_matrix(v::AbstractVector, labels, b::FermionBasis) = reduced_density_matrix(v*v',labels,b)
-function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}) where {N,T,M}
+
+reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasis) = reduced_density_matrix(v,Tuple(keys(bsub)),bfull, bsub.symmetry)
+
+reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v*v',args...)
+function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry = NoSymmetry()) where {N,T,M}
     outinds::NTuple{N,Int} = siteindices(labels, b)
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
     #ininds::NTuple{N,Int} = Tuple(setdiff(ntuple(identity,N),outinds))
@@ -47,7 +50,7 @@ function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::Ferm
         s1 = phase_factor(f1,f2,ntuple(identity,M))
         s2 = phase_factor(newfocknbr1,newfocknbr2, ntuple(identity,N))
         s = s2*s1
-        mout[focktoind(newfocknbr1, NoSymmetry()), focktoind(newfocknbr2, NoSymmetry())] += s*m[focktoind(f1,b),focktoind(f2,b)]#*s2
+        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s*m[focktoind(f1,b),focktoind(f2,b)]#*s2
     end
     return mout
 end
