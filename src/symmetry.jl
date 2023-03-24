@@ -15,13 +15,16 @@ function symmetry(fermionids::NTuple{M}, qn) where M
     oldindfromnew = vcat(qntooldinds...)
     blocksizes = map(length,qntooldinds)
     newindfromold = map(first,sort(collect(enumerate(oldindfromnew)),by=last))
-    indtofocklist = oldindfromnew .- 1
-    indtofock(ind) = indtofocklist[ind]
-    focktoind(f) = newindfromold[f+1]
+    indtofockdict = oldindfromnew .- 1
+    indtofock(ind) = indtofockdict[ind]
+    focktoinddict = Dictionary(0:(2^M - 1), newindfromold)
     qntoinds = map(oldinds->map(oldind->newindfromold[oldind],oldinds), qntooldinds)
     qntofockstates = map(oldinds-> oldinds .-1 , qntooldinds)
-    AbelianFockSymmetry(indtofock,focktoind,blocksizes,qntofockstates,qntoinds,qn)
+    AbelianFockSymmetry(indtofockdict,focktoinddict,blocksizes,qntofockstates,qntoinds,qn)
 end
+
+indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
+focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
 function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry)
     mat = spzeros(Int,totalsize,totalsize)
@@ -43,9 +46,6 @@ end
 
 focktoind(fs,b::FermionBasis) = focktoind(fs,b.symmetry)
 indtofock(ind,b::FermionBasis) = indtofock(ind,b.symmetry)
-
-focktoind(fs,sym::AbelianFockSymmetry) = sym.focktoind(fs)
-indtofock(fs,sym::AbelianFockSymmetry) = sym.indtofock(fs)
 
 focktoind(fs,::NoSymmetry) = fs + 1
 indtofock(ind,::NoSymmetry) = ind -1

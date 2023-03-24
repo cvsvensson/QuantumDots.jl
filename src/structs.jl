@@ -34,8 +34,8 @@ nbr_of_fermions(::FermionBasis{M}) where M = M
 
 
 struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
-    indtofock::IF
-    focktoind::FI
+    indtofockdict::IF
+    focktoinddict::FI
     qntoblocksizes::Dictionary{QN,Int}
     qntofockstates::Dictionary{QN,Vector{Int}}
     qntoinds::Dictionary{QN,Vector{Int}}
