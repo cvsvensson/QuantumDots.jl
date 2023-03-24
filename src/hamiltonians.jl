@@ -24,7 +24,7 @@ function _BD1_2site((c1up,c1dn),(c2up,c2dn); t, α, Δk, Δ1, V)
     -α/2 *(hopping(c1up,c2dn) - hopping(c1dn,c2up)) +
     V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)) +
     Δ1*(pairing(c1up,c2dn) - pairing(c1dn,c2up)) +
-    Δk*(pairing(c1dn,c2dn) - pairing(c1up,c2up))
+    Δk*(pairing(c1dn,c2dn) + pairing(c1up,c2up))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
