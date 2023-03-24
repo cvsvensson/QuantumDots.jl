@@ -41,6 +41,12 @@ end
         _, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
         @test sign == 0
     end
+
+    fs = QuantumDots.fockstates(10,5)
+    @test length(fs) == binomial(10,5)
+    @test allunique(fs)
+    @test all(QuantumDots.fermionnumber.(fs) .== 5)
+    
 end
 
 @testset "Basis" begin

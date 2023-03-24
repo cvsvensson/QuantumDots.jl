@@ -49,3 +49,21 @@ indtofock(ind,b::FermionBasis) = indtofock(ind,b.symmetry)
 
 focktoind(fs,::NoSymmetry) = fs + 1
 indtofock(ind,::NoSymmetry) = ind -1
+
+function nextfockstate_with_same_number(v)
+    #http://graphics.stanford.edu/~seander/bithacks.html#NextBitPermutation
+    t = (v | (v - 1)) + 1;  
+    t | (((div((t & -t), (v & -v))) >> 1) - 1)
+end
+function fockstates(M,n)
+    v::Int = focknbr(ntuple(i->true,n))
+    maxv = v*2^(M-n)
+    states = Vector{Int}(undef,binomial(M,n))
+    count = 1
+    while v <= maxv
+        states[count] = v
+        v = nextfockstate_with_same_number(v)
+        count+=1
+    end
+    states
+end
