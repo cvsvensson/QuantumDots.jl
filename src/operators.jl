@@ -47,8 +47,8 @@ end
 
 function _fill!(mat,op,sym::AbelianFockSymmetry)
     for ind in axes(mat,2)
-        newfockstate, amp = op(sym.indtofock(ind))
-        newind = sym.focktoind(newfockstate)
+        newfockstate, amp = op(indtofock(ind,sym))
+        newind = focktoind(newfockstate,sym)
         mat[newind,ind] += amp
     end
     return mat
