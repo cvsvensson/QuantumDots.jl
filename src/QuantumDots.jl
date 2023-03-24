@@ -6,6 +6,7 @@ using Symbolics: build_function, @variables
 using TruncatedStacktraces
 
 export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
+export qns,Z2,QArray, Z2Symmetry, QNIndex
 
 include("structs.jl")
 include("fock.jl")
@@ -16,5 +17,6 @@ include("symbolic.jl")
 include("lindblad.jl")
 include("hamiltonians.jl")
 include("truncate_stacktraces.jl")
+include("QArray.jl")
 
 end

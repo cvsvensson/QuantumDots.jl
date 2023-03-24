@@ -81,6 +81,42 @@ end
     @test sort(QuantumDots.svd(v,(1,),a).S .^2) ≈ eigvals(QuantumDots.reduced_density_matrix(v,(1,),a))
 end
 
+@testset "QN" begin
+    function testsym(sym)
+        qnsv = map(qn->(qn,), qns(sym))
+        blocksv = [rand(QuantumDots.blocksize(qn,sym)) .- 1/2 for qn in qns(sym)]
+        v = QArray(qnsv,blocksv,(sym,))
+        
+        qnmat = collect(Base.product(qns(sym),qns(sym)))
+        dind = diagind(qnmat)
+        qnsm = vec(qnmat)
+        blocksm = [rand(QuantumDots.blocksize(qn1,sym),QuantumDots.blocksize(qn2,sym)) .- 1/2 for (qn1,qn2) in qnsm]
+        m = QuantumDots.QArray(qnsm,blocksm, (sym,sym))
+        md = QuantumDots.QArray(qnsm[dind],blocksm[dind], (sym,sym))
+        
+        ma = Array(m);
+        va = Array(v);
+        mda = Array(md);
+
+        @test size(v) == size(va)
+        @test size(m) == size(ma)
+        @test Array(m*v) ≈ ma*va
+        @test Array(md*v) ≈ mda*va
+
+        @test v'*v ≈ va'*va
+        @test v'*(m*v) ≈ (v'*m)*v ≈ va'*ma*va
+
+        @test all([ind == QuantumDots.qnindtoind(QuantumDots.indtoqnind(ind,sym),sym) for ind in eachindex(va)])
+
+        # @time md*v
+        # @time mda*va
+    end
+    testsym(Z2Symmetry{1}())
+    testsym(Z2Symmetry{4}())
+    testsym(QuantumDots.U1Symmetry{1}())
+    testsym(QuantumDots.U1Symmetry{5}())
+end
+
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
