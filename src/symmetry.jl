@@ -9,6 +9,24 @@ blockinds(i::Integer,sizes) = sizestoinds(sizes)[i]
 
 sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)::Vector{UnitRange{Int}}
 
+struct QNIndex{T}
+    qn::T
+    ind::Int
+end
+struct Z2
+    val::Bool
+end
+struct Z2Symmetry{N} end
+qns(::Z2Symmetry) = (false, true)
+
+function paritysymmetry(fermionids::NTuple{M}) where M
+    indtofockdict = QuantumDots.Dictionary(1:2:2^4-1)
+    qnindextoind = Dictionary([])
+end
+focktoqnind(fs, sym::Z2Symmetry) = indtoqnind(fs+1, sym)
+qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry{N}) where N = qnind.ind + (qnind.qn.val ? 2^(N-1) : 0)
+indtoqnind(ind,::Z2Symmetry{N}) where N = ind < 2^(N-1) ? QNIndex(Z2(false),ind) : QNIndex(Z2(true), ind - 2^(N-1))
+
 function symmetry(fermionids::NTuple{M}, qn) where M
     qntooldinds = group(ind->qn(ind-1), 1:2^M)
     sortkeys!(qntooldinds)
