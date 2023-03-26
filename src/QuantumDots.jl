@@ -4,6 +4,7 @@ using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
 using Symbolics: build_function, @variables
 using TruncatedStacktraces
+using Tullio 
 
 export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
 export qns,Z2,QArray, Z2Symmetry, QNIndex
