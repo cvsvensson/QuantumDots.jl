@@ -20,20 +20,20 @@ end
 
 
 
-function _BD1_2site((c1up,c1dn),(c2up,c2dn); t,tϕ, Δϕ, Δasym, V, ϕ=0)
-    pf = exp(1im*ϕ)#isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
+function _BD1_2site((c1up,c1dn),(c2up,c2dn); t,tϕ, Δϕ, Δasym, V, pϕ=1)
+    #pf = exp(1im*ϕ)#isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
     t*(hopping(c1up,c2up) + hopping(c1dn,c2dn)) +
-    tϕ*(hopping(c1dn,c2up,pf) - hopping(c1up,c2dn,pf')) +
+    tϕ*(hopping(c1dn,c2up,pϕ) - hopping(c1up,c2dn,pϕ')) +
     V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)) +
     Δasym*(pairing(c1up,c2dn) - pairing(c1dn,c2up)) +
-    Δϕ*(pairing(c1up,c2up,pf) + pairing(c1dn,c2dn,pf'))
+    Δϕ*(pairing(c1up,c2up,pϕ) + pairing(c1dn,c2dn,pϕ'))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
     Δ*pairing(cup,cdn) + U*numberop(cup)*numberop(cdn)
 end
 
-function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, θ=0.0, ϕ = 0.0, bias=0.0) where M
+function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, θ=0.0, pϕ = 1, bias=0.0) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     dbias =  bias * collect(range(-0.5, 0.5, length=N))
@@ -45,10 +45,10 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, θ=0.0, ϕ 
     tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
 
     h1s = (_BD1_1site(cell(j,c); μ = μ + dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,ϕ) for j in 1:N-1)
+    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,pϕ) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end
-function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, ϕ, Δ, U, V, θ=0.0, bias=0.0) where M
+function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, pϕ, Δ, U, V, θ=0.0, bias=0.0) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     dbias =  bias* collect(range(-0.5, 0.5, length=N))
@@ -60,6 +60,6 @@ function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, ϕ, Δ, U,
     tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
 
     h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,ϕ) for j in 1:N-1)
+    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,pϕ) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end

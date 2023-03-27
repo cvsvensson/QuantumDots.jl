@@ -232,6 +232,17 @@ end
     @test bdham ≈ numberbdham(params...)
     @test bdham ≈ hamiltonian(params[1:end-1]...,0.0)
 
+    b = FermionBasis(1:2,(:a,:b); qn = QuantumDots.parity)
+    params = rand(10)
+    ham = (t, Δ, V, θ,pϕ, h, U, Δ1, μs...) -> Matrix(QuantumDots.BD1_hamiltonian_disorder(b; μs, t, Δ, V, θ,pϕ, h, U, Δ1, bias=0))
+    hammat = ham(params...)
+    fastgen! = QuantumDots.fastgenerator(ham, 10)
+    hammat2 = ham(rand(10)...)
+    fastgen!(hammat2,params...) 
+    @test hammat2 ≈ hammat
+
+    bdham = (t, Δ, V, θ,pϕ, h, U, Δ1, μs...) -> QuantumDots.blockdiagonal(Matrix(QuantumDots.BD1_hamiltonian_disorder(b; μs, t, Δ, V, θ,pϕ, h, U, Δ1, bias=0)), b)
+    @test sort!(eigvals(bdham(params...))) ≈ sort!(eigvals(hammat))
 end
 
 @testset "transport" begin
