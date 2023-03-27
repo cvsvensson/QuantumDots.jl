@@ -60,6 +60,6 @@ function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, ϕ, Δ, U,
     tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
 
     h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,α,Δasym,Δϕ,V,ϕ) for j in 1:N-1)    sum(Iterators.flatten((h1s,h2s)))
+    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,α,Δasym,Δϕ,V,ϕ) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end
