@@ -1,5 +1,5 @@
-hopping(f1, f2) = f1'f2 + f2'f1
-pairing(f1, f2) = f1'f2' + f2 * f1
+hopping(f1, f2, pf=1) = pf*f1'f2 + pf'*f2'f1
+pairing(f1, f2, pf=1) = pf*f1'f2' + pf'*f2 * f1
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
 
@@ -23,10 +23,10 @@ end
 function _BD1_2site((c1up,c1dn),(c2up,c2dn); t,tϕ, Δϕ, Δasym, V, ϕ=0)
     pf = exp(1im*ϕ)#isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
     t*(hopping(c1up,c2up) + hopping(c1dn,c2dn)) +
-    tϕ*(pf*hopping(c1dn,c2up) - pf^-1*hopping(c1up,c2dn)) +
+    tϕ*(hopping(c1dn,c2up,pf) - hopping(c1up,c2dn,pf')) +
     V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)) +
     Δasym*(pairing(c1up,c2dn) - pairing(c1dn,c2up)) +
-    Δϕ*(pairing(c1up,c2up)*pf + pf^-1*pairing(c1dn,c2dn))
+    Δϕ*(pairing(c1up,c2up,pf) + pairing(c1dn,c2dn,pf'))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
