@@ -21,7 +21,7 @@ end
 
 
 function _BD1_2site((c1up,c1dn),(c2up,c2dn); t,tϕ, Δϕ, Δasym, V, ϕ=0)
-    pf = isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
+    pf = exp(1im*ϕ)#isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
     t*(hopping(c1up,c2up) + hopping(c1dn,c2dn)) +
     tϕ*(pf*hopping(c1dn,c2up) - pf^-1*hopping(c1up,c2dn)) +
     V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)) +
