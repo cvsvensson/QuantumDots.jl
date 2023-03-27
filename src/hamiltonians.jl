@@ -48,7 +48,7 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, θ=0.0, ϕ 
     h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,α,Δasym,Δϕ,V,ϕ) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end
-function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, α, Δ, U, V, θ=0.0, bias=0.0) where M
+function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, ϕ, Δ, U, V, θ=0.0, bias=0.0) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     dbias =  bias* collect(range(-0.5, 0.5, length=N))
