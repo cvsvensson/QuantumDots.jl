@@ -1,5 +1,5 @@
 hopping(f1, f2, pf=1) = pf*f1'f2 + pf'*f2'f1
-pairing(f1, f2, pf=1) = pf*f1'f2' + pf'*f2 * f1
+pairing(f1, f2, pf=1) = pf*f2 * f1 + pf'*f1'f2'
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
 
