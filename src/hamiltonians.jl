@@ -1,7 +1,34 @@
-hopping(f1, f2, pf=1) = pf*f1'f2 + pf'*f2'f1
-pairing(f1, f2, pf=1) = pf*f2 * f1 + pf'*f1'f2'
+struct HC end
+Base.:+(m,::HC) = m+m'
+const hc = HC()
+
+hopping(t, f1, f2) = pf*f1'f2 + hc
+pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
+
+#@register_symbolic cos(x)
+#@register_symbolic sin(x)
+
+su2_rotation(θ,ϕ) = [cos(θ/2) -sin(θ/2)exp(-1im*ϕ); sin(θ/2)exp(1im*ϕ) cos(θ/2)]
+#Ω((θ1,ϕ1),(θ2,ϕ2)) = su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
+
+
+function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), (θ1,ϕ1),(θ2,ϕ2))
+    Ω = t*su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
+    # d = [1 + 1im,2]
+    (c1up'*Ω[1,1]*c2up + c1dn'*Ω[2,1]*c2up + c1up'*Ω[1,2]*c2dn + c1dn'*Ω[2,2]*c2dn) + hc
+    # return t * 1im * c1up
+    # [c1up' c1dn']* Ω * [c2up, c2dn] + hc
+end
+
+function pairing_rotated(Δ,(c1up,c1dn),(c2up,c2dn), (θ1,ϕ1),(θ2,ϕ2))
+    Ω = Δ*transpose(su2_rotation(θ1,ϕ1))*[0 1; -1 0]*su2_rotation(θ2,ϕ2)
+    (c1up*Ω[1,1]*c2up + c1dn*Ω[2,1]*c2up + c1up*Ω[1,2]*c2dn + c1dn*Ω[2,2]*c2dn) + hc
+    # return c1up'*c2up
+    # [c1up c1dn]* Ω * [c2up, c2dn] + hc 
+end
+
 
 _kitaev_2site(f1, f2; t, Δ, V) = -t * hopping(f1, f2) + 4V * coulomb(f1, f2) + Δ * pairing(f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
@@ -20,46 +47,54 @@ end
 
 
 
-function _BD1_2site((c1up,c1dn),(c2up,c2dn); t,tϕ, Δϕ, Δasym, V, pϕ=1)
+function _BD1_2site((c1up,c1dn),(c2up,c2dn); t, Δ1, V, θ1,ϕ1,θ2,ϕ2)
     #pf = exp(1im*ϕ)#isreal(exp(1im*ϕ)) ? real(exp(1im*ϕ)) : exp(1im*ϕ)  
-    t*(hopping(c1up,c2up) + hopping(c1dn,c2dn)) +
-    tϕ*(hopping(c1dn,c2up,pϕ) - hopping(c1up,c2dn,pϕ')) +
-    V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)) +
-    Δasym*(pairing(c1up,c2dn) - pairing(c1dn,c2up)) +
-    Δϕ*(pairing(c1up,c2up,pϕ) + pairing(c1dn,c2dn,pϕ'))
+    # t*(hopping(c1up,c2up) + hopping(c1dn,c2dn)) +
+    # tϕ*(hopping(c1dn,c2up,pϕ) - hopping(c1up,c2dn,pϕ')) +
+    hopping_rotated(t,(c1up,c1dn),(c2up,c2dn),(θ1,ϕ1),(θ2,ϕ2)) +
+    pairing_rotated(Δ1,(c1up,c1dn),(c2up,c2dn),(θ1,ϕ1),(θ2,ϕ2)) +
+    V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn))
+    # Δasym*(pairing(c1up,c2dn) - pairing(c1dn,c2up)) +
+    # Δϕ*(pairing(c1up,c2up,pϕ) + pairing(c1dn,c2dn,pϕ'))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
-    Δ*pairing(cup,cdn) + U*numberop(cup)*numberop(cdn)
+    pairing(Δ, cup,cdn) + U*numberop(cup)*numberop(cdn)
 end
 
-function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, θ=0.0, pϕ = 1, bias=0.0) where M
+
+tuplify(μ::Number,N) = fill(μ,N)
+tuplify(μ::NTuple{M},N) where M = (@assert M==N; μ)
+function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, dθ, dϕ) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
-    dbias =  bias * collect(range(-0.5, 0.5, length=N))
-
-    Δasym = Δ1*cos(θ/2) # updn - dnup
-    Δϕ = Δ1*sin(θ/2) # upup*exp(iϕ) + exp(-iϕ)*dndn
-    
-    t = t*cos(θ/2) # dndn + upup
-    tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
-
-    h1s = (_BD1_1site(cell(j,c); μ = μ + dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,pϕ) for j in 1:N-1)
-    sum(Iterators.flatten((h1s,h2s)))
+    #dbias =  bias * collect(range(-0.5, 0.5, length=N))
+    θ = fill(dθ,N) .* (1:N .- 1)
+    ϕ = fill(dϕ,N) .* (1:N .- 1)
+    _BD1_hamiltonian(c::FermionBasis{M}; μ = tuplify(μ,N), h = tuplify(h,N), t = tuplify(t,N), Δ = tuplify(Δ,N),Δ1 = tuplify(Δ1,N), U = tuplify(U,N), V = tuplify(V,N), θ, ϕ)
 end
-function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, pϕ, Δ, U, V, θ=0.0, bias=0.0) where M
+
+function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θ::Vector, ϕ::Vector) where {M}
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    @assert length(μ) == div(M,2)
     N = div(M,2)
-    dbias =  bias* collect(range(-0.5, 0.5, length=N))
-
-    Δasym = Δ1*cos(θ/2) # updn - dnup
-    Δϕ = Δ1*sin(θ/2) # upup*exp(iϕ) + exp(-iϕ)*dndn
-    
-    t = t*cos(θ/2) # dndn + upup
-    tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
-
-    h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
-    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,pϕ) for j in 1:N-1)
+    h1s = (_BD1_1site(cell(j,c); μ = μ[j], h = h[j], Δ = Δ[j], U = U[j]) for j in 1:N)
+    h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t = t[j] ,Δ1 = Δ1[j],V = V[j],θ1=θ[j],ϕ1=ϕ[j],θ2=θ[j+1],ϕ2=ϕ[j+1]) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
 end
+
+# function BD1_hamiltonian_disorder(c::FermionBasis{M}; μs, h, Δ1, t, pϕ, Δ, U, V, θ=0.0, bias=0.0) where M
+#     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+#     N = div(M,2)
+#     dbias =  bias* collect(range(-0.5, 0.5, length=N))
+
+#     Δasym = Δ1*cos(θ/2) # updn - dnup
+#     Δϕ = Δ1*sin(θ/2) # upup*exp(iϕ) + exp(-iϕ)*dndn
+    
+#     t = t*cos(θ/2) # dndn + upup
+#     tϕ = t*sin(θ/2) #dnup*exp(iϕ) - exp(-iϕ)*updn
+
+#     h1s = (_BD1_1site(cell(j,c); μ = μs[j]+dbias[j],h,Δ,U) for j in 1:N)
+#     h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t,tϕ,Δasym,Δϕ,V,pϕ) for j in 1:N-1)
+#     sum(Iterators.flatten((h1s,h2s)))
+# end
