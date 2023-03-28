@@ -2,7 +2,7 @@ struct HC end
 Base.:+(m,::HC) = m+m'
 const hc = HC()
 
-hopping(t, f1, f2) = pf*f1'f2 + hc
+hopping(t, f1, f2) = t*f1'f2 + hc
 pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
@@ -23,7 +23,7 @@ function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), (θ1,ϕ1),(θ2,ϕ2))
 end
 
 function pairing_rotated(Δ,(c1up,c1dn),(c2up,c2dn), (θ1,ϕ1),(θ2,ϕ2))
-    Ω = Δ*transpose(su2_rotation(θ1,ϕ1))*[0 1; -1 0]*su2_rotation(θ2,ϕ2)
+    Ω = Δ*transpose(su2_rotation(θ1,ϕ1))*[0 -1; 1 0]*su2_rotation(θ2,ϕ2)
     (c1up*Ω[1,1]*c2up + c1dn*Ω[2,1]*c2up + c1up*Ω[1,2]*c2dn + c1dn*Ω[2,2]*c2dn) + hc
     # return c1up'*c2up
     # [c1up c1dn]* Ω * [c2up, c2dn] + hc 
@@ -69,8 +69,8 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, dθ, dϕ) w
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     #dbias =  bias * collect(range(-0.5, 0.5, length=N))
-    θ = fill(dθ,N) .* (1:N .- 1)
-    ϕ = fill(dϕ,N) .* (1:N .- 1)
+    θ = fill(dθ,N) .* ((1:N) .- 1)
+    ϕ = fill(dϕ,N) .* ((1:N) .- 1)
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θ, ϕ)
 end
 
