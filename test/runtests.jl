@@ -252,9 +252,11 @@ end
 end
 
 @testset "rotations" begin
-    b = FermionBasis(1:2,(:↑,:↓))
+    N=2
+    b = FermionBasis(1:N,(:↑,:↓))
     standard_hopping = QuantumDots.hopping(1,b[1,:↑],b[2,:↑]) +  QuantumDots.hopping(1,b[1,:↓],b[2,:↓])
     standard_pairing = QuantumDots.pairing(1,b[1,:↑],b[2,:↓]) - QuantumDots.pairing(1,b[1,:↓],b[2,:↑])
+    local_pairing = sum(QuantumDots.pairing(1,QuantumDots.cell(j,b)...) for j in 1:N)
     θ = rand()
     ϕ = rand()
     @test QuantumDots.hopping_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(0,0)) ≈ standard_hopping
@@ -267,6 +269,13 @@ end
 
     Δk = QuantumDots.pairing(exp(1im*ϕ),b[1,:↑],b[2,:↑]) + QuantumDots.pairing(exp(-1im*ϕ),b[1,:↓],b[2,:↓])
     @test QuantumDots.pairing_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(θ,ϕ)) ≈ standard_pairing*cos(θ/2) + sin(θ/2)*Δk
+
+    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 0)
+    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 1)
+    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 1,Δ1 = 0) ≈ local_pairing
+    
+    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 0,Δ1 = 0) ≈ -QuantumDots.numberoperator(b)
+
 
 
     #Ω = t*su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)

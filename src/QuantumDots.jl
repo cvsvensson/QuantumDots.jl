@@ -2,7 +2,7 @@ module QuantumDots
 using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
-using Symbolics: build_function, @variables
+using Symbolics: build_function, @variables, Num
 using TruncatedStacktraces
 
 export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
