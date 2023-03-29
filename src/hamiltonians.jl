@@ -65,13 +65,18 @@ end
 
 _tovec(μ::Number,N) = fill(μ,N)
 _tovec(μ::Vector,N) = (@assert length(μ)==N; μ)
-function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, dθ, dϕ) where M
+function BD1_hamiltonian_diff(c::FermionBasis{M}; μ, h, t, Δ,Δ1, U, V, dθ, dϕ) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     #dbias =  bias * collect(range(-0.5, 0.5, length=N))
     θ = fill(dθ,N) .* ((1:N) .- 1)
     ϕ = fill(dϕ,N) .* ((1:N) .- 1)
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θ, ϕ)
+end
+function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) where M
+    @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    N = div(M,2)
+    _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θ=_tovec(θ,N),ϕ=_tovec(ϕ,N))
 end
 
 function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θ::Vector, ϕ::Vector) where {M}

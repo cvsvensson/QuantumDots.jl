@@ -270,12 +270,13 @@ end
     Δk = QuantumDots.pairing(exp(1im*ϕ),b[1,:↑],b[2,:↑]) + QuantumDots.pairing(exp(-1im*ϕ),b[1,:↓],b[2,:↓])
     @test QuantumDots.pairing_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(θ,ϕ)) ≈ standard_pairing*cos(θ/2) + sin(θ/2)*Δk
 
-    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 0)
-    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 1)
-    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 1,Δ1 = 0) ≈ local_pairing
+    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian_diff(b; t=1,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 0)
+    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian_diff(b; t=0,μ=0,V=0,U=0,h=0,dθ=0,dϕ=0,Δ = 0,Δ1 = 1)
+    @test QuantumDots.BD1_hamiltonian_diff(b; t=0,μ=0,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 1,Δ1 = 0) ≈ local_pairing
     
-    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 0,Δ1 = 0) ≈ -QuantumDots.numberoperator(b)
+    @test QuantumDots.BD1_hamiltonian_diff(b; t=0,μ=1,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 0,Δ1 = 0) ≈ -QuantumDots.numberoperator(b)
 
+    @test QuantumDots.BD1_hamiltonian_diff(b; t=0,μ=1,V=0,U=0,h=0,dθ=θ,dϕ=ϕ,Δ = 0,Δ1 = 0) == QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=θ.*[0,1],ϕ=ϕ.*[0,1],Δ = 0,Δ1 = 0)
 
 
     #Ω = t*su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
