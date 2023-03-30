@@ -7,22 +7,17 @@ pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
 
-#@register_symbolic cos(x)
-#@register_symbolic sin(x)
-
 su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
 su2_rotation((θ,ϕ)) = @SMatrix [cos(θ/2) -sin(θ/2)exp(-1im*ϕ); sin(θ/2)exp(1im*ϕ) cos(θ/2)]
-#Ω((θ1,ϕ1),(θ2,ϕ2)) = su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
-
 
 function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), angles1, angles2)
-    Ω = t*su2_rotation(angles1)'*su2_rotation(angles2)
-    (c1up'*Ω[1,1]*c2up + c1dn'*Ω[2,1]*c2up + c1up'*Ω[1,2]*c2dn + c1dn'*Ω[2,2]*c2dn) + hc
+    Ω = su2_rotation(angles1)'*su2_rotation(angles2)
+    t*(Ω[1,1]*c1up'*c2up + Ω[2,1]*c1dn'*c2up + Ω[1,2]*c1up'*c2dn + Ω[2,2]*c1dn'*c2dn) + hc
 end
 
 function pairing_rotated(Δ,(c1up,c1dn),(c2up,c2dn),  angles1, angles2)
-    Ω = Δ*transpose(su2_rotation(angles1))*[0 -1; 1 0]*su2_rotation(angles2)
-    (c1up*Ω[1,1]*c2up + c1dn*Ω[2,1]*c2up + c1up*Ω[1,2]*c2dn + c1dn*Ω[2,2]*c2dn) + hc
+    Ω = transpose(su2_rotation(angles1))*[0 -1; 1 0]*su2_rotation(angles2)
+    Δ*(Ω[1,1]*c1up*c2up + Ω[2,1]*c1dn*c2up + Ω[1,2]*c1up*c2dn + Ω[2,2]*c1dn*c2dn) + hc
 end
 
 _kitaev_2site(f1, f2; t, Δ, V) = -t * hopping(f1, f2) + 4V * coulomb(f1, f2) + Δ * pairing(f1, f2)
@@ -45,7 +40,7 @@ end
 function _BD1_2site((c1up,c1dn),(c2up,c2dn); t, Δ1, V, θϕ1,θϕ2)
     hopping_rotated(t,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2) +
     pairing_rotated(Δ1,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2) +
-    V* (numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn))
+    V* ((numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +

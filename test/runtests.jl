@@ -280,7 +280,6 @@ end
     @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) == QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=θ.*[0,1],ϕ=ϕ.*[0,1],Δ = 0,Δ1 = 0)
 
     @test QuantumDots.BD1_hamiltonian(b; t=1,μ=1,V=1,U=1,h=1,θ=(θ,:diff),ϕ=(0,:diff),Δ = 1,Δ1 = 1)  ≈ QuantumDots.real_BD1_hamiltonian(b; t=1,μ=1,V=1,U=1,h=1,dθ= θ, Δ = 1,Δ1 = 1) 
-    #Ω = t*su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
 end
 
 @testset "transport" begin
