@@ -54,8 +54,7 @@ end
 
 _tovec(μ::Number,N) = fill(μ,N)
 _tovec(μ::Vector,N) = (@assert length(μ)==N; μ)
-_tovec((x::Number,diff),N) = _tovec(x,N) .* (diff==:diff ? (0:N-1) : 1)
-_tovec((x::Vector,diff),N) =  diff==:diff ? [0, _tovec(x,N-1)...] : _tovec(x,N)
+_tovec((x,diff),N) = _tovec(x,N) .* (diff==:diff ? (0:N-1) : 1)
 function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
