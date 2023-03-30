@@ -233,21 +233,22 @@ end
     @test bdham ≈ hamiltonian(params[1:end-1]...,0.0)
 
     b = FermionBasis(1:2,(:a,:b); qn = QuantumDots.parity)
-    params = rand(9)
-    ham = (t, Δ, V, dθ,dϕ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, dθ, dϕ, h, U, Δ1))
+    nparams = 8
+    params = rand(nparams)
+    ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.real_BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1))
     hammat = ham(params...)
-    fastgen! = QuantumDots.fastgenerator(ham, 9)
-    hammat2 = ham(rand(Float64,9)...)
+    fastgen! = QuantumDots.fastgenerator(ham, nparams)
+    hammat2 = ham(rand(Float64,nparams)...)
     fastgen!(hammat2,params...) 
-    @test_broken hammat2 ≈ hammat
+    @test hammat2 ≈ hammat
 
     hambd(p...) = QuantumDots.blockdiagonal(ham(p...),b)
     @test sort!(abs.(eigvals(hambd(params...)))) ≈ sort!(abs.(eigvals(hammat)))
 
-    fastgen! = QuantumDots.fastblockdiagonal(hambd, 9)
-    bdhammat2 = hambd(rand(9)...)
+    fastgen! = QuantumDots.fastblockdiagonal(hambd, nparams)
+    bdhammat2 = hambd(rand(nparams)...)
     fastgen!(bdhammat2,params...) 
-    @test_broken hambd(params...) ≈ bdhammat2
+    @test hambd(params...) ≈ bdhammat2
 
 end
 
@@ -278,7 +279,7 @@ end
 
     @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) == QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=θ.*[0,1],ϕ=ϕ.*[0,1],Δ = 0,Δ1 = 0)
 
-
+    @test QuantumDots.BD1_hamiltonian(b; t=1,μ=1,V=1,U=1,h=1,θ=(θ,:diff),ϕ=(0,:diff),Δ = 1,Δ1 = 1)  ≈ QuantumDots.real_BD1_hamiltonian(b; t=1,μ=1,V=1,U=1,h=1,θ=(θ,:diff),Δ = 1,Δ1 = 1) 
     #Ω = t*su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
 end
 
