@@ -10,8 +10,8 @@ coulomb(f1, f2) = numberop(f1) * numberop(f2)
 #@register_symbolic cos(x)
 #@register_symbolic sin(x)
 
-su2_rotation(θ::Number) = [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
-su2_rotation((θ,ϕ)) = [cos(θ/2) -sin(θ/2)exp(-1im*ϕ); sin(θ/2)exp(1im*ϕ) cos(θ/2)]
+su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
+su2_rotation((θ,ϕ)) = @SMatrix [cos(θ/2) -sin(θ/2)exp(-1im*ϕ); sin(θ/2)exp(1im*ϕ) cos(θ/2)]
 #Ω((θ1,ϕ1),(θ2,ϕ2)) = su2_rotation(θ1,ϕ1)'*su2_rotation(θ2,ϕ2)
 
 
@@ -61,10 +61,10 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) wh
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
-function real_BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ) where M
+function real_BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, dθ) where M
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
-    _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ=_tovec(θ,N))
+    _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ=_tovec((dθ,:diff),N) .* (0:N-1))
 end
 
 function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector) where {M}
