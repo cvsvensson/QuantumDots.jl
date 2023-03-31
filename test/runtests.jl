@@ -235,7 +235,7 @@ end
     b = FermionBasis(1:2,(:a,:b); qn = QuantumDots.parity)
     nparams = 8
     params = rand(nparams)
-    ham = (t, Δ, V, dθ, h, U, Δ1, μ) -> Matrix(QuantumDots.real_BD1_hamiltonian(b; μ, t, Δ, V, dθ, h, U, Δ1))
+    ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1,ϕ = 0))
     hammat = ham(params...)
     fastgen! = QuantumDots.fastgenerator(ham, nparams)
     hammat2 = ham(rand(Float64,nparams)...)
