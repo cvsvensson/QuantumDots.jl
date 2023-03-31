@@ -7,8 +7,11 @@ pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
 
-su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
-su2_rotation((θ,ϕ)) = @SMatrix [cos(θ/2) -sin(θ/2)exp(-1im*ϕ); sin(θ/2)exp(1im*ϕ) cos(θ/2)]
+# su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
+function su2_rotation((θ,ϕ))
+    pf = mod(ϕ,π) == 0 ? real(exp(1im*ϕ)) : exp(1im*ϕ)
+    @SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
+end
 
 function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), angles1, angles2)
     Ω = su2_rotation(angles1)'*su2_rotation(angles2)
@@ -56,11 +59,11 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) wh
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
-function real_BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, dθ) where M
-    @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
-    N = div(M,2)
-    _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ=_tovec((dθ,:diff),N))
-end
+# function real_BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, dθ) where M
+#     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+#     N = div(M,2)
+#     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ=_tovec((dθ,:diff),N))
+# end
 
 function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector) where {M}
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
