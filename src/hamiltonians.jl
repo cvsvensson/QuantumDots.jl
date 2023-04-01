@@ -23,7 +23,7 @@ function pairing_rotated(Δ,(c1up,c1dn),(c2up,c2dn),  angles1, angles2)
     Δ*(Ω[1,1]*c1up*c2up + Ω[2,1]*c1dn*c2up + Ω[1,2]*c1up*c2dn + Ω[2,2]*c1dn*c2dn) + hc
 end
 
-_kitaev_2site(f1, f2; t, Δ, V) = -t * hopping(f1, f2) + 4V * coulomb(f1, f2) + Δ * pairing(f1, f2)
+_kitaev_2site(f1, f2; t, Δ, V) = hopping(-t,f1, f2) + 4V * coulomb(f1, f2) + pairing(Δ,f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(basis::FermionBasis{N}; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0) where {N}
