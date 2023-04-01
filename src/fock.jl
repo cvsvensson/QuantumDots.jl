@@ -54,10 +54,13 @@ reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasi
 
 reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v*v',args...)
 function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry = NoSymmetry()) where {N,T,M}
+    mout = zeros(T,2^N,2^N)
+    reduced_density_matrix!(mout,m,labels,b,sym)
+end
+function reduced_density_matrix!(mout,m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry = NoSymmetry()) where {N,T,M}
     outinds::NTuple{N,Int} = siteindices(labels, b)
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
     #ininds::NTuple{N,Int} = Tuple(setdiff(ntuple(identity,N),outinds))
-    mout = zeros(T,2^N,2^N)
     bitmask = 2^M - 1 - focknbr(outinds)
     outbits(f) = map(i->_bit(f,i),outinds)
     # newfocknbr(f) = mapreduce(i->_bit(f,i),enumerate(outinds))
