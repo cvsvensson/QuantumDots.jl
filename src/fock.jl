@@ -1,8 +1,8 @@
 focknbr(bits::Union{BitVector,Vector{Bool},NTuple{<:Any,Bool}}) = mapreduce(nb -> nb[2] * 2^(nb[1]-1),+, enumerate(bits))
 focknbr(site::Integer) = 2^(site-1)
 focknbr(sites::Vector{<:Integer}) = mapreduce(focknbr,+, sites)
-focknbr(sites::NTuple{N,<:Integer}) where N = mapreduce(site -> 2^(site-1),+, sites)
-focknbr(sites::Vector{<:Integer},cell_length, species_index=1) = mapreduce(site->2^(digitposition(site,cell_length,species_index)-1),+, sites)
+focknbr(sites::NTuple{N,<:Integer}) where N = mapreduce(site -> 1 << (site-1),+, sites)
+focknbr(sites::Vector{<:Integer},cell_length, species_index=1) = mapreduce(site-> 1 << (digitposition(site,cell_length,species_index)-1),+, sites)
 bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 parity(fs::Int) = (-1)^count_ones(fs)
 fermionnumber(fs::Int) = count_ones(fs)
@@ -20,11 +20,23 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     return t
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
-_bit(f,k) = Bool(sign(f & 2^(k-1)))
-function phase_factor(focknbr1,focknbr2,subinds) 
+# _bit(f,k) = Bool(sign(f & 2^(k-1)))
+_bit(f,k) = (f >> k) & 1
+function phase_factor(focknbr1,focknbr2,subinds::NTuple) 
     bitmask = focknbr(subinds)
     prod(i-> (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i),subinds)
 end
+function phase_factor(focknbr1,focknbr2,::Val{N}) where N
+    prod(ntuple(i-> (jwstring(i, focknbr1)*jwstring(i, focknbr2))^_bit(focknbr2,i),N))
+end
+# function phase_factor(focknbr1,focknbr2,subinds) 
+#     bitmask = focknbr(subinds)
+#     prod(i-> phase_factor(focknbr1,focknbr2,i,bitmask) ,subinds)
+# end
+# function phase_factor(focknbr1,focknbr2,i,bitmask) 
+#     (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i)
+# end
+
 function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
     ncinds::NTuple{N-NC,Int} = Tuple(setdiff(ntuple(identity,N),cinds))
     Matrix(t,ncinds,cinds)
@@ -41,14 +53,17 @@ function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::Ferm
     mout = zeros(T,2^(N),2^(N))
     bitmask = 2^M - 1 - focknbr(outinds)
     outbits(f) = map(i->_bit(f,i),outinds)
-    for f1 in 0:2^M-1, f2 in 0:2^M-1
+    # for f1 in 0:2^M-1, f2 in 0:2^M-1
+    for f1 in UnitRange{UInt64}(0,2^M-1), f2 in UnitRange{UInt64}(0,2^M-1)
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
         newfocknbr1 = focknbr(outbits(f1))
         newfocknbr2 = focknbr(outbits(f2))
-        s1 = phase_factor(f1,f2,ntuple(identity,M))
-        s2 = phase_factor(newfocknbr1,newfocknbr2, ntuple(identity,N))
+        # s1 = phase_factor(f1,f2,ntuple(identity,M))
+        # s2 = phase_factor(newfocknbr1,newfocknbr2, ntuple(identity,N))
+        s1 = phase_factor(f1,f2,Val(M))
+        s2 = phase_factor(newfocknbr1,newfocknbr2, Val(N))
         s = s2*s1
         mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s*m[focktoind(f1,b),focktoind(f2,b)]#*s2
     end

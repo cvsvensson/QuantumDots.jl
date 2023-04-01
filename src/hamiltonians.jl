@@ -41,13 +41,14 @@ end
 
 
 function _BD1_2site((c1up,c1dn),(c2up,c2dn); t, Δ1, V, θϕ1,θϕ2)
-    hopping_rotated(t,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2) +
-    pairing_rotated(Δ1,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2) +
-    V* ((numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)))
+    ms = @SVector [hopping_rotated(t,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2),
+    pairing_rotated(Δ1,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2),
+    iszero(V) ? missing : V*((numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)))]
+    sum(skipmissing(ms))
 end
 function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
-    pairing(Δ, cup,cdn) + U*numberop(cup)*numberop(cdn)
+    pairing(Δ, cup,cdn) + U*(numberop(cup)*numberop(cdn))
 end
 
 _tovec(μ::Number,N) = fill(μ,N)
