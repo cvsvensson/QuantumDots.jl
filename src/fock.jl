@@ -58,6 +58,7 @@ function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::Ferm
     reduced_density_matrix!(mout,m,labels,b,sym)
 end
 function reduced_density_matrix!(mout,m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry = NoSymmetry()) where {N,T,M}
+    mout .*= 0
     outinds::NTuple{N,Int} = siteindices(labels, b)
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
     #ininds::NTuple{N,Int} = Tuple(setdiff(ntuple(identity,N),outinds))
