@@ -84,7 +84,6 @@ function TSL_hamiltonian((dLup,dLdn),(dCup,dCdn),(dRup,dRdn); μL,μC,μR, h, t,
     μC*(numberop(dCup) + numberop(dCdn)) +
     μR*(numberop(dRup) + numberop(dRdn)) +
     - h*(numberop(dLup) - numberop(dLdn) +
-     numberop(dCup) - numberop(dCdn) +
      numberop(dRup) - numberop(dRdn))
 end
 
