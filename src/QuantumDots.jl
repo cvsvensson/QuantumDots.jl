@@ -2,7 +2,7 @@ module QuantumDots
 using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
-using Symbolics: build_function, @variables, Num
+using Symbolics
 using TruncatedStacktraces
 using StaticArrays
 

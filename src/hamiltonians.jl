@@ -88,17 +88,6 @@ function TSL_hamiltonian((dLup,dLdn),(dCup,dCdn),(dRup,dRdn); μL,μC,μR, h, t,
      numberop(dRup) - numberop(dRdn))
 end
 
-function build_function(H::BlockDiagonal, params...; kwargs...)
-    fs = [build_function(block,params...; kwargs...) for block in H.blocks]
-    function blockdiag!(mat::BlockDiagonal,xs...)
-        foreach((block, f) -> last(f)(block, xs...), mat.blocks,fs)
-        return mat
-    end
-    function blockdiag(xs...)
-        return BlockDiagonal(map(f -> first(f)(xs...),fs))
-    end
-    blockdiag, blockdiag!
-end
 
 function TSL_generator(qn=NoSymmetry(); blocks = qn !== NoSymmetry(), dense = false)
     @variables μL, μC, μR, h, t, Δ, tsoc, U
