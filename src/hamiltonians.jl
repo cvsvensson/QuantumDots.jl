@@ -76,15 +76,16 @@ function TSL_hamiltonian(c::FermionBasis{6}; μL,μC,μR, h, t, Δ, U,tsoc)
     TSL_hamiltonian(fermions...; μL,μC,μR, h, t, Δ, U,tsoc)
 end
 function TSL_hamiltonian((dLup,dLdn),(dCup,dCdn),(dRup,dRdn); μL,μC,μR, h, t, Δ, U,tsoc) 
-    H = hopping(t,dLup,dCup) + hopping(t,dRup,dCup) +
+    hopping(t,dLup,dCup) + hopping(t,dRup,dCup) +
+    hopping(t,dLdn,dCdn) + hopping(t,dRdn,dCdn) +
     hopping(tsoc,dLup,dCdn) - hopping(tsoc,dLdn,dCup) +
     hopping(tsoc,dRup,dCdn) - hopping(tsoc,dRdn,dCup) +
-    pairing(Δ,dCup,dCdn) + U*(numberop(dLup)numberop(dLdn) + numberop(dRup)*numberop(dRdn)) + 
+    -pairing(Δ,dCup,dCdn) + 
+    U*(numberop(dLup)numberop(dLdn) + numberop(dRup)*numberop(dRdn)) + 
     μL*(numberop(dLup) + numberop(dLdn)) +
     μC*(numberop(dCup) + numberop(dCdn)) +
     μR*(numberop(dRup) + numberop(dRdn)) +
-    - h*(numberop(dLup) - numberop(dLdn) +
-     numberop(dRup) - numberop(dRdn))
+    + h*(numberop(dLdn) + numberop(dRdn))
 end
 
 
