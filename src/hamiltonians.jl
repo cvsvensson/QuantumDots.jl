@@ -60,11 +60,6 @@ function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) wh
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
-# function real_BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, dθ) where M
-#     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
-#     N = div(M,2)
-#     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ=_tovec((dθ,:diff),N))
-# end
 
 function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector) where {M}
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
@@ -73,4 +68,49 @@ function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, 
     h1s = (_BD1_1site(cell(j,c); μ = μ[j], h = h[j], Δ = Δ[j], U = U[j]) for j in 1:N)
     h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t = t[j] ,Δ1 = Δ1[j],V = V[j],θϕ1=θϕ[j], θϕ2=θϕ[j+1]) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
+end
+
+
+function TSL_hamiltonian(c::FermionBasis{6}; μL,μC,μR, h, t, Δ, U,tsoc)
+    fermions = [(c[j,:↑],c[j,:↓]) for j in (:L,:C,:R)]
+    TSL_hamiltonian(fermions...; μL,μC,μR, h, t, Δ, U,tsoc)
+end
+function TSL_hamiltonian((dLup,dLdn),(dCup,dCdn),(dRup,dRdn); μL,μC,μR, h, t, Δ, U,tsoc) 
+    H = hopping(t,dLup,dCup) + hopping(t,dRup,dCup) +
+    hopping(tsoc,dLup,dCdn) - hopping(tsoc,dLdn,dCup) +
+    hopping(tsoc,dRup,dCdn) - hopping(tsoc,dRdn,dCup) +
+    pairing(Δ,dCup,dCdn) + U*(numberop(dLup)numberop(dLdn) + numberop(dRup)*numberop(dRdn)) + 
+    μL*(numberop(dLup) + numberop(dLdn)) +
+    μC*(numberop(dCup) + numberop(dCdn)) +
+    μR*(numberop(dRup) + numberop(dRdn)) +
+    - h*(numberop(dLup) - numberop(dLdn) +
+     numberop(dCup) - numberop(dCdn) +
+     numberop(dRup) - numberop(dRdn))
+end
+
+function build_function(H::BlockDiagonal, params...; kwargs...)
+    fs = [build_function(block,params...; kwargs...) for block in H.blocks]
+    function blockdiag!(mat::BlockDiagonal,xs...)
+        foreach((block, f) -> last(f)(block, xs...), mat.blocks,fs)
+        return mat
+    end
+    function blockdiag(xs...)
+        return BlockDiagonal(map(f -> first(f)(xs...),fs))
+    end
+    blockdiag, blockdiag!
+end
+
+function TSL_generator(qn=NoSymmetry(); blocks = qn !== NoSymmetry(), dense = false)
+    @variables μL, μC, μR, h, t, Δ, tsoc, U
+    c = FermionBasis((:L,:C,:R),(:↑,:↓); qn)
+    fdense = dense ? Matrix : identity
+    fblock = blocks ? m->blockdiagonal(m,c) : identity
+    f = fblock ∘ fdense
+    H = TSL_hamiltonian(c;μL, μC, μR,h,t,Δ,tsoc,U) |> f
+    _tsl,_tsl! = build_function(H,μL, μC, μR,h,t,Δ,tsoc,U,expression=Val{false})
+    tsl(;μL, μC, μR,h,t,Δ,tsoc,U) = _tsl(μL, μC, μR,h,t,Δ,tsoc,U)
+    tsl!(m;μL, μC, μR,h,t,Δ,tsoc,U) = (_tsl!(m,μL, μC, μR,h,t,Δ,tsoc,U); m)
+    randparams = (;zip((:μL, :μC, :μR,:h,:t,:Δ,:tsoc,:U), rand(8))...)
+    m = TSL_hamiltonian(c;randparams...) |> f
+    return tsl, tsl!, m
 end
