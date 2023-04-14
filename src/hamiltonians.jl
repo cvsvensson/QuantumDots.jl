@@ -101,5 +101,5 @@ function TSL_generator(qn=NoSymmetry(); blocks = qn !== NoSymmetry(), dense = fa
     tsl!(m;μL, μC, μR,h,t,Δ,tsoc,U) = (_tsl!(m,μL, μC, μR,h,t,Δ,tsoc,U); m)
     randparams = (;zip((:μL, :μC, :μR,:h,:t,:Δ,:tsoc,:U), rand(8))...)
     m = TSL_hamiltonian(c;randparams...) |> f
-    return tsl, tsl!, m
+    return tsl, tsl!, m, c
 end
