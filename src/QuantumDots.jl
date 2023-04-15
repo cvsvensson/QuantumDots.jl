@@ -6,7 +6,7 @@ using Symbolics
 using TruncatedStacktraces
 using StaticArrays
 
-export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
+export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal
 
 include("structs.jl")
 include("fock.jl")
