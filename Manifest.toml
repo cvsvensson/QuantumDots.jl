@@ -44,7 +44,9 @@ version = "0.1.4"
 
 [[deps.BlockDiagonals]]
 deps = ["ChainRulesCore", "FillArrays", "FiniteDifferences", "LinearAlgebra"]
-git-tree-sha1 = "ffd635c19b56f50d1d4278d876219644299b5711"
+git-tree-sha1 = "5b7d538c418fa2528c75eb42feaca891bb9173f7"
+repo-rev = "master"
+repo-url = "https://github.com/cvsvensson/BlockDiagonals.jl"
 uuid = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 version = "0.1.41"
 
