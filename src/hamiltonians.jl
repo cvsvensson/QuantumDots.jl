@@ -55,13 +55,13 @@ _tovec(μ::Number,N) = fill(μ,N)
 _tovec(μ::Vector,N) = (@assert length(μ)==N; μ)
 function _tovec((x,symb),N) 
     if symb == :diff
-        _tovec(x,N) .* (0:N-1) 
+        return _tovec(x,N) .* (0:N-1) 
     elseif symb == :reflect
         @assert length(x) == ceil(N/2)
         if iseven(N)
             return (x...,reverse(x)...)
         else
-            (x...,reverse(x)[2:end]...)
+            return (x...,reverse(x)[2:end]...)
         end
     end
     return _tovec(x,N)
