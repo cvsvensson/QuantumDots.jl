@@ -139,6 +139,7 @@ end
         @test size(m) == size(ma)
         @test Array(m*v) ≈ ma*va
         @test Array(md*v) ≈ mda*va
+        @test Array(m'*m) ≈ ma'*ma
 
         @test v'*v ≈ va'*va
         @test v'*(m*v) ≈ (v'*m)*v ≈ va'*ma*va
@@ -176,6 +177,19 @@ end
     w = [dot(v1,f+f',v2) for f in c.dict]
     z = [dot(v1,(f'-f),v2) for f in c.dict]
     @test abs.(w.^2 - z.^2) ≈ [1,0,0,1]
+
+    N = 4
+    c = FermionBasis(1:N; qn = Z2)
+    ham = (QuantumDots.kitaev_hamiltonian(c; μ = 0, t = 1, Δ = 1))
+    vals, vecs = eigen(ham)
+    @test abs(vals[1] - vals[2]) < 1e-12
+    p = parityoperator(c)
+    v1,v2 = eachcol(vecs[:,1:2])
+    @test dot(v1,p,v1)*dot(v2,p,v2) ≈ -1
+    w = [dot(v1,f+f',v2) for f in c.dict]
+    z = [dot(v1,(f'-f),v2) for f in c.dict]
+    @test abs.(w.^2 - z.^2) ≈ [1,0,0,1]
+   
 end
 
 @testset "Hamiltonian" begin

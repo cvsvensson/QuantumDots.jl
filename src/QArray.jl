@@ -1,11 +1,3 @@
-struct QArray{N,QNs,A,S}
-    blocks::Dictionary{QNs,A}
-    symmetry::NTuple{N,S}
-    dirs::NTuple{N,Bool}
-    function QArray(blocks::Dictionary{QNs,A}, sym::NTuple{N,S},dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs, S,N}
-        new{ndims(A) ,QNs,A, S}(blocks, sym, dirs)
-    end
-end
 function QArray(qns::Vector{QNs}, blocks::Vector{A}, sym::NTuple{N,S},dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs, S,N}
     @assert length(qns) == length(blocks)
     @assert ndims(A) == length(first(qns)) == N
@@ -16,10 +8,21 @@ symmetry(A::QArray) = A.symmetry
 dirs(A::QArray) = A.dirs
 Base.getindex(a::QArray, qns::AbstractQuantumNumber...) = getindex(a,qns)
 Base.getindex(a::QArray, qns::NTuple{N,<:AbstractQuantumNumber}) where N = a.blocks[qns]
-function Base.getindex(a::QArray, qninds::NTuple{N,<:QNIndex}) where N 
+function Base.getindex(a::QArray, qninds::Vararg{<:QNIndex}) 
     qns = map(qn, qninds)
     inds = map(ind, qninds)
     a.blocks[qns][inds...]
+end
+function Base.setindex!(a::QArray,value, qninds::Vararg{<:QNIndex}) 
+    qns = map(qn, qninds)
+    inds = map(ind, qninds)
+    a.blocks[qns][inds...] = value
+end
+function Base.setindex!(a::QArray,value, qns::Vararg{<:AbstractQuantumNumber}) 
+    a.blocks[qns] = value
+end
+function Base.setindex!(a::QArray,value, qns::NTuple{<:Any,<:AbstractQuantumNumber}) 
+    a.blocks[qns] = value
 end
 
 qns(a::QArray) = keys(a.blocks).values
@@ -73,11 +76,34 @@ tuplecat(t1,t2) = (t1...,t2...)
 #     return contract(a1,oind1,cind1,a2,oind2,cind2)
 # end
 # Base.:*(a1::QArray{N1}, a2::QArray{N2}) where {N1,N2} = contract(a1,ntuple(identity,N1-1),(N1,),a2,ntuple(i->i+1,N2-1),(1,))
+Base.similar(::Type{SparseMatrixCSC{T,Int64}}, dims::Dims{2}) where T = spzeros(T,dims...)
+function Base.:+(A::QArray{N,QNs,TA,S}, B::QArray{N,QNs,TB,S}) where {N,QNs,TA,TB,S}
+    @assert dirs(A) == dirs(B)
+    @assert symmetry(A) == symmetry(B)
+    TC = final_storage(TA, TB)
+    finalqns = unique([qns(A)..., qns(B)...])
+    blocksizes = [map(blocksize, qns, symmetry(A)) for qns in finalqns]
+    outblocks = map(Base.Fix1(similar,TC), blocksizes)
+    C = QArray(finalqns, outblocks, symmetry(A), dirs(A))
+    for qn in qns(A)
+        C[qn] += A[qn]
+    end
+    for qn in qns(B)
+        C[qn] += B[qn]
+    end
+    C
+end
+
+# final_storage(::Type{A},::Type{B}) where {A,B} = promote_type(A,B)
+final_storage(::Type{SparseMatrixCSC{A1,B1}},::Type{SparseMatrixCSC{A2,B2}}) where {A1,B1, A2,B2}= SparseMatrixCSC{promote_type(A1,A2),promote_type(B1,B2)}
+final_storage(::Type{SparseMatrixCSC{A1,B1}},::Type{Adjoint{A2,SparseMatrixCSC{A2,B2}}}) where {A1,B1, A2,B2} = SparseMatrixCSC{promote_type(A1,A2),promote_type(B1,B2)}
+final_storage(::Type{Adjoint{A2,SparseMatrixCSC{A2,B2}}},::Type{SparseMatrixCSC{A1,B1}})  where {A1,B1, A2,B2}= SparseMatrixCSC{promote_type(A1,A2),promote_type(B1,B2)}
 
 Base.:*(x::Number, A::QArray) = QArray(map(Base.Fix1(*,x),A.blocks), symmetry(A), dirs(A))
 Base.:*(A::QArray, x::Number) = QArray(map(Base.Fix2(*,x),A.blocks), symmetry(A), dirs(A))
 function findmatches(a1::QArray, oind1,cind1,a2::QArray,oind2,cind2)
-    Tout = promote_type(eltype(a1),eltype(a2))
+    # Tout = promote_type(eltype(a1),eltype(a2))
+    Tout = final_storage(eltype(a1.blocks), eltype(a2.blocks))
     selo1 = Base.Fix2(_select, oind1)
     selc1 = Base.Fix2(_select, cind1)
     selo2 = Base.Fix2(_select, oind2)
@@ -91,7 +117,8 @@ function findmatches(a1::QArray, oind1,cind1,a2::QArray,oind2,cind2)
     outsym = tuplecat(outsym1, outsym2)
     blocksizes = [tuplecat(map(blocksize, qns1, outsym1),
         map(blocksize, qns2, outsym2))  for (qns1,qns2) in finalqns12]
-    outblocks = map(Base.Fix1(zeros,Tout),blocksizes)
+    # outblocks = map(Base.Fix1(zeros,Tout), blocksizes)
+    outblocks = map(Base.Fix1(similar,Tout), blocksizes)
     outdirs = tuplecat(selo1(a1.dirs), selo2(a2.dirs))
     out = QArray(finalqns, outblocks, outsym, outdirs)
 
@@ -147,7 +174,7 @@ function Base.Array(a::QArray)
             inds = Tuple(I)
             qninds = map(QNIndex, qn,inds)
             fullinds = map(qnindtoind,qninds,a.symmetry)
-            out[fullinds...] = a[qninds]
+            out[fullinds...] = a[qninds...]
         end
     end
     out

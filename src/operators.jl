@@ -31,8 +31,8 @@ function numberoperator(basis::FermionBasis)
     return mat
 end
 
-function fermion_sparse_matrix(fermion_number, total_size ,::NoSymmetry)
-    mat = spzeros(Int, total_size, total_size)
+function fermion_sparse_matrix(fermion_number, sym::NoSymmetry)
+    mat = spzeros(Int, size(sym), size(sym))
     _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
     return mat
 end
@@ -53,6 +53,21 @@ function _fill!(mat,op,sym::AbelianFockSymmetry)
         mat[newind,ind] += amp
     end
     return mat
+end
+
+function _fill!(A::QArray{2},op)
+    syms = symmetry(A)
+    for qn in qns(last(syms))
+        for ind in 1:blocksize(qn,last(syms))
+            qnind = QNIndex(qn,ind)
+            newfockstate, amp = op(qnindtofock(qnind, last(syms)))
+            newqnind = focktoqnind(newfockstate, first(syms))
+            if amp !== 0
+                A[newqnind,qnind] += amp
+            end
+        end
+    end
+    return A
 end
 
 function togglefermions(digitpositions, daggers, focknbr)

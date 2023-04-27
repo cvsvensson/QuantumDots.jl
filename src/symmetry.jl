@@ -17,20 +17,51 @@ end
 qn(qnind::QNIndex) = qnind.qn
 ind(qnind::QNIndex) = qnind.ind
 
-struct Z2Symmetry{N} end
-qns(::Z2Symmetry) = (Z2(false), Z2(true))
+struct TrivialQN <: AbstractQuantumNumber
+    size::Union{Int,Missing}
+end
+qns(sym::NoSymmetry) = (TrivialQN(size(sym)),)
+
 struct Z2 <: AbstractQuantumNumber
     val::Bool
 end
+struct Z2Symmetry{N} <: AbstractSymmetry
+    focktoqnind::Dictionary{Int,QNIndex{Z2}}
+    qnindtofock::Dictionary{QNIndex{Z2},Int}
+end
+symmetry(::NTuple{M}, ::Type{Z2}) where M = Z2Symmetry{M}()
+Z2Symmetry{N}() where N = Z2Symmetry{N}(enumerate_Z2fockstates(N)...)
+qns(::Z2Symmetry) = (Z2(false), Z2(true))
+Z2parity(fs::Integer) = Z2(!iseven(fermionnumber(fs)))
+function enumerate_Z2fockstates(M)
+    evencount = 0
+    oddcount = 0
+    qninds = QNIndex{Z2}[]
+    for fs in 0:2^M - 1
+        parity = iseven(fermionnumber(fs))
+        if parity
+            evencount += 1
 
-struct U1Symmetry{N} end
+            push!(qninds,QNIndex(Z2(false),evencount))
+        else
+            oddcount += 1
+            push!(qninds,QNIndex(Z2(true),oddcount))
+        end
+
+    end
+    focktoqninds = Dictionary(0:2^M -1, qninds)
+    return focktoqninds, Dictionary(focktoqninds.values, keys(focktoqninds).values)
+end
+
+struct U1Symmetry{N} <: AbstractSymmetry end
 qns(::U1Symmetry{N}) where N = ntuple(n->U1(n-1),N)
 struct U1 <: AbstractQuantumNumber
     val::Integer
 end
 
 
-focktoqnind(fs, sym::Z2Symmetry) = indtoqnind(fs+1, sym)
+qnindtofock(qnind, sym::Z2Symmetry) = sym.qnindtofock[qnind]
+focktoqnind(fs, sym::Z2Symmetry) = sym.focktoqnind[fs]
 qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry{N}) where N = qnind.ind + (qnind.qn.val ? 2^(N-1) : 0)
 indtoqnind(ind,::Z2Symmetry{N}) where N = ind < 2^(N-1) ? QNIndex(Z2(false),ind) : QNIndex(Z2(true), ind - 2^(N-1))
 blocksize(::Z2,::Z2Symmetry{N}) where N = 2^(N-1)
@@ -66,11 +97,20 @@ end
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
-function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry)
-    mat = spzeros(Int,totalsize,totalsize)
+function fermion_sparse_matrix(fermion_number,sym::AbelianFockSymmetry)
+    mat = spzeros(Int, size(sym), size(sym))
     _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
     mat
 end
+
+function fermion_sparse_matrix(fermion_number, sym::Z2Symmetry{M}) where M
+    qns = [(Z2(false),Z2(true)), (Z2(true),Z2(false))]
+    mats = [spzeros(Int,2^(M-1),2^(M-1)) for k in eachindex(qns)]
+    A = QArray(qns,mats,(sym,sym))
+    _fill!(A, fs -> removefermion(fermion_number,fs))
+end
+
+
 
 blockdiagonal(m::AbstractMatrix,basis::FermionBasis) = blockdiagonal(m,basis.symmetry)
 blockdiagonal(::Type{T},m::AbstractMatrix,basis::FermionBasis) where T = blockdiagonal(T, m,basis.symmetry)
