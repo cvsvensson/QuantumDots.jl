@@ -52,6 +52,12 @@ end
         _, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
         @test sign == 0
     end
+
+    fs = QuantumDots.fockstates(10,5)
+    @test length(fs) == binomial(10,5)
+    @test allunique(fs)
+    @test all(QuantumDots.fermionnumber.(fs) .== 5)
+    
 end
 
 @testset "Basis" begin
@@ -110,6 +116,39 @@ end
         @test all(bilinear_equality(c,FermionBasis(subsystem),ρ) for subsystem in get_subsystems(cparity,N))
     end
     @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
+end
+
+@testset "QN" begin
+    function testsym(sym)
+        qnsv = [(qn,) for qn in qns(sym)]
+        blocksv = [rand(QuantumDots.blocksize(qn,sym)) .- 1/2 for qn in qns(sym)]
+        v = QArray(qnsv,blocksv,(sym,))
+        
+        qnmat = collect(Base.product(qns(sym),qns(sym)))
+        dind = diagind(qnmat)
+        qnsm = vec(qnmat)
+        blocksm = [rand(QuantumDots.blocksize(qn1,sym),QuantumDots.blocksize(qn2,sym)) .- 1/2 for (qn1,qn2) in qnsm]
+        m = QuantumDots.QArray(qnsm,blocksm, (sym,sym))
+        md = QuantumDots.QArray(qnsm[dind],blocksm[dind], (sym,sym))
+        
+        ma = Array(m);
+        va = Array(v);
+        mda = Array(md);
+
+        @test size(v) == size(va)
+        @test size(m) == size(ma)
+        @test Array(m*v) ≈ ma*va
+        @test Array(md*v) ≈ mda*va
+
+        @test v'*v ≈ va'*va
+        @test v'*(m*v) ≈ (v'*m)*v ≈ va'*ma*va
+
+        @test all([ind == QuantumDots.qnindtoind(QuantumDots.indtoqnind(ind,sym),sym) for ind in eachindex(va)])
+    end
+    testsym(Z2Symmetry{1}())
+    testsym(Z2Symmetry{4}())
+    testsym(QuantumDots.U1Symmetry{1}())
+    testsym(QuantumDots.U1Symmetry{5}())
 end
 
 @testset "Kitaev" begin

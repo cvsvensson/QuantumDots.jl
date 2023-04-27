@@ -4,6 +4,7 @@ focknbr(sites::Vector{<:Integer}) = mapreduce(focknbr,+, sites)
 focknbr(sites::NTuple{N,<:Integer}) where N = mapreduce(site -> 1 << (site-1),+, sites)
 # focknbr(sites::NTuple{N,<:Integer}) where N = mapreduce(site -> 2^(site-1),+, sites)
 # focknbr(sites::Vector{<:Integer},cell_length, species_index=1) = mapreduce(site-> 1 << (digitposition(site,cell_length,species_index)-1),+, sites)
+
 bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
 fermionnumber(fs::Int) = count_ones(fs)
