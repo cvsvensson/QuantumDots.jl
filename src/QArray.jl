@@ -25,7 +25,8 @@ end
 qns(a::QArray) = keys(a.blocks).values
 
 Base.adjoint(v::QArray{1}) = QArray(map(conj, v.blocks), v.symmetry, map(!,v.dirs))
-Base.adjoint(m::QArray{2}) = QArray(map(adjoint, m.blocks), reverse(m.symmetry), reverse(map(!,m.dirs)))
+# Base.adjoint(m::QArray{2}) = QArray(map(adjoint, m.blocks), reverse(m.symmetry), reverse(map(!,m.dirs)))
+Base.adjoint(m::QArray{2}) = QArray(map(reverse,keys(m.blocks).values), map(adjoint, m.blocks.values), reverse(m.symmetry), reverse(map(!,m.dirs)))
 
 tuplecat(t1,t2) = (t1...,t2...)
 # function contract(a1::QArray, oind1,cind1,a2::QArray,oind2,cind2)
@@ -130,7 +131,7 @@ function Base.:*(m1::QArray{2}, m2::QArray{2})
     outm, matches = findmatches(m1,(1,),(2,),m2,(2,),(1,))
     for (qnsm1,qnsm2) in matches
         finalqn = (first(qnsm1),last(qnsm2))
-        outm[finalqn] .+= m2[qnsm1]*m2[qnsm2]
+        outm[finalqn] .+= m1[qnsm1]*m2[qnsm2]
     end
     return outm
 end
@@ -139,7 +140,8 @@ Base.eltype(::QArray{<:Any,<:Any,A}) where A = eltype(A)
 Base.size(a::QArray) = qnsize.(a.symmetry)
 Base.ndims(::QArray{N}) where N = N
 function Base.Array(a::QArray)
-    out = Array{eltype(a), ndims(a)}(undef, size(a))
+    # out = Array{eltype(a), ndims(a)}(undef, size(a))
+    out = zeros(eltype(a), size(a))
     for qn in qns(a)
         for I in CartesianIndices(a[qn])
             inds = Tuple(I)
