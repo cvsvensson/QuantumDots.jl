@@ -18,13 +18,13 @@ qn(qnind::QNIndex) = qnind.qn
 ind(qnind::QNIndex) = qnind.ind
 
 struct Z2Symmetry{N} end
-qns(::Z2Symmetry) = Z2.([false, true])
+qns(::Z2Symmetry) = (Z2(false), Z2(true))
 struct Z2 <: AbstractQuantumNumber
     val::Bool
 end
 
 struct U1Symmetry{N} end
-qns(::U1Symmetry{N}) where N = U1.(0:N)
+qns(::U1Symmetry{N}) where N = ntuple(n->U1(n-1),N)
 struct U1 <: AbstractQuantumNumber
     val::Integer
 end
@@ -35,7 +35,7 @@ qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry{N}) where N = qnind.ind + (qnind.qn.
 indtoqnind(ind,::Z2Symmetry{N}) where N = ind < 2^(N-1) ? QNIndex(Z2(false),ind) : QNIndex(Z2(true), ind - 2^(N-1))
 blocksize(::Z2,::Z2Symmetry{N}) where N = 2^(N-1)
 Base.:(==)(a::Z2,b::Z2) = a.val == b.val
-Base.size(::Z2Symmetry{N}) where N = 2^N
+qnsize(::Z2Symmetry{N}) where N = 2^N
 
 
 focktoqnind(fs, sym::U1Symmetry) = indtoqnind(fs+1, sym)
@@ -46,7 +46,7 @@ function indtoqnind(ind,::U1Symmetry{N}) where N
 end
 blocksize(n::U1,::U1Symmetry{N}) where N = binomial(N,n.val)
 Base.:(==)(a::U1,b::U1) = a.val == b.val
-Base.size(::U1Symmetry{N}) where N = 2^N
+qnsize(::U1Symmetry{N}) where N = 2^N
 
 
 function symmetry(fermionids::NTuple{M}, qn) where M

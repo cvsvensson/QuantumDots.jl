@@ -83,7 +83,7 @@ end
 
 @testset "QN" begin
     function testsym(sym)
-        qnsv = map(qn->(qn,), qns(sym))
+        qnsv = [(qn,) for qn in qns(sym)]
         blocksv = [rand(QuantumDots.blocksize(qn,sym)) .- 1/2 for qn in qns(sym)]
         v = QArray(qnsv,blocksv,(sym,))
         
@@ -107,9 +107,6 @@ end
         @test v'*(m*v) ≈ (v'*m)*v ≈ va'*ma*va
 
         @test all([ind == QuantumDots.qnindtoind(QuantumDots.indtoqnind(ind,sym),sym) for ind in eachindex(va)])
-
-        # @time md*v
-        # @time mda*va
     end
     testsym(Z2Symmetry{1}())
     testsym(Z2Symmetry{4}())
