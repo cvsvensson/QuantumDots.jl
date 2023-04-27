@@ -2,11 +2,11 @@ module QuantumDots
 using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
-using Symbolics: build_function, @variables
+using Symbolics
 using TruncatedStacktraces
-using Tullio 
+using StaticArrays
 
-export bits,FermionBasis,FermionParityBasis, parityoperator, numberoperator, blockdiagonal
+export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal
 export qns,Z2,QArray, Z2Symmetry, QNIndex
 
 include("structs.jl")

@@ -3,7 +3,8 @@
     
 Count the number of fermions to the right of site.
 """
-jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
+# jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
+jwstring(site,focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
 
 siteindices(ps,bin) = map(p->siteindex(p,bin),ps)
 

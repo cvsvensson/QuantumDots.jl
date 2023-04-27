@@ -14,3 +14,15 @@ function fastblockdiagonal(gen,N)
         return BlockDiagonal(mat.blocks)
     end
 end
+
+function Symbolics.build_function(H::BlockDiagonal, params...; kwargs...)
+    fs = [build_function(block,params...; kwargs...) for block in H.blocks]
+    function blockdiag!(mat::BlockDiagonal,xs...)
+        foreach((block, f) -> last(f)(block, xs...), mat.blocks,fs)
+        return mat
+    end
+    function blockdiag(xs...)
+        return BlockDiagonal(map(f -> first(f)(xs...),fs))
+    end
+    blockdiag, blockdiag!
+end
