@@ -29,9 +29,9 @@ Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io,b)
 Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
 
 NoSymmetry() = NoSymmetry(missing)
-symmetry(::NTuple{M},::NoSymmetry) where M = NoSymmetry(2^M)
-FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), symmetry(Tuple(Base.product(iters...)), qn))
-FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(iter)), symmetry(Tuple(iter),qn))
+blockstructure(::NTuple{M},::NoSymmetry) where M = NoSymmetry(2^M)
+FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), blockstructure(Tuple(Base.product(iters...)), qn))
+FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(iter)), blockstructure(Tuple(iter),qn))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 
 
@@ -51,11 +51,10 @@ Base.size(sym::AbelianFockSymmetry) = length(sym.indtofockdict)
 #     new{M,S,eltype(reps),Sym}(Dictionary(map(id,fermions), reps), sym)
 # end
 
-struct QArray{N,QNs,A,S}
+struct QArray{N,QNs,A,B}
     blocks::Dictionary{QNs,A}
-    symmetry::NTuple{N,S}
-    dirs::NTuple{N,Bool}
-    function QArray(blocks::Dictionary{QNs,A}, sym::NTuple{N,S},dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs, S,N}
-        new{ndims(A) ,QNs,A, S}(blocks, sym, dirs)
+    blockstructure::NTuple{N,B}
+    function QArray(blocks::Dictionary{QNs,A}, blockstructure::NTuple{N,S}) where {A<:AbstractArray,QNs, S,N}
+        new{ndims(A) ,QNs,A, B}(blocks, blockstructure)
     end
 end

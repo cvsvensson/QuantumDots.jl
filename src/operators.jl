@@ -56,7 +56,7 @@ function _fill!(mat,op,sym::AbelianFockSymmetry)
 end
 
 function _fill!(A::QArray{2},op)
-    syms = symmetry(A)
+    syms = blockstructure(A)
     for qn in qns(last(syms))
         for ind in 1:blocksize(qn,last(syms))
             qnind = QNIndex(qn,ind)

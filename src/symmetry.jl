@@ -8,48 +8,108 @@ blockinds(inds::Dims,sizes) = map(n->blockinds(n,sizes),inds)
 blockinds(i::Integer,sizes) = sizestoinds(sizes)[i]
 
 sizestoinds(sizes) = accumulate((a,b)->last(a) .+ (1:b), sizes,init=0:0)::Vector{UnitRange{Int}}
-abstract type AbstractQuantumNumber end
 
 struct QNIndex{T}
     qn::T
     ind::Int
 end
+
+abstract type AbstractBlockStructure end
+abstract type AbstractFockBlockStructure end
+
+struct Blocks{L} <: AbstractBlockStructure
+    blocks::Dictionary{L,Int}
+end
+struct GenericFockBlocks{L,F} <: AbstractFockBlockStructure
+    b::Blocks{L}
+    qnfunc::F
+    blockindtofock::Dictionary{QNIndex{L},Int}
+    focktoblockind::Dictionary{Int,QNIndex{L}}
+end
+struct TrueFilter end
+Iterators.Filter(::TrueFilter, itr) = itr 
+GenericFockBlocks(func, M::Int; fockfilter = TrueFilter()) = GenericFockBlocks(func, Iterators.filter(fockfilter,0:2^M-1))
+
+function GenericFockBlocks(func, fockstates)
+    _blocktofocks = group(func, fockstates)
+    blocktofocks = Dictionary([keys(_blocktofocks)...],_blocktofocks.values)
+    focktoblockind = dictionary(vcat([map((i,fs) -> fs=>QNIndex(label,i), eachindex(focks),focks) for (label,focks) in pairs(blocktofocks)]...))
+    blockindtofock = Dictionary(focktoblockind.values, keys(focktoblockind).values)
+    blocks = Blocks(map(length,blocktofocks))
+    GenericFockBlocks(blocks, func, blockindtofock, focktoblockind)
+end
+
+abstract type AbstractQuantumNumber end
+
 qn(qnind::QNIndex) = qnind.qn
 ind(qnind::QNIndex) = qnind.ind
 
-struct TrivialQN <: AbstractQuantumNumber
-    size::Union{Int,Missing}
-end
-qns(sym::NoSymmetry) = (TrivialQN(size(sym)),)
+struct Parity <:AbstractSymmetry end
 
 struct Z2 <: AbstractQuantumNumber
     val::Bool
 end
-struct Z2Symmetry{N} <: AbstractSymmetry
+struct Z2Symmetry <: AbstractSymmetry
     focktoqnind::Dictionary{Int,QNIndex{Z2}}
     qnindtofock::Dictionary{QNIndex{Z2},Int}
 end
-symmetry(::NTuple{M}, ::Type{Z2}) where M = Z2Symmetry{M}()
-Z2Symmetry{N}() where N = Z2Symmetry{N}(enumerate_Z2fockstates(N)...)
-qns(::Z2Symmetry) = (Z2(false), Z2(true))
-Z2parity(fs::Integer) = Z2(!iseven(fermionnumber(fs)))
-function enumerate_Z2fockstates(M)
+
+
+struct ParityFockBlocks <: AbstractFockBlockStructure
+    b::Blocks{Symbol}
+    evenfocktoind::Dictionary{Int,Int}
+    oddfocktoind::Dictionary{Int,Int}
+end
+ParityFockBlocks(M::Int; fockfilter = TrueFilter()) = ParityFockBlocks(Iterators.filter(fockfilter,0:2^M-1))
+function ParityFockBlocks(fockstates)
     evencount = 0
     oddcount = 0
-    qninds = QNIndex{Z2}[]
-    for fs in 0:2^M - 1
+    evenfocktoind = Pair{Int,Int}[]
+    oddfocktoind = Pair{Int,Int}[]
+    for fs in fockstates
         parity = iseven(fermionnumber(fs))
         if parity
             evencount += 1
+            push!(evenfocktoind, fs => evencount)
+        else
+            oddcount += 1
+            push!(oddfocktoind, fs => oddcount)
+        end
+    end
+    blocks = Blocks(Dictionary([:even,:odd], [length(evenfocktoind),length(oddfocktoind)]))
+    return ParityFockBlocks(blocks, dictionary(evenfocktoind), dictionary(oddfocktoind))
+end
 
+function focktoqnind(fs, blockstructure::ParityFockBlocks)
+    if iseven(fermionnumber(fs))
+        QNIndex(qn, blockstructure.evenfocktoind[fs])
+    else
+        QNIndex(qn, blockstructure.oddfocktoind[fs])
+    end
+end
+
+blockstructure(::NTuple{M}, ::Type{Z2}) where M = Z2Symmetry()
+Z2Symmetry() = Z2Symmetry(enumerate_Z2fockstates(N)...)
+qns(::Z2Symmetry) = (Z2(false), Z2(true))
+Z2parity(fs::Integer) = Z2(!iseven(fermionnumber(fs)))
+function enumerate_Z2fockstates(M; filter = fs -> true)
+    evencount = 0
+    oddcount = 0
+    qninds = QNIndex{Z2}[]
+    fockstates = Int[]
+    for fs in 0:2^M - 1
+        parity = iseven(fermionnumber(fs))
+        filter(fs) || continue
+        push!(fockstates, fs)
+        if parity
+            evencount += 1
             push!(qninds,QNIndex(Z2(false),evencount))
         else
             oddcount += 1
             push!(qninds,QNIndex(Z2(true),oddcount))
         end
-
     end
-    focktoqninds = Dictionary(0:2^M -1, qninds)
+    focktoqninds = Dictionary(fockstates, qninds)
     return focktoqninds, Dictionary(focktoqninds.values, keys(focktoqninds).values)
 end
 
@@ -60,13 +120,13 @@ struct U1 <: AbstractQuantumNumber
 end
 
 
-qnindtofock(qnind, sym::Z2Symmetry) = sym.qnindtofock[qnind]
-focktoqnind(fs, sym::Z2Symmetry) = sym.focktoqnind[fs]
-qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry{N}) where N = qnind.ind + (qnind.qn.val ? 2^(N-1) : 0)
-indtoqnind(ind,::Z2Symmetry{N}) where N = ind < 2^(N-1) ? QNIndex(Z2(false),ind) : QNIndex(Z2(true), ind - 2^(N-1))
-blocksize(::Z2,::Z2Symmetry{N}) where N = 2^(N-1)
-Base.:(==)(a::Z2,b::Z2) = a.val == b.val
-qnsize(::Z2Symmetry{N}) where N = 2^N
+# qnindtofock(qnind, sym::Z2Symmetry) = sym.qnindtofock[qnind]
+# focktoqnind(fs, sym::Z2Symmetry) = sym.focktoqnind[fs]
+# qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry) where N = qnind.ind + (qnind.qn.val ? 2^(N-1) : 0)
+# indtoqnind(ind,::Z2Symmetry)  = ind < 2^(N-1) ? QNIndex(Z2(false),ind) : QNIndex(Z2(true), ind - 2^(N-1))
+# blocksize(::Z2,::Z2Symmetry) = 2^(N-1)
+# Base.:(==)(a::Z2,b::Z2) = a.val == b.val
+# qnsize(::Z2Symmetry)  = 2^N
 
 
 focktoqnind(fs, sym::U1Symmetry) = indtoqnind(fs+1, sym)
@@ -80,7 +140,7 @@ Base.:(==)(a::U1,b::U1) = a.val == b.val
 qnsize(::U1Symmetry{N}) where N = 2^N
 
 
-function symmetry(fermionids::NTuple{M}, qn) where M
+function blockstructure(fermionids::NTuple{M}, qn) where M
     qntooldinds = group(ind->qn(ind-1), 1:2^M)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)
@@ -103,7 +163,7 @@ function fermion_sparse_matrix(fermion_number,sym::AbelianFockSymmetry)
     mat
 end
 
-function fermion_sparse_matrix(fermion_number, sym::Z2Symmetry{M}) where M
+function fermion_sparse_matrix(fermion_number, sym::Z2Symmetry,M) 
     qns = [(Z2(false),Z2(true)), (Z2(true),Z2(false))]
     mats = [spzeros(Int,2^(M-1),2^(M-1)) for k in eachindex(qns)]
     A = QArray(qns,mats,(sym,sym))
