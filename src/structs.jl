@@ -67,7 +67,7 @@ end
 Base.:*(x::Number,f::BdGFermion) = BdGFermion(f.id,f.basis,x*f.amp,f.hole)
 Base.:*(f::BdGFermion,x::Number) = BdGFermion(f.id,f.basis,f.amp*x,f.hole)
 struct FermionBdGBasis{M,L} <: AbstractBasis
-    position::Dictionary{L,UInt}
+    position::Dictionary{L,Int}
     function FermionBdGBasis(labels::NTuple{M,L}) where {M,L}
         positions = map((l,n) -> l => n, labels, eachindex(labels))
         new{M,L}(dictionary(positions))

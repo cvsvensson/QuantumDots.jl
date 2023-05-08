@@ -19,5 +19,5 @@ include("lindblad.jl")
 include("hamiltonians.jl")
 include("truncate_stacktraces.jl")
 include("QArray.jl")
-
+include("bdg.jl")
 end
