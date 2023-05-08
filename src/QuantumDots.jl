@@ -16,5 +16,6 @@ include("symbolic.jl")
 include("lindblad.jl")
 include("hamiltonians.jl")
 include("truncate_stacktraces.jl")
+include("pretty_print.jl")
 
 end
