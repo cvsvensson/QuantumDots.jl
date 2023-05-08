@@ -118,6 +118,15 @@ end
     @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
 end
 
+@testset "BdG" begin
+    labels = Tuple(1:2)
+    μ1 = rand()
+    μ2 = rand()
+    b = QuantumDots.FermionBdGBasis(labels)
+    vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
+    @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
+end
+
 @testset "QN" begin
     function testsym(sym)
         qnsv = [(qn,) for qn in qns(sym)]
