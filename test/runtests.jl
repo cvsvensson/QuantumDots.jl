@@ -136,11 +136,11 @@ end
     poor_mans_ham = Matrix(t*(b[2]'*b[1] + b[1]'b[2]) + Δ*(b[2]*b[1] + b[1]'*b[2]'))
     es, ops = eigen(poor_mans_ham^2)
     @test norm(es[1:2]) < 1e-14
-    QuantumDots.majorana_coefficients(ops[:,1])
-    @test ops[:,1][[1,3]] .^2 - ops[:,2][[1,3]] .^2 ≈ 1
+    qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
+    majs = QuantumDots.MajoranaQuasiParticle.(qps)
+    @test QuantumDots.majorana_density.(majs[1:2]) ≈ [1,0]
 
-    qp = QuantumDots.quasiparticle(ops[:,1],b)
-    mqp = QuantumDots.majorana(qp)
+    
 
 end
 
