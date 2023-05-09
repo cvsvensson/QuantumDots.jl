@@ -4,7 +4,7 @@ b = QuantumDots.FermionBdGBasis(labels)
 t1 = Δ1 = 1
 t2 = Δ2 = 2
 p1 = exp(1im*0)
-p2 = exp(1im*(π/1.5))
+p2 = exp(0*1im*(π/1.5))
 # p1 = 1/p2
 poor_mans_ham = Matrix(QuantumDots._kitaev_hamiltonian(b; μ= [0,0,0],t=[t1,t2],Δ=[Δ1*p1,Δ2*p2],V=[0,0],bias=[0,0,0]))
 es, ops = eigen(poor_mans_ham^2)

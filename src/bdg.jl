@@ -73,3 +73,16 @@ function visualize(qp::MajoranaQuasiParticle)
     display(barplot(xlabels, abs2.(xweights), title="Majorana", maximum=1,border = :ascii))
     display(barplot(ylabels, abs2.(yweights), maximum=1,border = :dashed))
 end
+
+function one_bdm(U::AbstractMatrix{T}) where T
+    dm = zeros(T,size(U))
+    N = div(size(U,1),2)
+    for k in 1:2N
+        for n in 1:2N
+            for i in 1:N
+                dm[k,n] += U[mod1(N+k,2N),2N+1-i]U[n,i]
+            end
+        end
+    end
+    return dm
+end
