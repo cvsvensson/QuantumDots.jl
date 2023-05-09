@@ -5,6 +5,7 @@ using Dictionaries#: sortkeys!
 using Symbolics
 using TruncatedStacktraces
 using StaticArrays
+using UnicodePlots
 
 export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal
 export qns,Z2,QArray, Z2Symmetry, QNIndex

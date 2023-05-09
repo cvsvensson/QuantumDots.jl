@@ -32,7 +32,7 @@ _kitaev_1site(f; μ) = -μ * numberop(f)
 function kitaev_hamiltonian(basis::AbstractBasis; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0)
     N = nbr_of_fermions(basis)
     dbias = bias * collect(range(-0.5, 0.5, length=N))
-    _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N), Δ=fill(Δ, N), V=fill(V, N), bias=dbias)
+    _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N-1), Δ=fill(Δ, N-1), V=fill(V, N-1), bias=dbias)
 end
 
 function _kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V, bias)

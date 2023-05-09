@@ -1,4 +1,5 @@
-struct QuasiParticle{T,M,L}
+abstract type AbstractQuasiParticle end
+struct QuasiParticle{T,M,L} <: AbstractQuasiParticle
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
 end
@@ -8,10 +9,10 @@ function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where 
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
     QuasiParticle{T,M,L}(weights, basis)
 end
-Base.getindex(qp::Union{QuasiParticle,MajoranaQuasiParticle}, i) = getindex(qp.weights,i)
-Base.getindex(qp::Union{QuasiParticle,MajoranaQuasiParticle}, i...) = getindex(qp.weights,i)
+Base.getindex(qp::AbstractQuasiParticle, i) = getindex(qp.weights,i)
+Base.getindex(qp::AbstractQuasiParticle, i...) = getindex(qp.weights,i)
 
-struct MajoranaQuasiParticle{T,M,L}
+struct MajoranaQuasiParticle{T,M,L} <: AbstractQuasiParticle
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
 end
@@ -42,6 +43,8 @@ end
 # end
 
 labels(b::FermionBdGBasis) = keys(b.position).values
+labels(qp::AbstractQuasiParticle) = keys(qp.weights).values
+basis(qp::AbstractQuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
     N = nbr_of_fermions(basis)
     labels(basis)[1:Int(ceil(N/2))]
@@ -56,4 +59,17 @@ function majorana_density(maj::MajoranaQuasiParticle, labels = _left_half_labels
     xs = map(l->maj[l,:x], labels)
     ys = map(l->maj[l,:y], labels)
     sum(abs2, Iterators.flatten((xs, ys)))
+end
+
+function visualize(qp::AbstractQuasiParticle)
+    barplot(labels(qp), abs2.(qp.weights.values), title="QuasiParticle weights", maximum=1,border = :dashed)
+end
+
+function visualize(qp::MajoranaQuasiParticle)
+    xlabels = map(l->(l,:x), labels(qp.basis))
+    ylabels = map(l->(l,:y), labels(qp.basis))
+    xweights =  map(l->qp[l], xlabels)
+    yweights =  map(l->qp[l], ylabels)
+    display(barplot(xlabels, abs2.(xweights), title="Majorana", maximum=1,border = :ascii))
+    display(barplot(ylabels, abs2.(yweights), maximum=1,border = :dashed))
 end
