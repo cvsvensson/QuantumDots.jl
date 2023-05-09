@@ -133,15 +133,12 @@ end
     @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
 
     t = Δ = 1
-    poor_mans_ham = Matrix(t*(b[2]'*b[1] + b[1]'b[2]) + Δ*(b[2]*b[1] + b[1]'*b[2]'))
+    poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
     es, ops = eigen(poor_mans_ham^2)
     @test norm(es[1:2]) < 1e-14
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
     majs = QuantumDots.MajoranaQuasiParticle.(qps)
     @test QuantumDots.majorana_density.(majs[1:2]) ≈ [1,0]
-
-    
-
 end
 
 @testset "QN" begin
