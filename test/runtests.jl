@@ -157,6 +157,15 @@ end
     @test ρodd ≈ ρodd_mb
     @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
     @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
+
+    qp = qps[2]
+    @test qp isa QuantumDots.QuasiParticle
+    @test 2*qp isa QuantumDots.QuasiParticle
+    @test qp*2 isa QuantumDots.QuasiParticle
+    @test qp/2 isa QuantumDots.QuasiParticle
+    @test qp + qp isa QuantumDots.QuasiParticle
+    @test qp - qp isa QuantumDots.QuasiParticle
+    @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 end
 
 @testset "QN" begin
