@@ -90,13 +90,13 @@ end
 #     end
 #     return dm
 # end
-function bogoliubov_one_particle_density_matrix(N; numbers::AbstractVector = zeros(Int,N))
-    @assert N == length(numbers) "There are only $N Bogoliubons, not $(length(numbers))"
-    particles = rotl90(Diagonal(numbers))
-    holes = rotl90(Diagonal(1 .- numbers))
-    # i = rotl90(Matrix(I,N,N))
-    return [0I particles; holes 0I]
-end
+# function bogoliubov_one_particle_density_matrix(N; numbers::AbstractVector = zeros(Int,N))
+#     @assert N == length(numbers) "There are only $N Bogoliubons, not $(length(numbers))"
+#     particles = rotl90(Diagonal(numbers))
+#     holes = rotl90(Diagonal(1 .- numbers))
+#     # i = rotl90(Matrix(I,N,N))
+#     return [0I particles; holes 0I]
+# end
 # function one_particle_density_matrix(U::AbstractMatrix{T}) where T
 #     dm = zeros(T,size(U))
 #     N = div(size(U,1),2)
@@ -119,7 +119,7 @@ function enforce_ph_symmetry(es,ops; cutoff = 1e-12)
     ops = ops[:,p]
     N = div(length(es), 2)
     ph = quasiparticle_adjoint
-    for k in eachindex(es)[1:N]
+    for k in Iterators.take(eachindex(es), N)
         k2 = quasiparticle_adjoint_index(k,N)
         if es[k] > cutoff 
             @assert isapprox(es[k], -es[k2], atol=cutoff) "$(es[k]) != $(-es[k2])"
@@ -166,9 +166,10 @@ function check_ph_symmetry(es,ops; cutoff = 1e-12)
     #es = es[p]
     #ops = ops[:,p]
     #println(p)
-    all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i,N)]]) < cutoff for i in 1:N) &&
-    all(quasiparticle_adjoint(ops[:,p[i]]) ≈ ops[:,p[quasiparticle_adjoint_index(i,N)]] for i in 1:N) &&
-    isapprox( ops'*ops, I, atol = cutoff)
+    inds = Iterators.take(eachindex(es), N)
+    all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i,N)]]) < cutoff for i in inds) &&
+    all(quasiparticle_adjoint(ops[:,p[i]]) ≈ ops[:,p[quasiparticle_adjoint_index(i,N)]] for i in inds) &&
+    isapprox(ops'*ops, I, atol = cutoff)
 end
 # function fix_ph_phases(U)
 #     N = size(U,1)
@@ -176,11 +177,11 @@ end
 #     Diagonal([sign(transpose(U[k,:])*ph_transform*U'[:,k]) for k in 1:N])*U
 # end
 
-function one_particle_density_matrix(U::AbstractMatrix; kwargs...)
-    N = div(size(U,1),2)
-    # U[:,N+1:2N]*rotl90(Matrix(I,N,N))*U'[1:N,:]
-    U*bogoliubov_one_particle_density_matrix(N; kwargs...)*U'
-end
+# function one_particle_density_matrix(U::AbstractMatrix; kwargs...)
+#     N = div(size(U,1),2)
+#     # U[:,N+1:2N]*rotl90(Matrix(I,N,N))*U'[1:N,:]
+#     U*bogoliubov_one_particle_density_matrix(N; kwargs...)*U'
+# end
 
 function one_particle_density_matrix(ρ::AbstractMatrix{T},b::FermionBasis) where T
     N = nbr_of_fermions(b) 
