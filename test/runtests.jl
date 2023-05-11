@@ -123,22 +123,33 @@ end
     μ1 = rand()
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
-
+    
     @test b[1] isa QuantumDots.BdGFermion
     @test b[1]' isa QuantumDots.BdGFermion
     @test b[1]*b[1] isa SparseMatrixCSC
     @test b[1]'.hole
-
+    
     vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
     @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
-
+    
     t = Δ = 1
     poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
-    es, ops = eigen(poor_mans_ham^2)
-    @test norm(es[1:2]) < 1e-14
+    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham; sortby = e->(-sign(e),abs(e))))
+    @test norm(es[[1,3]]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
     majs = QuantumDots.MajoranaQuasiParticle.(qps)
-    @test QuantumDots.majorana_density.(majs[1:2]) ≈ [1,0]
+    @test sort(QuantumDots.majorana_density.(majs[[1,3]])) ≈ [0,1]
+    
+    b_mb = QuantumDots.FermionBasis(labels)
+    poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    es_mb, states = eigen(poor_mans_ham_mb)
+  
+    ρ = QuantumDots.one_particle_density_matrix(ops)
+    ρ2 = QuantumDots.one_particle_density_matrix(ops; numbers = [0,1])
+    ρchi = QuantumDots.one_particle_density_matrix(qps[1:2];)
+    ρmb = QuantumDots.one_particle_density_matrix(states[:,1]*states[:,1]',b_mb)
+    ρmb2 = QuantumDots.one_particle_density_matrix(states[:,2]*states[:,2]',b_mb)
+
 end
 
 @testset "QN" begin

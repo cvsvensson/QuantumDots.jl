@@ -61,8 +61,12 @@ function rep(f::BdGFermion)
     p = pos(f,b)
     sparsevec([p + f.hole*N], f.amp, 2N)
 end
-function Base.:*(f1::BdGFermion, f2::BdGFermion)
-    (rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))
+function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
+    if symmetrize
+        return (rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))
+    else
+        return rep(f1')*transpose(rep(f2))
+    end
 end
 Base.:*(x::Number,f::BdGFermion) = BdGFermion(f.id,f.basis,x*f.amp,f.hole)
 Base.:*(f::BdGFermion,x::Number) = BdGFermion(f.id,f.basis,f.amp*x,f.hole)
