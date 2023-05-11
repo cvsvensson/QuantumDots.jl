@@ -81,14 +81,6 @@ function visualize(qp::AbstractQuasiParticle)
     # barplot(labels(qp), abs2.(qp.weights.values), title="QuasiParticle weights", maximum=1,border = :dashed)
 end
 
-function visualize(qp::MajoranaQuasiParticle)
-    xlabels = map(l -> (l, :x), labels(qp.basis))
-    ylabels = map(l -> (l, :y), labels(qp.basis))
-    xweights = map(l -> qp[l], xlabels)
-    yweights = map(l -> qp[l], ylabels)
-    display(barplot(xlabels, abs2.(xweights), title="Majorana", maximum=1, border=:ascii))
-    display(barplot(ylabels, abs2.(yweights), maximum=1, border=:dashed))
-end
 
 # function one_particle_density_matrix(U::AbstractMatrix{T}) where T
 #     dm = zeros(T,size(U))
