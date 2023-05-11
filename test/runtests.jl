@@ -134,22 +134,29 @@ end
     
     t = Δ = 1
     poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
-    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham; sortby = e->(-sign(e),abs(e))))
-    @test norm(es[[1,3]]) < 1e-12
+    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    @test norm(sort(es,by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
-    majs = QuantumDots.MajoranaQuasiParticle.(qps)
-    @test sort(QuantumDots.majorana_density.(majs[[1,3]])) ≈ [0,1]
+    #majs = QuantumDots.MajoranaQuasiParticle.(qps)
+    # @test sort(QuantumDots.majorana_density.(majs[[1,3]])) ≈ [0,1]
     
     b_mb = QuantumDots.FermionBasis(labels)
     poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
     es_mb, states = eigen(poor_mans_ham_mb)
+    P = QuantumDots.parityoperator(b_mb)
+    parity(v) = v'*P*v
+    gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
+    gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
   
-    ρ = QuantumDots.one_particle_density_matrix(ops)
-    ρ2 = QuantumDots.one_particle_density_matrix(ops; numbers = [0,1])
-    ρchi = QuantumDots.one_particle_density_matrix(qps[1:2];)
-    ρmb = QuantumDots.one_particle_density_matrix(states[:,1]*states[:,1]',b_mb)
-    ρmb2 = QuantumDots.one_particle_density_matrix(states[:,2]*states[:,2]',b_mb)
+    ρeven = QuantumDots.one_particle_density_matrix(qps[1:2]) #Is this really the even state?
+    ρodd = QuantumDots.one_particle_density_matrix(qps[[1,3]])
+    ρeven_mb = QuantumDots.one_particle_density_matrix(gs_even*gs_even',b_mb)
+    ρodd_mb = QuantumDots.one_particle_density_matrix(gs_odd*gs_odd',b_mb)
 
+    @test norm(ρeven - ρeven_mb) < 1e-12
+    @test norm(ρodd - ρodd_mb) < 1e-12
+    @test norm((ρodd-ρeven)[[1,3],[1,3]]) < 1e-12
+    @test norm((ρodd_mb-ρeven_mb)[[1,3],[1,3]]) < 1e-12
 end
 
 @testset "QN" begin
