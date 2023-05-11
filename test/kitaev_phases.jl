@@ -16,7 +16,6 @@ es2, states = eigen(poor_mans_ham2)
 
 @test norm(sort(es,by=abs)[1:2]) < 1e-12
 qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops));
-majs = QuantumDots.MajoranaQuasiParticle.(qps);
 foreach(QuantumDots.visualize, majs[3:4])
 QuantumDots.majorana_density.(majs[3:4])
 QuantumDots.majorana_polarization(majs[3:4]...)
@@ -40,7 +39,6 @@ function mp(θ)
     es, ops = eigen(poor_mans_ham^2)
     @test norm(es[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops));
-    majs = QuantumDots.MajoranaQuasiParticle.(qps);
     QuantumDots.majorana_polarization(majs[1:2]...), es
 end
 

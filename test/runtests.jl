@@ -137,9 +137,7 @@ end
     es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
     @test norm(sort(es,by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
-    #majs = QuantumDots.MajoranaQuasiParticle.(qps)
-    # @test sort(QuantumDots.majorana_density.(majs[[1,3]])) ≈ [0,1]
-    
+
     b_mb = QuantumDots.FermionBasis(labels)
     poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
     es_mb, states = eigen(poor_mans_ham_mb)
