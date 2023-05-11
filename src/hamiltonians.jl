@@ -6,7 +6,10 @@ hopping(t, f1, f2) = t*f1'f2 + hc
 pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
-
+function coulomb(f1::BdGFermion, f2::BdGFermion) 
+    @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog=1
+    0*numberop(f1)
+end
 # su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
 function su2_rotation((θ,ϕ))
     pf = mod(ϕ,π) == 0 ? real(exp(1im*ϕ)) : exp(1im*ϕ)
@@ -26,12 +29,14 @@ end
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t,f1, f2) + 4V * coulomb(f1, f2) + pairing(Δ,f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
-function kitaev_hamiltonian(basis::FermionBasis{N}; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0) where {N}
+function kitaev_hamiltonian(basis::AbstractBasis; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0)
+    N = nbr_of_fermions(basis)
     dbias = bias * collect(range(-0.5, 0.5, length=N))
-    _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N), Δ=fill(Δ, N), V=fill(V, N), bias=dbias)
+    _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N-1), Δ=fill(Δ, N-1), V=fill(V, N-1), bias=dbias)
 end
 
-function _kitaev_hamiltonian(c::FermionBasis{N}; μ, t, Δ, V, bias) where {N}
+function _kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V, bias)
+    N = nbr_of_fermions(c)
     h1s = (_kitaev_1site(c[j]; μ=μ[j] + bias[j]) for j in 1:N)
     h2s = (_kitaev_2site(c[j], c[j+1]; t = t[j], Δ = Δ[j], V = V[j]) for j in 1:N-1)
     hs = Iterators.flatten((h1s, h2s))
@@ -66,14 +71,16 @@ function _tovec((x,symb),N)
     end
     return _tovec(x,N)
 end
-function BD1_hamiltonian(c::FermionBasis{M}; μ, h, t, Δ, Δ1, U, V, θ, ϕ) where M
+function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
+    M = nbr_of_fermions(c)
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
     _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
 
-function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector) where {M}
+function _BD1_hamiltonian(c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector)
+    M = nbr_of_fermions(c)
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     @assert length(μ) == div(M,2)
     N = div(M,2)
@@ -83,7 +90,8 @@ function _BD1_hamiltonian(c::FermionBasis{M}; μ::Vector, h::Vector, t::Vector, 
 end
 
 
-function TSL_hamiltonian(c::FermionBasis{6}; μL,μC,μR, h, t, Δ, U,tsoc)
+function TSL_hamiltonian(c::AbstractBasis; μL,μC,μR, h, t, Δ, U,tsoc)
+    @assert nbr_of_fermions(c) == 6 "This basis has the wrong number of fermions for this hamiltonian $(nbr_of_fermions(c)) != 6"
     fermions = [(c[j,:↑],c[j,:↓]) for j in (:L,:C,:R)]
     TSL_hamiltonian(fermions...; μL,μC,μR, h, t, Δ, U,tsoc)
 end
@@ -101,9 +109,13 @@ function TSL_hamiltonian((dLup,dLdn),(dCup,dCdn),(dRup,dRdn); μL,μC,μR, h, t,
 end
 
 
-function TSL_generator(qn=NoSymmetry(); blocks = qn !== NoSymmetry(), dense = false)
+function TSL_generator(qn=NoSymmetry(); blocks = qn !== NoSymmetry(), dense = false, bdg=false)
     @variables μL, μC, μR, h, t, Δ, tsoc, U
-    c = FermionBasis((:L,:C,:R),(:↑,:↓); qn)
+    c = if !bdg
+        FermionBasis((:L,:C,:R),(:↑,:↓); qn)
+    elseif bdg && qn==NoSymmetry()
+        FermionBdGBasis(Tuple(collect(Base.product((:L,:C,:R),(:↑,:↓)))) )
+    end
     fdense = dense ? Matrix : identity
     fblock = blocks ? m->blockdiagonal(m,c) : identity
     f = fblock ∘ fdense

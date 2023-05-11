@@ -118,6 +118,55 @@ end
     @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
 end
 
+@testset "BdG" begin
+    labels = Tuple(1:2)
+    μ1 = rand()
+    μ2 = rand()
+    b = QuantumDots.FermionBdGBasis(labels)
+    
+    @test b[1] isa QuantumDots.BdGFermion
+    @test b[1]' isa QuantumDots.BdGFermion
+    @test b[1]*b[1] isa SparseMatrixCSC
+    @test b[1]'.hole
+    
+    vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
+    @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
+    
+    t = Δ = 1
+    poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
+    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    @test QuantumDots.check_ph_symmetry(es, ops)
+    @test norm(sort(es,by=abs)[1:2]) < 1e-12
+    qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
+
+    b_mb = QuantumDots.FermionBasis(labels)
+    poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    es_mb, states = eigen(poor_mans_ham_mb)
+    P = QuantumDots.parityoperator(b_mb)
+    parity(v) = v'*P*v
+    gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
+    gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
+  
+    ρeven = QuantumDots.one_particle_density_matrix(qps[1:2]) #Is this really the even state?
+    ρodd = QuantumDots.one_particle_density_matrix(qps[[1,3]])
+    ρeven_mb = QuantumDots.one_particle_density_matrix(gs_even*gs_even',b_mb)
+    ρodd_mb = QuantumDots.one_particle_density_matrix(gs_odd*gs_odd',b_mb)
+
+    @test ρeven ≈ ρeven_mb
+    @test ρodd ≈ ρodd_mb
+    @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
+    @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
+
+    qp = qps[2]
+    @test qp isa QuantumDots.QuasiParticle
+    @test 2*qp isa QuantumDots.QuasiParticle
+    @test qp*2 isa QuantumDots.QuasiParticle
+    @test qp/2 isa QuantumDots.QuasiParticle
+    @test qp + qp isa QuantumDots.QuasiParticle
+    @test qp - qp isa QuantumDots.QuasiParticle
+    @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
+end
+
 @testset "QN" begin
     function testsym(sym)
         qnsv = [(qn,) for qn in qns(sym)]
