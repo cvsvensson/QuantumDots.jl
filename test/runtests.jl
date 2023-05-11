@@ -135,6 +135,7 @@ end
     t = Δ = 1
     poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
     es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es,by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
 
