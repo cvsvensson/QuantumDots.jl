@@ -153,10 +153,10 @@ end
     ρeven_mb = QuantumDots.one_particle_density_matrix(gs_even*gs_even',b_mb)
     ρodd_mb = QuantumDots.one_particle_density_matrix(gs_odd*gs_odd',b_mb)
 
-    @test norm(ρeven - ρeven_mb) < 1e-12
-    @test norm(ρodd - ρodd_mb) < 1e-12
-    @test norm((ρodd-ρeven)[[1,3],[1,3]]) < 1e-12
-    @test norm((ρodd-ρeven)[[2,4],[2,4]]) < 1e-12
+    @test ρeven ≈ ρeven_mb
+    @test ρodd ≈ ρodd_mb
+    @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
+    @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
 end
 
 @testset "QN" begin
