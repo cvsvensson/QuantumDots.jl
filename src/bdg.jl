@@ -197,9 +197,9 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T},b::FermionBasis) wher
     end
     return [hoppings pairings2; pairings hoppings2]
 end
-function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
+function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle{T}}) where T
     #N = nbr_of_fermions(basis(first(χs)))
-    sum(*(χ,χ';symmetrize=false) for χ in χs)
+    sum(*(χ,χ';symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
 end
 
 function Base.:*(f1::QuasiParticle,f2::QuasiParticle; kwargs...)
@@ -213,3 +213,10 @@ function Base.:+(f1::QuasiParticle,f2::QuasiParticle)
     @assert basis(f1) == basis(f2)
     QuasiParticle(map(+,f1.weights,f2.weights),basis(f1))    
 end
+function Base.:-(f1::QuasiParticle,f2::QuasiParticle)
+    @assert basis(f1) == basis(f2)
+    QuasiParticle(map(-,f1.weights,f2.weights),basis(f1))    
+end
+Base.:*(x::Number,f::QuasiParticle) = QuasiParticle(map(Base.Fix1(*,x),f.weights),basis(f))
+Base.:*(f::QuasiParticle,x::Number) = QuasiParticle(map(Base.Fix2(*,x),f.weights),basis(f))
+Base.:/(f::QuasiParticle,x::Number) = QuasiParticle(map(Base.Fix2(/,x),f.weights),basis(f))

@@ -156,7 +156,7 @@ end
     @test norm(ρeven - ρeven_mb) < 1e-12
     @test norm(ρodd - ρodd_mb) < 1e-12
     @test norm((ρodd-ρeven)[[1,3],[1,3]]) < 1e-12
-    @test norm((ρodd_mb-ρeven_mb)[[1,3],[1,3]]) < 1e-12
+    @test norm((ρodd-ρeven)[[2,4],[2,4]]) < 1e-12
 end
 
 @testset "QN" begin
