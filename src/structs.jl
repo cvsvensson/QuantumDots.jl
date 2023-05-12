@@ -58,8 +58,7 @@ basis(f::BdGFermion) = f.basis
 function rep(f::BdGFermion)
     b = basis(f)
     N = nbr_of_fermions(b) 
-    p = pos(f,b)
-    sparsevec([p + f.hole*N], f.amp, 2N)
+    sparsevec([indexpos(f,b)], f.amp, 2N)
 end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
     if symmetrize
@@ -82,4 +81,5 @@ end
 nbr_of_fermions(::FermionBdGBasis{M}) where M = M
 Base.getindex(b::FermionBdGBasis,i) = BdGFermion(i,b)
 Base.getindex(b::FermionBdGBasis,args...) = BdGFermion(args,b) 
-pos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id]
+# pos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id]
+indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + f.hole*nbr_of_fermions(b)

@@ -196,16 +196,31 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
     end
     return [hoppings pairings2; pairings hoppings2]
 end
-function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle{T}}) where {T}
-    #N = nbr_of_fermions(basis(first(χs)))
-    sum(*(χ, χ'; symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
+function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
+    sum(one_particle_density_matrix(χ,χ') for χ in χs)
 end
-
-function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
+function one_particle_density_matrix(χ1::QuasiParticle, χ2::QuasiParticle)
+    b = basis(χ1)
+    sum(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h)) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
+end
+# function one_particle_density_matrix(χ::QuasiParticle)
+#     b = basis(χ)
+#     #N = nbr_of_fermions(basis(first(χs)))
+#     # sum(*(χ, χ'; symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
+#     sum(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h)) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
+# end
+function one_particle_density_matrix(f1::BdGFermion, f2::BdGFermion)
     b = basis(f1)
-    @assert b == basis(f2)
-    sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for ((l1, w1), (l2, w2)) in Base.product(pairs(f1.weights), pairs(f2.weights)))
+    N = nbr_of_fermions(b)
+    sparse([indexpos(f2, b), indexpos(f1, b)], 
+    [indexpos(f1', b), indexpos(f2', b)], 
+    f2.amp*f1.amp*[1,-1], 2N,2N) + I*(indexpos(f1, b) == indexpos(f2',b))
 end
+# function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
+#     b = basis(f1)
+#     @assert b == basis(f2)
+#     sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for ((l1, w1), (l2, w2)) in Base.product(pairs(f1.weights), pairs(f2.weights)))
+# end
 Base.adjoint(f::QuasiParticle) = QuasiParticle(Dictionary(keys(f.weights).values, quasiparticle_adjoint(f.weights.values, nbr_of_fermions(basis(f)))), basis(f))
 
 function Base.:+(f1::QuasiParticle, f2::QuasiParticle)
