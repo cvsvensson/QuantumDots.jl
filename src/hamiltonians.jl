@@ -76,7 +76,7 @@ function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M,2)
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
-    _BD1_hamiltonian(c::FermionBasis{M}; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
+    _BD1_hamiltonian(c; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
 
 function _BD1_hamiltonian(c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector)
