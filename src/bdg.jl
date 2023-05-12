@@ -26,9 +26,10 @@ end
 #     N = div(length(a),2)
 #     return [(a[k] + a[k+N])/2 for k in 1:N], [(a[k] - a[k+N])/2 for k in 1:N] 
 # end
-
-labels(b::FermionBdGBasis) = keys(b.position).values
-labels(qp::AbstractQuasiParticle) = keys(qp.weights).values
+Base.keys(b::FermionBdGBasis) = keys(b.position)
+labels(b::FermionBdGBasis) = keys(b).values
+Base.keys(qp::AbstractQuasiParticle) = keys(qp.weights)
+labels(qp::AbstractQuasiParticle) = keys(qp).values
 basis(qp::AbstractQuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
     N = nbr_of_fermions(basis)

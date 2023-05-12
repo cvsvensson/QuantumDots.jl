@@ -1,1 +1,1 @@
-cell(j, b::FermionBasis) = map(l->b[l], filter(isequal(j) ∘ first, keys(b.dict)))
+cell(j, b::AbstractBasis) = map(l->b[l], filter(isequal(j) ∘ first, keys(b)))

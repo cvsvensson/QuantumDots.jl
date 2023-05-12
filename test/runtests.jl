@@ -124,6 +124,9 @@ end
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
     
+    @test QuantumDots.cell(1, b)[1] == b[1]
+    @test length(QuantumDots.cell(1, b)) == 1
+
     @test b[1] isa QuantumDots.BdGFermion
     @test b[1]' isa QuantumDots.BdGFermion
     @test b[1]*b[1] isa SparseMatrixCSC

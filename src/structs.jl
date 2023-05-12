@@ -22,7 +22,7 @@ end
 Base.getindex(b::FermionBasis,i) = b.dict[i]
 Base.getindex(b::FermionBasis,args...) = b.dict[args]
 Base.keys(b::FermionBasis) = keys(b.dict)
-
+labels(b::FermionBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io,b)
 Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
 
