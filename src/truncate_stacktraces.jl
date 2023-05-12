@@ -1,1 +1,0 @@
-TruncatedStacktraces.@truncate_stacktrace AbelianFockSymmetry 3 4
