@@ -19,4 +19,6 @@ include("lindblad.jl")
 include("hamiltonians.jl")
 include("QArray.jl")
 include("bdg.jl")
+include("pretty_print.jl")
+
 end
