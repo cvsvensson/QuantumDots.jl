@@ -63,9 +63,9 @@ function rep(f::BdGFermion)
 end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
     if symmetrize
-        return (rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))
+        return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * (f1 != f2)
     else
-        return rep(f1')*transpose(rep(f2))
+        return (rep(f1')*transpose(rep(f2)) ) * (f1 != f2)
     end
 end
 Base.:*(x::Number,f::BdGFermion) = BdGFermion(f.id,f.basis,x*f.amp,f.hole)

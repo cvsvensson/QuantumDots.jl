@@ -124,6 +124,10 @@ end
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
     
+    @test iszero(b[1]*b[1])
+    @test iszero(b[1]'*b[1]')
+    @test iszero(*(b[1],b[1]; symmetrize=false))
+    @test iszero(*(b[1]',b[1]'; symmetrize=false))
     @test QuantumDots.cell(1, b)[1] == b[1]
     @test length(QuantumDots.cell(1, b)) == 1
 

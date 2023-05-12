@@ -132,12 +132,6 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
         op = ops[:, k]
         op2 = ph(op)
         if abs(dot(op2, op)) < cutoff #op is not a majorana
-            # display(abs(dot(op2,op)))
-            # display(ops)
-            # display(k)
-            # display(es)
-            # dp = abs(dot(op2,ops[:,k2])/(norm(op2)*norm(ops[:,k2])))
-            # @assert dp ≈ 1 "$dp not equal to 1"
             ops[:, k2] = op2
         else
             #@warn "majoranas $op $op2"
