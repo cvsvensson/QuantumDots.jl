@@ -3,13 +3,7 @@
     
 Count the number of fermions to the right of site.
 """
-# jwstring(site,focknbr) = (-1)^(count_ones(focknbr >> site))
 jwstring(site,focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
-
-siteindices(ps,bin) = map(p->siteindex(p,bin),ps)
-
-index(basisstate::Integer,::FermionBasis) = basisstate + 1
-basisstate(ind::Integer,::FermionBasis) = ind - 1
 
 
 function removefermion(digitposition,statefocknbr) #Currently only works for a single creation operator
