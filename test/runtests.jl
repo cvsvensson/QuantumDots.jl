@@ -12,6 +12,17 @@ end
     fbits = bits(focknumber,N)
     @test fbits == [0,0,1,0,1,0]
 
+    @test QuantumDots.focknbr(fbits) == 20
+    @test QuantumDots.focknbr(Tuple(fbits)) == 20
+    @test !QuantumDots._bit(focknumber,1)
+    @test !QuantumDots._bit(focknumber,2)
+    @test QuantumDots._bit(focknumber,3)
+    @test !QuantumDots._bit(focknumber,4)
+    @test QuantumDots._bit(focknumber,5)
+
+    @test QuantumDots.focknbr((3,5)) == 20
+    @test QuantumDots.focknbr([3,5]) == 20
+
     @testset "removefermion" begin
         focknbr = rand(1:2^N) - 1
         fockbits = bits(focknbr,N)
@@ -41,6 +52,12 @@ end
         _, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
         @test sign == 0
     end
+
+    fs = QuantumDots.fockstates(10,5)
+    @test length(fs) == binomial(10,5)
+    @test allunique(fs)
+    @test all(QuantumDots.fermionnumber.(fs) .== 5)
+    
 end
 
 @testset "Basis" begin
@@ -99,6 +116,91 @@ end
         @test all(bilinear_equality(c,FermionBasis(subsystem),ρ) for subsystem in get_subsystems(cparity,N))
     end
     @test_throws AssertionError bilinear_equality(c,FermionBasis(((1,:b),(1,:a))),ρ) 
+end
+
+@testset "BdG" begin
+    labels = Tuple(1:2)
+    μ1 = rand()
+    μ2 = rand()
+    b = QuantumDots.FermionBdGBasis(labels)
+    
+    @test QuantumDots.cell(1, b)[1] == b[1]
+    @test length(QuantumDots.cell(1, b)) == 1
+
+    @test b[1] isa QuantumDots.BdGFermion
+    @test b[1]' isa QuantumDots.BdGFermion
+    @test b[1]*b[1] isa SparseMatrixCSC
+    @test b[1]'.hole
+    
+    vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
+    @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
+    
+    t = Δ = 1
+    poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
+    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    @test QuantumDots.check_ph_symmetry(es, ops)
+    @test norm(sort(es,by=abs)[1:2]) < 1e-12
+    qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
+
+    b_mb = QuantumDots.FermionBasis(labels)
+    poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    es_mb, states = eigen(poor_mans_ham_mb)
+    P = QuantumDots.parityoperator(b_mb)
+    parity(v) = v'*P*v
+    gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
+    gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
+  
+    ρeven = QuantumDots.one_particle_density_matrix(qps[1:2]) #Is this really the even state?
+    ρodd = QuantumDots.one_particle_density_matrix(qps[[1,3]])
+    ρeven_mb = QuantumDots.one_particle_density_matrix(gs_even*gs_even',b_mb)
+    ρodd_mb = QuantumDots.one_particle_density_matrix(gs_odd*gs_odd',b_mb)
+
+    @test ρeven ≈ ρeven_mb
+    @test ρodd ≈ ρodd_mb
+    @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
+    @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
+
+    qp = qps[2]
+    @test qp isa QuantumDots.QuasiParticle
+    @test 2*qp isa QuantumDots.QuasiParticle
+    @test qp*2 isa QuantumDots.QuasiParticle
+    @test qp/2 isa QuantumDots.QuasiParticle
+    @test qp + qp isa QuantumDots.QuasiParticle
+    @test qp - qp isa QuantumDots.QuasiParticle
+    @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
+end
+
+@testset "QN" begin
+    function testsym(sym)
+        qnsv = [(qn,) for qn in qns(sym)]
+        blocksv = [rand(QuantumDots.blocksize(qn,sym)) .- 1/2 for qn in qns(sym)]
+        v = QArray(qnsv,blocksv,(sym,))
+        
+        qnmat = collect(Base.product(qns(sym),qns(sym)))
+        dind = diagind(qnmat)
+        qnsm = vec(qnmat)
+        blocksm = [rand(QuantumDots.blocksize(qn1,sym),QuantumDots.blocksize(qn2,sym)) .- 1/2 for (qn1,qn2) in qnsm]
+        m = QuantumDots.QArray(qnsm,blocksm, (sym,sym))
+        md = QuantumDots.QArray(qnsm[dind],blocksm[dind], (sym,sym))
+        
+        ma = Array(m);
+        va = Array(v);
+        mda = Array(md);
+
+        @test size(v) == size(va)
+        @test size(m) == size(ma)
+        @test Array(m*v) ≈ ma*va
+        @test Array(md*v) ≈ mda*va
+
+        @test v'*v ≈ va'*va
+        @test v'*(m*v) ≈ (v'*m)*v ≈ va'*ma*va
+
+        @test all([ind == QuantumDots.qnindtoind(QuantumDots.indtoqnind(ind,sym),sym) for ind in eachindex(va)])
+    end
+    testsym(Z2Symmetry{1}())
+    testsym(Z2Symmetry{4}())
+    testsym(QuantumDots.U1Symmetry{1}())
+    testsym(QuantumDots.U1Symmetry{5}())
 end
 
 @testset "Kitaev" begin
@@ -232,6 +334,52 @@ end
     @test bdham ≈ numberbdham(params...)
     @test bdham ≈ hamiltonian(params[1:end-1]...,0.0)
 
+    b = FermionBasis(1:2,(:a,:b); qn = QuantumDots.parity)
+    nparams = 8
+    params = rand(nparams)
+    ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1,ϕ = 0))
+    hammat = ham(params...)
+    fastgen! = QuantumDots.fastgenerator(ham, nparams)
+    hammat2 = ham(rand(Float64,nparams)...)
+    fastgen!(hammat2,params...) 
+    @test hammat2 ≈ hammat
+
+    hambd(p...) = QuantumDots.blockdiagonal(ham(p...),b)
+    @test sort!(abs.(eigvals(hambd(params...)))) ≈ sort!(abs.(eigvals(hammat)))
+
+    fastgen! = QuantumDots.fastblockdiagonal(hambd, nparams)
+    bdhammat2 = hambd(rand(nparams)...)
+    fastgen!(bdhammat2,params...) 
+    @test hambd(params...) ≈ bdhammat2
+
+end
+
+@testset "rotations" begin
+    N=2
+    b = FermionBasis(1:N,(:↑,:↓))
+    standard_hopping = QuantumDots.hopping(1,b[1,:↑],b[2,:↑]) +  QuantumDots.hopping(1,b[1,:↓],b[2,:↓])
+    standard_pairing = QuantumDots.pairing(1,b[1,:↑],b[2,:↓]) - QuantumDots.pairing(1,b[1,:↓],b[2,:↑])
+    local_pairing = sum(QuantumDots.pairing(1,QuantumDots.cell(j,b)...) for j in 1:N)
+    θ = rand()
+    ϕ = rand()
+    @test QuantumDots.hopping_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(0,0)) ≈ standard_hopping
+    @test QuantumDots.hopping_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(θ,ϕ),(θ,ϕ)) ≈ standard_hopping
+    @test QuantumDots.pairing_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(0,0)) ≈ standard_pairing
+    @test QuantumDots.pairing_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(θ,ϕ),(θ,ϕ)) ≈ standard_pairing
+
+    soc = QuantumDots.hopping(exp(1im*ϕ),b[1,:↓],b[2,:↑]) - QuantumDots.hopping(exp(-1im*ϕ),b[1,:↑],b[2,:↓])
+    @test QuantumDots.hopping_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(θ,ϕ)) ≈ standard_hopping*cos(θ/2) + sin(θ/2)*soc
+
+    Δk = QuantumDots.pairing(exp(1im*ϕ),b[1,:↑],b[2,:↑]) + QuantumDots.pairing(exp(-1im*ϕ),b[1,:↓],b[2,:↓])
+    @test QuantumDots.pairing_rotated(1,QuantumDots.cell(1,b), QuantumDots.cell(2,b),(0,0),(θ,ϕ)) ≈ standard_pairing*cos(θ/2) + sin(θ/2)*Δk
+
+    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1,μ=0,V=0,U=0,h=0,θ = (0,:diff),ϕ=(0,:diff),Δ = 0,Δ1 = 0)
+    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,θ=(0,:diff),ϕ=(0,:diff),Δ = 0,Δ1 = 1)
+    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=0,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 1,Δ1 = 0) ≈ local_pairing
+    
+    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) ≈ -QuantumDots.numberoperator(b)
+
+    @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) == QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=θ.*[0,1],ϕ=ϕ.*[0,1],Δ = 0,Δ1 = 0)
 end
 
 @testset "transport" begin
