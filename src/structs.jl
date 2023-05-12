@@ -63,11 +63,13 @@ function rep(f::BdGFermion)
 end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
     if symmetrize
-        return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * (f1 != f2)
+        return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
     else
-        return (rep(f1')*transpose(rep(f2)) ) * (f1 != f2)
+        return (rep(f1')*transpose(rep(f2)) ) * !same_fermion(f1,f2)
     end
 end
+same_fermion(f1::BdGFermion, f2::BdGFermion) = f1.id == f2.id && f1.hole == f2.hole
+
 Base.:*(x::Number,f::BdGFermion) = BdGFermion(f.id,f.basis,x*f.amp,f.hole)
 Base.:*(f::BdGFermion,x::Number) = BdGFermion(f.id,f.basis,f.amp*x,f.hole)
 struct FermionBdGBasis{M,L} <: AbstractBasis
