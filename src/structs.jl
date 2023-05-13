@@ -64,9 +64,9 @@ end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
     w = f1.amp*f2.amp
     if symmetrize
-        return w*((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
+        return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
     else
-        return w*(rep(f1')*transpose(rep(f2)) ) * !same_fermion(f1,f2)
+        return (rep(f1')*transpose(rep(f2)) ) * !same_fermion(f1,f2)
     end
 end
 same_fermion(f1::BdGFermion, f2::BdGFermion) = f1.id == f2.id && f1.hole == f2.hole

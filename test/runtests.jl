@@ -134,7 +134,8 @@ end
     @test b[1] isa QuantumDots.BdGFermion
     @test b[1]' isa QuantumDots.BdGFermion
     @test b[1]*b[1] isa SparseMatrixCSC
-    @test b[1]'.hole
+    @test b[1].hole
+    @test !b[1]'.hole
     @test b[1] + b[1] isa QuantumDots.QuasiParticle
 
     vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
