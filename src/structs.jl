@@ -43,12 +43,13 @@ struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
 end
 
 ##BdG
-struct BdGFermion{S,B,T}
+abstract type AbstractBdGFermion end
+struct BdGFermion{S,B,T} <: AbstractBdGFermion
     id::S
     basis::B
     amp::T
     hole::Bool
-    function BdGFermion(id::S,basis::B,amp::T=true,hole=false) where {S,B,T}
+    function BdGFermion(id::S,basis::B,amp::T=true,hole=true) where {S,B,T}
         # pos = findfirst(==(id), labels(basis))
         new{S,B,T}(id,basis,amp,hole)
     end
@@ -61,10 +62,11 @@ function rep(f::BdGFermion)
     sparsevec([indexpos(f,b)], f.amp, 2N)
 end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
+    w = f1.amp*f2.amp
     if symmetrize
-        return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
+        return w*((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
     else
-        return (rep(f1')*transpose(rep(f2)) ) * !same_fermion(f1,f2)
+        return w*(rep(f1')*transpose(rep(f2)) ) * !same_fermion(f1,f2)
     end
 end
 same_fermion(f1::BdGFermion, f2::BdGFermion) = f1.id == f2.id && f1.hole == f2.hole
@@ -82,4 +84,4 @@ nbr_of_fermions(::FermionBdGBasis{M}) where M = M
 Base.getindex(b::FermionBdGBasis,i) = BdGFermion(i,b)
 Base.getindex(b::FermionBdGBasis,args...) = BdGFermion(args,b) 
 # pos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id]
-indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + f.hole*nbr_of_fermions(b)
+indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole*nbr_of_fermions(b)

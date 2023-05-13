@@ -8,6 +8,7 @@ using UnicodePlots
 
 export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal
 export qns,Z2,QArray, Z2Symmetry, QNIndex
+export one_particle_density_matrix
 
 include("structs.jl")
 include("fock.jl")

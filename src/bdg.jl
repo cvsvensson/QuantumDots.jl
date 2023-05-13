@@ -1,5 +1,5 @@
-abstract type AbstractQuasiParticle end
-struct QuasiParticle{T,M,L} <: AbstractQuasiParticle
+# abstract type AbstractQuasiParticle end
+struct QuasiParticle{T,M,L} <: AbstractBdGFermion
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
 end
@@ -9,8 +9,8 @@ function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where 
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
     QuasiParticle{T,M,L}(weights, basis)
 end
-Base.getindex(qp::AbstractQuasiParticle, i) = getindex(qp.weights, i)
-Base.getindex(qp::AbstractQuasiParticle, i...) = getindex(qp.weights, i)
+# Base.getindex(qp::AbstractQuasiParticle, i) = getindex(qp.weights, i)
+# Base.getindex(qp::AbstractQuasiParticle, i...) = getindex(qp.weights, i)
 
 # function majorana_transform(bdgham::AbstractMatrix)
 #     n = div(size(bdgham,1),2)
@@ -28,19 +28,19 @@ end
 # end
 Base.keys(b::FermionBdGBasis) = keys(b.position)
 labels(b::FermionBdGBasis) = keys(b).values
-Base.keys(qp::AbstractQuasiParticle) = keys(qp.weights)
-labels(qp::AbstractQuasiParticle) = keys(qp).values
-basis(qp::AbstractQuasiParticle) = qp.basis
+Base.keys(qp::QuasiParticle) = keys(qp.weights)
+labels(qp::QuasiParticle) = keys(qp).values
+basis(qp::QuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
     N = nbr_of_fermions(basis)
     labels(basis)[1:Int(ceil(N / 2))]
 end
-function majorana_polarization(f::AbstractQuasiParticle, labels=_left_half_labels(basis(f)))
+function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(f)))
     md1, md2 = majorana_densities(f, labels)
     (md1 - md2) / (md1 + md2)
 end
 
-function majorana_wavefunctions(f::AbstractQuasiParticle, labels = labels(basis(f)))
+function majorana_wavefunctions(f::QuasiParticle, labels = labels(basis(f)))
     # ls = labels(basis(f))
     xylabels = [map(l -> (l, :x), labels); map(l -> (l, :y), labels)]
     # ylabels = map(l -> (l, :y), labels)
@@ -52,7 +52,7 @@ function majorana_wavefunctions(f::AbstractQuasiParticle, labels = labels(basis(
     return Dictionary(xylabels, [xplus; yplus]),
     Dictionary(xylabels, [xminus; yminus])
 end
-function majorana_densities(f::AbstractQuasiParticle, labels=_left_half_labels(basis(f)))
+function majorana_densities(f::QuasiParticle, labels=_left_half_labels(basis(f)))
     # xplus = map(l -> real(f[l, :h] + f[l, :p]), labels)
     # xminus = map(l -> imag(f[l, :h] + f[l, :p]), labels)
     # yplus = map(l -> imag(f[l, :h] - f[l, :p]), labels)
@@ -61,7 +61,7 @@ function majorana_densities(f::AbstractQuasiParticle, labels=_left_half_labels(b
     sum(abs2, γplus), sum(abs2, γminus)
 end
 
-function majvisualize(qp::AbstractQuasiParticle)
+function majvisualize(qp::QuasiParticle)
     ls = labels(basis(qp))
     for (γ,title) in (((qp+qp')/2,"γ₊ = (χ + χ')/2"), ((qp-qp')/2,"γ₋ = (χ - χ')/2"))
         xlabels = map(l -> (l, :x), ls)
@@ -72,7 +72,7 @@ function majvisualize(qp::AbstractQuasiParticle)
         display(barplot(ylabels, abs2.(yweights), maximum=1, border=:dashed))
     end
 end
-function visualize(qp::AbstractQuasiParticle)
+function visualize(qp::QuasiParticle)
     hlabels = map(l -> (l, :h), labels(qp.basis))
     plabels = map(l -> (l, :p), labels(qp.basis))
     hweights = map(l -> qp[l], hlabels)
@@ -201,7 +201,7 @@ function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
 end
 function one_particle_density_matrix(χ1::QuasiParticle, χ2::QuasiParticle)
     b = basis(χ1)
-    sum(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h)) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
+    sum(Matrix(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h))) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
 end
 # function one_particle_density_matrix(χ::QuasiParticle)
 #     b = basis(χ)
@@ -209,18 +209,21 @@ end
 #     # sum(*(χ, χ'; symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
 #     sum(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h)) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
 # end
+one_particle_density_matrix(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = one_particle_density_matrix(promote(f1, f2)...)
+
 function one_particle_density_matrix(f1::BdGFermion, f2::BdGFermion)
     b = basis(f1)
     N = nbr_of_fermions(b)
-    sparse([indexpos(f2, b), indexpos(f1, b)], 
-    [indexpos(f1', b), indexpos(f2', b)], 
-    f2.amp*f1.amp*[1,-1], 2N,2N) + I*(indexpos(f1, b) == indexpos(f2',b))
+    w = f2.amp*f1.amp
+    sparse([indexpos(f2', b), indexpos(f1', b)], 
+    [indexpos(f1, b), indexpos(f2, b)], 
+    w*[1,-1], 2N,2N) + w*I*(indexpos(f1, b) == indexpos(f2',b))
 end
-# function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
-#     b = basis(f1)
-#     @assert b == basis(f2)
-#     sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for ((l1, w1), (l2, w2)) in Base.product(pairs(f1.weights), pairs(f2.weights)))
-# end
+function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
+    b = basis(f1)
+    @assert b == basis(f2)
+    sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for ((l1, w1), (l2, w2)) in Base.product(pairs(f1.weights), pairs(f2.weights)))
+end
 Base.adjoint(f::QuasiParticle) = QuasiParticle(Dictionary(keys(f.weights).values, quasiparticle_adjoint(f.weights.values, nbr_of_fermions(basis(f)))), basis(f))
 
 function Base.:+(f1::QuasiParticle, f2::QuasiParticle)
@@ -234,3 +237,23 @@ end
 Base.:*(x::Number, f::QuasiParticle) = QuasiParticle(map(Base.Fix1(*, x), f.weights), basis(f))
 Base.:*(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(*, x), f.weights), basis(f))
 Base.:/(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(/, x), f.weights), basis(f))
+
+QuasiParticle(f::BdGFermion) = QuasiParticle(rep(f), f.basis)
+Base.promote_rule(::Type{<:BdGFermion}, ::Type{QuasiParticle{T,M,S}}) where {T,M,S} = QuasiParticle{T,M,S}
+Base.convert(::Type{<:QuasiParticle}, f::BdGFermion) = QuasiParticle(f)
+Base.:+(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = +(promote(f1,f2)...)
+Base.:-(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = -(promote(f1,f2)...)
+Base.:+(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) + QuasiParticle(f2)
+Base.:-(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) - QuasiParticle(f2)
+
+function many_body_fermion(f::BdGFermion, basis::FermionBasis)
+    if f.hole
+        return f.amp*basis[f.id]
+    else
+        return f.amp*basis[f.id]'
+    end
+end
+function many_body_fermion(qp::QuasiParticle, basis::FermionBasis)
+    mbferm((l,w)) = last(l) == :h ? w*basis[first(l)] : w*basis[first(l)]'
+    sum(mbferm, pairs(qp.weights))
+end
