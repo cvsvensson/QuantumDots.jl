@@ -9,8 +9,8 @@ function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where 
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
     QuasiParticle{T,M,L}(weights, basis)
 end
-# Base.getindex(qp::AbstractQuasiParticle, i) = getindex(qp.weights, i)
-# Base.getindex(qp::AbstractQuasiParticle, i...) = getindex(qp.weights, i)
+Base.getindex(qp::QuasiParticle, i) = getindex(qp.weights, i)
+Base.getindex(qp::QuasiParticle, i...) = getindex(qp.weights, i)
 
 # function majorana_transform(bdgham::AbstractMatrix)
 #     n = div(size(bdgham,1),2)
@@ -82,40 +82,30 @@ function visualize(qp::QuasiParticle)
     # barplot(labels(qp), abs2.(qp.weights.values), title="QuasiParticle weights", maximum=1,border = :dashed)
 end
 
+"""
+    one_particle_density_matrix(χ::QuasiParticle{T})
 
-# function one_particle_density_matrix(U::AbstractMatrix{T}) where T
-#     dm = zeros(T,size(U))
-#     N = div(size(U,1),2)
-#     for k in 1:2N
-#         for n in 1:2N
-#             for i in 1:N
-#                 dm[k,n] += U[mod1(N+k,2N),2N+1-i]U[n,i]
-#             end
-#         end
-#     end
-#     return dm
-# end
-# function bogoliubov_one_particle_density_matrix(N; numbers::AbstractVector = zeros(Int,N))
-#     @assert N == length(numbers) "There are only $N Bogoliubons, not $(length(numbers))"
-#     particles = rotl90(Diagonal(numbers))
-#     holes = rotl90(Diagonal(1 .- numbers))
-#     # i = rotl90(Matrix(I,N,N))
-#     return [0I particles; holes 0I]
-# end
-# function one_particle_density_matrix(U::AbstractMatrix{T}) where T
-#     dm = zeros(T,size(U))
-#     N = div(size(U,1),2)
-#     hoppings = zeros(T,N,N)
-#     pairings = zeros(T,N,N)
-#     for i in 1:N
-#         pairings += U[1:N,2N+1-i]*U'[i,1:N] #+ U[:,2N+1-i]*transpose(U[:,i])
-#         hoppings += U[1:N,i]*U'[i,1:N] #+ U[:,2N+1-i]*transpose(U[:,i])
-#     end
-#     return hoppings, pairings
-# end
+    Gives the one_particle_density_matrix for the state with χ as it's ground state
+"""
+function one_particle_density_matrix(χ::QuasiParticle{T}) where T
+    N = nbr_of_fermions(basis(χ))
+    U = χ.weights.values
+    U*transpose(U)
+end
+function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
+    sum(one_particle_density_matrix,χs)
+end
+
+function one_particle_density_matrix(U::AbstractMatrix{T}) where T
+    N = div(size(U,1),2)
+    ρ = zeros(T,2N,2N)
+    for i in 1:N
+        ρ += U[:,i]*transpose(U[:,i])
+    end
+    return ρ
+end
 enforce_ph_symmetry(F::Eigen) = enforce_ph_symmetry(F.values, F.vectors)
 quasiparticle_adjoint(v, N=div(length(v), 2)) = [conj(v[N+1:2N]); conj(v[1:N])]
-# quasiparticle_adjoint(N) = v -> quasiparticle_adjoint(v,N)
 energysort(e) = e #(sign(e), abs(e))
 quasiparticle_adjoint_index(n, N) = 2N + 1 - n #n+N
 function enforce_ph_symmetry(es, ops; cutoff=1e-12)
@@ -162,25 +152,12 @@ end
 function check_ph_symmetry(es, ops; cutoff=1e-12)
     N = div(length(es), 2)
     p = sortperm(es, by=energysort)
-    #es = es[p]
-    #ops = ops[:,p]
-    #println(p)
     inds = Iterators.take(eachindex(es), N)
     all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i, N)]]) < cutoff for i in inds) &&
         all(quasiparticle_adjoint(ops[:, p[i]]) ≈ ops[:, p[quasiparticle_adjoint_index(i, N)]] for i in inds) &&
         isapprox(ops' * ops, I, atol=cutoff)
 end
-# function fix_ph_phases(U)
-#     N = size(U,1)
-#     ph_transform = rotl90(Diagonal(ones(N)))
-#     Diagonal([sign(transpose(U[k,:])*ph_transform*U'[:,k]) for k in 1:N])*U
-# end
 
-# function one_particle_density_matrix(U::AbstractMatrix; kwargs...)
-#     N = div(size(U,1),2)
-#     # U[:,N+1:2N]*rotl90(Matrix(I,N,N))*U'[1:N,:]
-#     U*bogoliubov_one_particle_density_matrix(N; kwargs...)*U'
-# end
 
 function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) where {T}
     N = nbr_of_fermions(b)
@@ -196,29 +173,7 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
     end
     return [hoppings pairings2; pairings hoppings2]
 end
-function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
-    sum(one_particle_density_matrix(χ,χ') for χ in χs)
-end
-function one_particle_density_matrix(χ1::QuasiParticle, χ2::QuasiParticle)
-    b = basis(χ1)
-    sum(Matrix(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h))) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
-end
-# function one_particle_density_matrix(χ::QuasiParticle)
-#     b = basis(χ)
-#     #N = nbr_of_fermions(basis(first(χs)))
-#     # sum(*(χ, χ'; symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
-#     sum(one_particle_density_matrix(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h)) for ((l1, w1), (l2, w2)) in Base.product(pairs(χ1.weights), pairs(χ2.weights)) )
-# end
-one_particle_density_matrix(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = one_particle_density_matrix(promote(f1, f2)...)
 
-function one_particle_density_matrix(f1::BdGFermion, f2::BdGFermion)
-    b = basis(f1)
-    N = nbr_of_fermions(b)
-    w = f2.amp*f1.amp
-    sparse([indexpos(f2', b), indexpos(f1', b)], 
-    [indexpos(f1, b), indexpos(f2, b)], 
-    w*[1,-1], 2N,2N) + w*I*(indexpos(f1, b) == indexpos(f2',b))
-end
 function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
     b = basis(f1)
     @assert b == basis(f2)

@@ -148,6 +148,7 @@ end
     @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es,by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
+    @test all(map(qp->iszero(qp*qp), qps))
 
     b_mb = QuantumDots.FermionBasis(labels)
     poor_mans_ham_mb = ham(b_mb)#Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
@@ -161,7 +162,8 @@ end
     ρodd = one_particle_density_matrix(qps[[1,3]])
     ρeven_mb = one_particle_density_matrix(gs_even*gs_even',b_mb)
     ρodd_mb = one_particle_density_matrix(gs_odd*gs_odd',b_mb)
-
+    qps_mb = map(qp->QuantumDots.many_body_fermion(qp,b_mb), qps)
+   
     @test ρeven ≈ ρeven_mb
     @test ρodd ≈ ρodd_mb
     @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
@@ -176,17 +178,6 @@ end
     @test qp - qp isa QuantumDots.QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
-    for (l1,l2) in Base.product(labels,labels)
-        u1,v1 = rand(2)
-        u2,v2 = rand(2)
-        ρ = one_particle_density_matrix(u1*b[l1] + v1*b[l1]', u2*b[l2] + v2*b[l2]')
-        ρ_mb = one_particle_density_matrix((u1*b_mb[l1] + v1*b_mb[l1]')*(u2*b_mb[l2] + v2*b_mb[l2]'), b_mb)
-        @test ρ ≈ ρ_mb
-        @test one_particle_density_matrix(b[l1],b[l2]) ≈ one_particle_density_matrix(b_mb[l1]*b_mb[l2], b_mb)
-        @test one_particle_density_matrix(b[l1]',b[l2]) ≈ one_particle_density_matrix(b_mb[l1]'*b_mb[l2], b_mb)
-        @test one_particle_density_matrix(b[l1],b[l2]') ≈ one_particle_density_matrix(b_mb[l1]*b_mb[l2]', b_mb)
-        @test one_particle_density_matrix(b[l1]',b[l2]') ≈ one_particle_density_matrix(b_mb[l1]'*b_mb[l2]', b_mb)
-    end
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)
     normalize!(vs)
@@ -194,13 +185,7 @@ end
     normalize!(vs)
     χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
     χ_mb = sum(us .* [b_mb[i] for i in keys(b_mb)]) + sum(vs .* [b_mb[i]' for i in keys(b)])
-    @test χ_mb ≈ (QuantumDots.many_body_fermion(χ,b_mb))
-    @test norm(one_particle_density_matrix(χ,χ)) < 1e-12
-    @test norm(one_particle_density_matrix(χ_mb*χ_mb,b_mb)) < 1e-12
-    @test one_particle_density_matrix(χ,χ') ≈ one_particle_density_matrix(χ_mb*χ_mb',b_mb)
-    @test one_particle_density_matrix(χ',χ) ≈ one_particle_density_matrix(χ_mb'*χ_mb,b_mb)
-
-    @test one_particle_density_matrix([χ,2χ]) ≈ one_particle_density_matrix(5χ,χ') 
+    @test χ_mb ≈ QuantumDots.many_body_fermion(χ,b_mb)
 end
 
 @testset "QN" begin
