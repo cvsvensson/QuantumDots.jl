@@ -181,6 +181,10 @@ end
     @test qp/2 isa QuantumDots.QuasiParticle
     @test qp + qp isa QuantumDots.QuasiParticle
     @test qp - qp isa QuantumDots.QuasiParticle
+    @test qp + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] + qp isa QuantumDots.QuasiParticle
+    @test qp - b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - qp isa QuantumDots.QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test_nowarn QuantumDots.visualize(qp)
