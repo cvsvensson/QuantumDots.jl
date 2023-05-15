@@ -199,6 +199,10 @@ end
     χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
     χ_mb = sum(us .* [b_mb[i] for i in keys(b_mb)]) + sum(vs .* [b_mb[i]' for i in keys(b)])
     @test χ_mb ≈ QuantumDots.many_body_fermion(χ,b_mb)
+    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ',b_mb)
+    
+    @test all(b_mb[k] ≈ QuantumDots.many_body_fermion(b[k],b_mb) for k in 1:N)
+
 end
 
 @testset "QN" begin
