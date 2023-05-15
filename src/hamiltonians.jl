@@ -13,8 +13,9 @@ end
 # su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
 function su2_rotation((θ,ϕ))
     pf = mod(ϕ,π) == 0 ? real(exp(1im*ϕ)) : exp(1im*ϕ)
-    @SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
+    _su2_rotation(θ,pf) #@SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
 end
+_su2_rotation(θ,pf) = @SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
 
 function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), angles1, angles2)
     Ω = su2_rotation(angles1)'*su2_rotation(angles2)

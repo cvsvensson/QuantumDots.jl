@@ -7,7 +7,7 @@ struct NormalLead{Opin,Opout} <: AbstractLead
     jump_out::Opout
     NormalLead(T,μ,jin::O1,jout::O2) where {O1,O2} = new{O1,O2}(T,μ,jin,jout)
 end
-NormalLead(T,μ; in = jin, out = jout) = NormalLead(T,μ,in,out)
+NormalLead(T,μ; in, out) = NormalLead(T,μ,in,out)
 
 Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "NormalLead{$Opin,$Opout}(", "T=",lead.temperature,", μ=", lead.chemical_potential,")")
 Base.show(io::IO, lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "Lead(", "T=", round(lead.temperature,digits=4),", μ=", round(lead.chemical_potential, digits=4),")")

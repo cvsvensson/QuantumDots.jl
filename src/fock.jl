@@ -34,12 +34,6 @@ function phase_factor(focknbr1,focknbr2,i::Integer)
     _bit(focknbr2,i) ? (jwstring(i, focknbr1)*jwstring(i, focknbr2)) : 1
 end
 
-function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
-    ncinds::NTuple{N-NC,Int} = Tuple(setdiff(ntuple(identity,N),cinds))
-    Matrix(t,ncinds,cinds)
-    mat*mat'
-end
-
 reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasis) = reduced_density_matrix(v,Tuple(keys(bsub)),bfull, bsub.symmetry)
 
 reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v*v',args...)
