@@ -7,8 +7,8 @@ bits(s::Integer,N) = digits(Bool,s, base=2, pad=N)
 parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
 fermionnumber(fs::Int) = count_ones(fs)
 
-siteindex(id::S,b::AbstractBasis) where S = findfirst(x->x==id, labels(b))::Int
-siteindices(ids::Union{NTuple{M,S},Vector{S}}, b::AbstractBasis) where {M,S} = map(id->siteindex(id,b),ids)#::Int
+siteindex(id,b::AbstractBasis) = findfirst(x->x==id, labels(b))::Int
+siteindices(ids::Union{Tuple{S,Vararg{S}}, AbstractVector{S}}, b::AbstractBasis) where {S} = map(id->siteindex(id,b),ids)#::Int
 
 function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     @assert length(v) == 2^M

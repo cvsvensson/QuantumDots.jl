@@ -2,11 +2,13 @@ struct QArray{N,QNs,A,S}
     blocks::Dictionary{QNs,A}
     symmetry::NTuple{N,S}
     dirs::NTuple{N,Bool}
-    function QArray(blocks::Dictionary{QNs,A}, sym::NTuple{N,S},dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs, S,N}
+    function QArray(blocks::Dictionary{QNs,A}, sym,dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs}
+        S = eltype(syms)
+        N = ndims(A)
         new{ndims(A) ,QNs,A, S}(blocks, sym, dirs)
     end
 end
-function QArray(qns::Vector{QNs}, blocks::Vector{A}, sym::NTuple{N,S},dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs, S,N}
+function QArray(qns::Vector, blocks::Vector, sym::NTuple{N,<:},dirs = ntuple(i->false,N)) where {N}
     @assert length(qns) == length(blocks)
     @assert ndims(A) == length(first(qns)) == N
     QArray(Dictionary(qns,blocks), sym, dirs)
