@@ -175,6 +175,8 @@ end
 
     @test ρeven ≈ QuantumDots.one_particle_density_matrix(ops)
 
+    @test poor_mans_ham ≈ mapreduce((e,qp)->e*qp'*qp/2, +,es,qps)
+
     qp = qps[2]
     @test qp isa QuantumDots.QuasiParticle
     @test 2*qp isa QuantumDots.QuasiParticle
