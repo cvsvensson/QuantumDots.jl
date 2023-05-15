@@ -1,5 +1,5 @@
 struct HC end
-Base.:+(m,::HC) = m+m'
+Base.:+(m::AbstractArray, ::HC) = m+m'
 const hc = HC()
 
 hopping(t, f1, f2) = t*f1'f2 + hc

@@ -2,23 +2,28 @@ struct QArray{N,QNs,A,S}
     blocks::Dictionary{QNs,A}
     symmetry::NTuple{N,S}
     dirs::NTuple{N,Bool}
-    function QArray(blocks::Dictionary{QNs,A}, sym,dirs = ntuple(i->false,N)) where {A<:AbstractArray,QNs}
-        S = eltype(syms)
+    function QArray(blocks::Dictionary{QNs,A}, sym, dirs = default_dirs(Val(ndims(A)))) where {A<:AbstractArray,QNs}
+        S = eltype(sym)
         N = ndims(A)
-        new{ndims(A) ,QNs,A, S}(blocks, sym, dirs)
+        new{N,QNs,A, S}(blocks, sym, dirs)
     end
 end
-function QArray(qns::Vector, blocks::Vector, sym::NTuple{N,<:},dirs = ntuple(i->false,N)) where {N}
+
+default_dirs(::Val{N}) where N = ntuple(i->false, N)
+default_dirs(::Val{2}) = (false, true)
+default_dirs(n) = default_dirs(Val(n))
+
+function QArray(qns::Vector, blocks::Vector, sym::NTuple{N,<:Any},dirs = default_dirs(Val(N))) where {N}
     @assert length(qns) == length(blocks)
-    @assert ndims(A) == length(first(qns)) == N
+    @assert ndims(first(blocks)) == length(first(qns)) == N
     QArray(Dictionary(qns,blocks), sym, dirs)
 end
-QArray(qns::Vector{NTuple{2,QN}}, blocks::Vector{<:AbstractMatrix}, sym::NTuple{2}; dirs = (false, true)) where QN = QArray(qns,blocks, sym,dirs)
+
 symmetry(A::QArray) = A.symmetry
 dirs(A::QArray) = A.dirs
-Base.getindex(a::QArray, qns::AbstractQuantumNumber...) = getindex(a,qns)
-Base.getindex(a::QArray, qns::NTuple{N,<:AbstractQuantumNumber}) where N = a.blocks[qns]
-function Base.getindex(a::QArray, qninds::NTuple{N,<:QNIndex}) where N 
+# Base.getindex(a::QArray, qns::AbstractQuantumNumber...) = a.blocks[qns]#getindex(a,qns)
+Base.getindex(a::QArray, qns::Tuple{QN,Vararg{QN}}) where QN<:AbstractQuantumNumber = a.blocks[qns]
+function Base.getindex(a::QArray, qninds::Tuple{QN,Vararg{QN}}) where QN<:QNIndex 
     qns = map(qn, qninds)
     inds = map(ind, qninds)
     a.blocks[qns][inds...]
