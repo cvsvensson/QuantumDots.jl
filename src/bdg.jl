@@ -213,3 +213,10 @@ function many_body_fermion(qp::QuasiParticle, basis::FermionBasis)
     mbferm((l,w)) = last(l) == :h ? w*basis[first(l)] : w*basis[first(l)]'
     sum(mbferm, pairs(qp.weights))
 end
+
+function ground_state_parity(vals, vecs)
+    p = sortperm(vals, by = energysort)
+    N = div(length(vals),2)
+    pinds = p[[1:N; quasiparticle_adjoint_index.(1:N,N)]]
+    sign(det(vecs[:,pinds]))
+end

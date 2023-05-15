@@ -142,8 +142,11 @@ end
     @test norm(QuantumDots.rep(b[1] - b[1])) == 0
     @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
-    vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
+    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2])))
     @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
+    @test QuantumDots.ground_state_parity(vals,vecs) == 1
+    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(Matrix(μ1*b[1]'*b[1] - μ2*b[2]'*b[2])))
+    @test QuantumDots.ground_state_parity(vals,vecs) == -1
     
     t = Δ = 1
     ham(b) =  Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
