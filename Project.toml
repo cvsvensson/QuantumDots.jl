@@ -25,6 +25,7 @@ LinearMaps = "3"
 SplitApplyCombine = "1"
 StaticArrays = "1"
 Symbolics = "4, 5"
+TruncatedStacktraces = "1"
 julia = "1.8.2"
 
 [extras]
