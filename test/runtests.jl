@@ -119,7 +119,8 @@ end
 end
 
 @testset "BdG" begin
-    labels = Tuple(1:2)
+    N=2
+    labels = Tuple(1:N)
     μ1 = rand()
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
@@ -202,7 +203,7 @@ end
     @test χ_mb' ≈ QuantumDots.many_body_fermion(χ',b_mb)
     
     @test all(b_mb[k] ≈ QuantumDots.many_body_fermion(b[k],b_mb) for k in 1:N)
-
+    @test all(b_mb[k]' ≈ QuantumDots.many_body_fermion(b[k]',b_mb) for k in 1:N)
 end
 
 @testset "QN" begin
