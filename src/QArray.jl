@@ -32,54 +32,9 @@ end
 qns(a::QArray) = keys(a.blocks).values
 
 Base.adjoint(v::QArray{1}) = QArray(map(conj, v.blocks), v.symmetry, map(!,v.dirs))
-# Base.adjoint(m::QArray{2}) = QArray(map(adjoint, m.blocks), reverse(m.symmetry), reverse(map(!,m.dirs)))
 Base.adjoint(m::QArray{2}) = QArray(map(reverse,keys(m.blocks).values), map(adjoint, m.blocks.values), reverse(m.symmetry), reverse(map(!,m.dirs)))
 
 tuplecat(t1,t2) = (t1...,t2...)
-# function contract(a1::QArray, oind1,cind1,a2::QArray,oind2,cind2)
-#     Tout = promote_type(eltype(a1),eltype(a2))
-#     selo1 = Base.Fix2(_select, oind1)
-#     selc1 = Base.Fix2(_select, cind1)
-#     selo2 = Base.Fix2(_select, oind2)
-#     selc2 = Base.Fix2(_select, cind2)
-#     @assert selc1(a1.dirs) != selc2(a2.dirs) "Directions don't match"
-#     matches = findqnmatches(qns(a1), cind1, qns(a2), cind2)
-#     finalqns12 = unique((_select(first(match), oind1), _select(last(match), oind2)) for match in matches) ##FIXME: finalqns are determined by remaining indices
-#     finalqns = map(qns -> tuplecat(qns...),finalqns12)
-#     outsym1 = selo1(a1.symmetry)
-#     outsym2 = selo2(a2.symmetry)
-#     outsym = tuplecat(outsym1, outsym2)
-#     blocksizes = [tuplecat(map(blocksize, qns1, outsym1),
-#      map(blocksize, qns2, outsym2))  for (qns1,qns2) in finalqns12]
-#     outblocks = map(Base.Fix1(zeros,Tout),blocksizes)
-#     outdirs = tuplecat(selo1(a1.dirs), selo2(a2.dirs))
-#     outv = QArray(finalqns, outblocks, outsym, outdirs)
-    
-#     outinds1 = ntuple(identity,length(oind1))
-#     outinds2 = ntuple(i->length(oind1) +i,length(oind2))
-#     outinds = tuplecat(outinds1,outinds2)
-#     for (qns1,qns2) in matches
-#         finalqn = tuplecat(selo1(qns1),selo2(qns2))
-#         # println(a1[qns1])
-#         # println(a2[qns2])
-#         @tullio outv[finalqn][outinds...] += a1[qns1][outinds1...]*a2[qns2][outinds1...]
-#         # outv[finalqn] .+= a1[qns1]*a2[qns2]
-#         #expr = contraction(oind1,cind1,oind2,cind2)
-#         #println(expr)
-#         #eval(expr)
-
-#     end
-#     return outv
-# end
-
-# function Base.:*(a1::QArray{2}, a2::QArray{1})
-#     cind1 = (2,)
-#     oind1 = (1,) #Tuple(setdiff(ntuple(identity,N),inds1))
-#     cind2 = (1,)
-#     oind2 = ()
-#     return contract(a1,oind1,cind1,a2,oind2,cind2)
-# end
-# Base.:*(a1::QArray{N1}, a2::QArray{N2}) where {N1,N2} = contract(a1,ntuple(identity,N1-1),(N1,),a2,ntuple(i->i+1,N2-1),(1,))
 
 Base.:*(x::Number, A::QArray) = QArray(map(Base.Fix1(*,x),A.blocks), symmetry(A), dirs(A))
 Base.:*(A::QArray, x::Number) = QArray(map(Base.Fix2(*,x),A.blocks), symmetry(A), dirs(A))

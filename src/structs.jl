@@ -5,11 +5,6 @@ basis(::AbstractArray) = missing
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
 
-# struct Fermion{S}
-#     id::S
-# end
-# id(f::Fermion) = f.id
-
 struct FermionBasis{M,S,T,Sym} <: AbstractBasis
     dict::Dictionary{S,T}
     symmetry::Sym
@@ -17,7 +12,6 @@ struct FermionBasis{M,S,T,Sym} <: AbstractBasis
         M = length(fermions)
         S = eltype(fermions)
         reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M)
-        # FermionBasis(fermionids,reps,sym)
         new{M,S,eltype(reps),Sym}(Dictionary(fermions, reps), sym)
     end
 end
@@ -84,5 +78,4 @@ end
 nbr_of_fermions(::FermionBdGBasis{M}) where M = M
 Base.getindex(b::FermionBdGBasis,i) = BdGFermion(i,b)
 Base.getindex(b::FermionBdGBasis,args...) = BdGFermion(args,b) 
-# pos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id]
 indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole*nbr_of_fermions(b)

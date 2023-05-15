@@ -27,20 +27,11 @@ function phase_factor(focknbr1,focknbr2,subinds::NTuple)
     prod(i-> (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i),subinds)
 end
 function phase_factor(focknbr1,focknbr2,::Val{N}) where N
-    # prod(ntuple(i-> (jwstring(i, focknbr1)*jwstring(i, focknbr2))^_bit(focknbr2,i),N))
     prod(ntuple(i-> phase_factor(focknbr1,focknbr2,i),N))
 end
-# function phase_factor(focknbr1,focknbr2,subinds) 
-#     bitmask = focknbr(subinds)
-#     prod(i-> phase_factor(focknbr1,focknbr2,i,bitmask) ,subinds)
-# end
-# function phase_factor(focknbr1,focknbr2,i,bitmask)
-#     _bit(focknbr2,i) ? (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2)) : 1
-#     # (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i)
-# end
+
 function phase_factor(focknbr1,focknbr2,i::Integer)
     _bit(focknbr2,i) ? (jwstring(i, focknbr1)*jwstring(i, focknbr2)) : 1
-    # (jwstring(i, bitmask & focknbr1)*jwstring(i, bitmask & focknbr2))^_bit(focknbr2,i)
 end
 
 function partialtrace(t::AbstractArray{<:Any,N}, cinds::NTuple{NC}) where {N,NC}
@@ -60,19 +51,14 @@ function reduced_density_matrix!(mout,m::AbstractMatrix{T}, labels::NTuple{N}, b
     mout .*= 0
     outinds::NTuple{N,Int} = siteindices(labels, b)
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
-    #ininds::NTuple{N,Int} = Tuple(setdiff(ntuple(identity,N),outinds))
     bitmask = 2^M - 1 - focknbr(outinds)
     outbits(f) = map(i->_bit(f,i),outinds)
-    # newfocknbr(f) = mapreduce(i->_bit(f,i),enumerate(outinds))
-    # for f1 in 0:2^M-1, f2 in 0:2^M-1
     for f1 in UnitRange{UInt64}(0,2^M-1), f2 in UnitRange{UInt64}(0,2^M-1)
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
         newfocknbr1 = focknbr(outbits(f1))
         newfocknbr2 = focknbr(outbits(f2))
-        # s1 = phase_factor(f1,f2,ntuple(identity,M))
-        # s2 = phase_factor(newfocknbr1,newfocknbr2, ntuple(identity,N))
         s1 = phase_factor(f1,f2,Val(M))
         s2 = phase_factor(newfocknbr1,newfocknbr2, Val(N))
         s = s2*s1
