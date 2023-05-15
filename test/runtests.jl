@@ -198,8 +198,11 @@ end
     normalize!(us)
     normalize!(vs)
     vs = vs - dot(us,vs)*us
-    normalize!(vs)
+    vs = normalize!(vs)/sqrt(2)
+    us = normalize!(us)/sqrt(2)
     χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
+    @test iszero(χ*χ)
+    @test iszero(χ'*χ')
     χ_mb = sum(us .* [b_mb[i] for i in keys(b_mb)]) + sum(vs .* [b_mb[i]' for i in keys(b)])
     @test χ_mb ≈ QuantumDots.many_body_fermion(χ,b_mb)
     @test χ_mb' ≈ QuantumDots.many_body_fermion(χ',b_mb)
