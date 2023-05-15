@@ -178,6 +178,10 @@ end
     @test qp - qp isa QuantumDots.QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
+    @test_nowarn QuantumDots.visualize(qp)
+    @test_nowarn QuantumDots.majvisualize(qp)
+    @test qp[(1,:h)] == qp[1,:h]
+
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)
     normalize!(vs)
