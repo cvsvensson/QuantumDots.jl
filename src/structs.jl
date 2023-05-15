@@ -5,18 +5,14 @@ basis(::AbstractArray) = missing
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
 
-struct Fermion{S}
-    id::S
-end
-id(f::Fermion) = f.id
-
 struct FermionBasis{M,S,T,Sym} <: AbstractBasis
     dict::Dictionary{S,T}
     symmetry::Sym
-    function FermionBasis(fermions::NTuple{M,Fermion{S}}, sym::Sym=NoSymmetry()) where {M,S,Sym<:AbstractSymmetry}
+    function FermionBasis(fermions, sym::Sym) where {Sym<:AbstractSymmetry}
+        M = length(fermions)
+        S = eltype(fermions)
         reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M)
-        # FermionBasis(fermionids,reps,sym)
-        new{M,S,eltype(reps),Sym}(Dictionary(map(id,fermions), reps), sym)
+        new{M,S,eltype(reps),Sym}(Dictionary(fermions, reps), sym)
     end
 end
 Base.getindex(b::FermionBasis,i) = b.dict[i]
@@ -27,9 +23,9 @@ Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io,b)
 Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
 
 
-symmetry(::NTuple{M},::NoSymmetry) where M = NoSymmetry()
-FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(Base.product(iters...))), symmetry(Tuple(Base.product(iters...)), qn))
-FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(Fermion.(Tuple(iter)), symmetry(Tuple(iter),qn))
+symmetry(labels,::NoSymmetry) = NoSymmetry()
+FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
+FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(iter, symmetry(iter,qn))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 
 
@@ -74,13 +70,12 @@ Base.:*(x::Number,f::BdGFermion) = BdGFermion(f.id,f.basis,x*f.amp,f.hole)
 Base.:*(f::BdGFermion,x::Number) = BdGFermion(f.id,f.basis,f.amp*x,f.hole)
 struct FermionBdGBasis{M,L} <: AbstractBasis
     position::Dictionary{L,Int}
-    function FermionBdGBasis(labels::NTuple{M,L}) where {M,L}
+    function FermionBdGBasis(labels)
         positions = map((l,n) -> l => n, labels, eachindex(labels))
-        new{M,L}(dictionary(positions))
+        new{length(labels),eltype(labels)}(dictionary(positions))
     end
 end
 nbr_of_fermions(::FermionBdGBasis{M}) where M = M
 Base.getindex(b::FermionBdGBasis,i) = BdGFermion(i,b)
 Base.getindex(b::FermionBdGBasis,args...) = BdGFermion(args,b) 
-# pos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id]
 indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole*nbr_of_fermions(b)

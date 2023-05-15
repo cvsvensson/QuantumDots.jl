@@ -49,7 +49,8 @@ Base.:(==)(a::U1,b::U1) = a.val == b.val
 qnsize(::U1Symmetry{N}) where N = 2^N
 
 
-function symmetry(fermionids::NTuple{M}, qn) where M
+function symmetry(labels, qn)
+    M = length(labels)
     qntooldinds = group(ind->qn(ind-1), 1:2^M)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)

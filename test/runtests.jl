@@ -266,7 +266,7 @@ end
     @test abs.(w.^2 - z.^2) ≈ [1,0,0,1]
 end
 
-@testset "Hamiltonian" begin
+@testset "Parity and number operator" begin
     function get_ops(qn)
         N = 2
         a = FermionBasis(1:N; qn)
@@ -308,9 +308,6 @@ end
     @test vals ≈ [0,1,π,π+1]
     parityop = blockdiagonal(parityoperator(a),a)
     numberop = blockdiagonal(numberoperator(a),a)
-    
-
-    
 end
 
 @testset "Fast generated hamiltonians" begin
