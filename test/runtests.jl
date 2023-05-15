@@ -134,35 +134,45 @@ end
     @test b[1] isa QuantumDots.BdGFermion
     @test b[1]' isa QuantumDots.BdGFermion
     @test b[1]*b[1] isa SparseMatrixCSC
-    @test b[1]'.hole
-    
+    @test b[1].hole
+    @test !b[1]'.hole
+    @test b[1] + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - b[1] isa QuantumDots.QuasiParticle
+    @test norm(QuantumDots.rep(b[1] - b[1])) == 0
+    @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
+
     vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
     @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14
     
     t = Δ = 1
-    poor_mans_ham = Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
+    ham(b) =  Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
+    poor_mans_ham = ham(b) #Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
     es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
     @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es,by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op,b), eachcol(ops))
+    @test all(map(qp->iszero(qp*qp), qps))
 
     b_mb = QuantumDots.FermionBasis(labels)
-    poor_mans_ham_mb = Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    poor_mans_ham_mb = ham(b_mb)#Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
     es_mb, states = eigen(poor_mans_ham_mb)
     P = QuantumDots.parityoperator(b_mb)
     parity(v) = v'*P*v
     gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
     gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
   
-    ρeven = QuantumDots.one_particle_density_matrix(qps[1:2]) #Is this really the even state?
-    ρodd = QuantumDots.one_particle_density_matrix(qps[[1,3]])
-    ρeven_mb = QuantumDots.one_particle_density_matrix(gs_even*gs_even',b_mb)
-    ρodd_mb = QuantumDots.one_particle_density_matrix(gs_odd*gs_odd',b_mb)
-
+    ρeven = one_particle_density_matrix(qps[1:2]) #Is this really the even state?
+    ρodd = one_particle_density_matrix(qps[[1,3]])
+    ρeven_mb = one_particle_density_matrix(gs_even*gs_even',b_mb)
+    ρodd_mb = one_particle_density_matrix(gs_odd*gs_odd',b_mb)
+    qps_mb = map(qp->QuantumDots.many_body_fermion(qp,b_mb), qps)
+   
     @test ρeven ≈ ρeven_mb
     @test ρodd ≈ ρodd_mb
     @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
     @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
+
+    @test ρeven ≈ QuantumDots.one_particle_density_matrix(ops)
 
     qp = qps[2]
     @test qp isa QuantumDots.QuasiParticle
@@ -171,7 +181,28 @@ end
     @test qp/2 isa QuantumDots.QuasiParticle
     @test qp + qp isa QuantumDots.QuasiParticle
     @test qp - qp isa QuantumDots.QuasiParticle
+    @test qp + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] + qp isa QuantumDots.QuasiParticle
+    @test qp - b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - qp isa QuantumDots.QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
+
+    @test_nowarn QuantumDots.visualize(qp)
+    @test_nowarn QuantumDots.majvisualize(qp)
+    @test qp[(1,:h)] == qp[1,:h]
+
+    us, vs = (rand(length(labels)), rand(length(labels)))
+    normalize!(us)
+    normalize!(vs)
+    vs = vs - dot(us,vs)*us
+    normalize!(vs)
+    χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
+    χ_mb = sum(us .* [b_mb[i] for i in keys(b_mb)]) + sum(vs .* [b_mb[i]' for i in keys(b)])
+    @test χ_mb ≈ QuantumDots.many_body_fermion(χ,b_mb)
+    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ',b_mb)
+    
+    @test all(b_mb[k] ≈ QuantumDots.many_body_fermion(b[k],b_mb) for k in 1:N)
+
 end
 
 @testset "QN" begin

@@ -1,5 +1,5 @@
-abstract type AbstractQuasiParticle end
-struct QuasiParticle{T,M,L} <: AbstractQuasiParticle
+# abstract type AbstractQuasiParticle end
+struct QuasiParticle{T,M,L} <: AbstractBdGFermion
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
 end
@@ -9,8 +9,8 @@ function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where 
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
     QuasiParticle{T,M,L}(weights, basis)
 end
-Base.getindex(qp::AbstractQuasiParticle, i) = getindex(qp.weights, i)
-Base.getindex(qp::AbstractQuasiParticle, i...) = getindex(qp.weights, i)
+Base.getindex(qp::QuasiParticle, i) = getindex(qp.weights, i)
+Base.getindex(qp::QuasiParticle, i...) = getindex(qp.weights, i)
 
 # function majorana_transform(bdgham::AbstractMatrix)
 #     n = div(size(bdgham,1),2)
@@ -28,19 +28,19 @@ end
 # end
 Base.keys(b::FermionBdGBasis) = keys(b.position)
 labels(b::FermionBdGBasis) = keys(b).values
-Base.keys(qp::AbstractQuasiParticle) = keys(qp.weights)
-labels(qp::AbstractQuasiParticle) = keys(qp).values
-basis(qp::AbstractQuasiParticle) = qp.basis
+Base.keys(qp::QuasiParticle) = keys(qp.weights)
+labels(qp::QuasiParticle) = keys(qp).values
+basis(qp::QuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
     N = nbr_of_fermions(basis)
     labels(basis)[1:Int(ceil(N / 2))]
 end
-function majorana_polarization(f::AbstractQuasiParticle, labels=_left_half_labels(basis(f)))
+function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(f)))
     md1, md2 = majorana_densities(f, labels)
     (md1 - md2) / (md1 + md2)
 end
 
-function majorana_wavefunctions(f::AbstractQuasiParticle, labels = labels(basis(f)))
+function majorana_wavefunctions(f::QuasiParticle, labels = labels(basis(f)))
     # ls = labels(basis(f))
     xylabels = [map(l -> (l, :x), labels); map(l -> (l, :y), labels)]
     # ylabels = map(l -> (l, :y), labels)
@@ -52,7 +52,7 @@ function majorana_wavefunctions(f::AbstractQuasiParticle, labels = labels(basis(
     return Dictionary(xylabels, [xplus; yplus]),
     Dictionary(xylabels, [xminus; yminus])
 end
-function majorana_densities(f::AbstractQuasiParticle, labels=_left_half_labels(basis(f)))
+function majorana_densities(f::QuasiParticle, labels=_left_half_labels(basis(f)))
     # xplus = map(l -> real(f[l, :h] + f[l, :p]), labels)
     # xminus = map(l -> imag(f[l, :h] + f[l, :p]), labels)
     # yplus = map(l -> imag(f[l, :h] - f[l, :p]), labels)
@@ -61,7 +61,7 @@ function majorana_densities(f::AbstractQuasiParticle, labels=_left_half_labels(b
     sum(abs2, γplus), sum(abs2, γminus)
 end
 
-function majvisualize(qp::AbstractQuasiParticle)
+function majvisualize(qp::QuasiParticle)
     ls = labels(basis(qp))
     for (γ,title) in (((qp+qp')/2,"γ₊ = (χ + χ')/2"), ((qp-qp')/2,"γ₋ = (χ - χ')/2"))
         xlabels = map(l -> (l, :x), ls)
@@ -72,7 +72,7 @@ function majvisualize(qp::AbstractQuasiParticle)
         display(barplot(ylabels, abs2.(yweights), maximum=1, border=:dashed))
     end
 end
-function visualize(qp::AbstractQuasiParticle)
+function visualize(qp::QuasiParticle)
     hlabels = map(l -> (l, :h), labels(qp.basis))
     plabels = map(l -> (l, :p), labels(qp.basis))
     hweights = map(l -> qp[l], hlabels)
@@ -82,40 +82,30 @@ function visualize(qp::AbstractQuasiParticle)
     # barplot(labels(qp), abs2.(qp.weights.values), title="QuasiParticle weights", maximum=1,border = :dashed)
 end
 
+"""
+    one_particle_density_matrix(χ::QuasiParticle{T})
 
-# function one_particle_density_matrix(U::AbstractMatrix{T}) where T
-#     dm = zeros(T,size(U))
-#     N = div(size(U,1),2)
-#     for k in 1:2N
-#         for n in 1:2N
-#             for i in 1:N
-#                 dm[k,n] += U[mod1(N+k,2N),2N+1-i]U[n,i]
-#             end
-#         end
-#     end
-#     return dm
-# end
-# function bogoliubov_one_particle_density_matrix(N; numbers::AbstractVector = zeros(Int,N))
-#     @assert N == length(numbers) "There are only $N Bogoliubons, not $(length(numbers))"
-#     particles = rotl90(Diagonal(numbers))
-#     holes = rotl90(Diagonal(1 .- numbers))
-#     # i = rotl90(Matrix(I,N,N))
-#     return [0I particles; holes 0I]
-# end
-# function one_particle_density_matrix(U::AbstractMatrix{T}) where T
-#     dm = zeros(T,size(U))
-#     N = div(size(U,1),2)
-#     hoppings = zeros(T,N,N)
-#     pairings = zeros(T,N,N)
-#     for i in 1:N
-#         pairings += U[1:N,2N+1-i]*U'[i,1:N] #+ U[:,2N+1-i]*transpose(U[:,i])
-#         hoppings += U[1:N,i]*U'[i,1:N] #+ U[:,2N+1-i]*transpose(U[:,i])
-#     end
-#     return hoppings, pairings
-# end
+    Gives the one_particle_density_matrix for the state with χ as it's ground state
+"""
+function one_particle_density_matrix(χ::QuasiParticle{T}) where T
+    N = nbr_of_fermions(basis(χ))
+    U = χ.weights.values
+    U*transpose(U)
+end
+function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
+    sum(one_particle_density_matrix,χs)
+end
+
+function one_particle_density_matrix(U::AbstractMatrix{T}) where T
+    N = div(size(U,1),2)
+    ρ = zeros(T,2N,2N)
+    for i in 1:N
+        ρ += U[:,i]*transpose(U[:,i])
+    end
+    return ρ
+end
 enforce_ph_symmetry(F::Eigen) = enforce_ph_symmetry(F.values, F.vectors)
 quasiparticle_adjoint(v, N=div(length(v), 2)) = [conj(v[N+1:2N]); conj(v[1:N])]
-# quasiparticle_adjoint(N) = v -> quasiparticle_adjoint(v,N)
 energysort(e) = e #(sign(e), abs(e))
 quasiparticle_adjoint_index(n, N) = 2N + 1 - n #n+N
 function enforce_ph_symmetry(es, ops; cutoff=1e-12)
@@ -162,25 +152,12 @@ end
 function check_ph_symmetry(es, ops; cutoff=1e-12)
     N = div(length(es), 2)
     p = sortperm(es, by=energysort)
-    #es = es[p]
-    #ops = ops[:,p]
-    #println(p)
     inds = Iterators.take(eachindex(es), N)
     all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i, N)]]) < cutoff for i in inds) &&
         all(quasiparticle_adjoint(ops[:, p[i]]) ≈ ops[:, p[quasiparticle_adjoint_index(i, N)]] for i in inds) &&
         isapprox(ops' * ops, I, atol=cutoff)
 end
-# function fix_ph_phases(U)
-#     N = size(U,1)
-#     ph_transform = rotl90(Diagonal(ones(N)))
-#     Diagonal([sign(transpose(U[k,:])*ph_transform*U'[:,k]) for k in 1:N])*U
-# end
 
-# function one_particle_density_matrix(U::AbstractMatrix; kwargs...)
-#     N = div(size(U,1),2)
-#     # U[:,N+1:2N]*rotl90(Matrix(I,N,N))*U'[1:N,:]
-#     U*bogoliubov_one_particle_density_matrix(N; kwargs...)*U'
-# end
 
 function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) where {T}
     N = nbr_of_fermions(b)
@@ -195,10 +172,6 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
         hoppings2[n] += tr(ρ * f1 * f2')
     end
     return [hoppings pairings2; pairings hoppings2]
-end
-function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle{T}}) where {T}
-    #N = nbr_of_fermions(basis(first(χs)))
-    sum(*(χ, χ'; symmetrize=false) for χ in χs)::SparseMatrixCSC{T,Int}
 end
 
 function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
@@ -219,3 +192,24 @@ end
 Base.:*(x::Number, f::QuasiParticle) = QuasiParticle(map(Base.Fix1(*, x), f.weights), basis(f))
 Base.:*(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(*, x), f.weights), basis(f))
 Base.:/(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(/, x), f.weights), basis(f))
+
+QuasiParticle(f::BdGFermion) = QuasiParticle(rep(f), f.basis)
+Base.promote_rule(::Type{<:BdGFermion}, ::Type{QuasiParticle{T,M,S}}) where {T,M,S} = QuasiParticle{T,M,S}
+Base.convert(::Type{<:QuasiParticle}, f::BdGFermion) = QuasiParticle(f)
+Base.:+(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = +(promote(f1,f2)...)
+Base.:-(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = -(promote(f1,f2)...)
+Base.:+(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) + QuasiParticle(f2)
+Base.:-(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) - QuasiParticle(f2)
+rep(qp::QuasiParticle) = sum((lw) -> rep(BdGFermion(first(first(lw)), basis(qp), last(lw), last(first(lw)) == :h)), pairs(qp.weights))
+
+function many_body_fermion(f::BdGFermion, basis::FermionBasis)
+    if f.hole
+        return f.amp*basis[f.id]
+    else
+        return f.amp*basis[f.id]'
+    end
+end
+function many_body_fermion(qp::QuasiParticle, basis::FermionBasis)
+    mbferm((l,w)) = last(l) == :h ? w*basis[first(l)] : w*basis[first(l)]'
+    sum(mbferm, pairs(qp.weights))
+end
