@@ -137,6 +137,9 @@ end
     @test b[1].hole
     @test !b[1]'.hole
     @test b[1] + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - b[1] isa QuantumDots.QuasiParticle
+    @test norm(QuantumDots.rep(b[1] - b[1])) == 0
+    @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
     vals, vecs = eigen(Matrix(μ1*b[1]'*b[1] + μ2*b[2]'*b[2]))
     @test norm(vals - sort([-μ1,-μ2,μ1,μ2])) < 1e-14

@@ -62,7 +62,6 @@ function rep(f::BdGFermion)
     sparsevec([indexpos(f,b)], f.amp, 2N)
 end
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
-    w = f1.amp*f2.amp
     if symmetrize
         return ((rep(f1')*transpose(rep(f2)) - rep(f2')*transpose(rep(f1)))) * !same_fermion(f1,f2)
     else
