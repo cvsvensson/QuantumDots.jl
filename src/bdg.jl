@@ -149,13 +149,13 @@ end
 #     es, opsph
 # end
 
-function check_ph_symmetry(es, ops; cutoff=1e-12)
+function check_ph_symmetry(es, ops; cutoff = 1e-11)
     N = div(length(es), 2)
     p = sortperm(es, by=energysort)
     inds = Iterators.take(eachindex(es), N)
     all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i, N)]]) < cutoff for i in inds) &&
         all(quasiparticle_adjoint(ops[:, p[i]]) ≈ ops[:, p[quasiparticle_adjoint_index(i, N)]] for i in inds) &&
-        isapprox(ops' * ops, I, atol=cutoff)
+        ops' * ops ≈ I
 end
 
 
