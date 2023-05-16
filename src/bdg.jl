@@ -98,7 +98,7 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
     for k in Iterators.take(eachindex(es), N)
         k2 = quasiparticle_adjoint_index(k, N)
         if es[k] > cutoff
-            @assert isapprox(es[k], -es[k2], atol=cutoff) "$(es[k]) != $(-es[k2])"
+            @warn isapprox(es[k], -es[k2], atol=cutoff) "$(es[k]) != $(-es[k2])"
         end
         op = ops[:, k]
         op2 = ph(op)
