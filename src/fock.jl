@@ -20,7 +20,6 @@ function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
     return t
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
-# _bit(f,k) = Bool(sign(f & 2^(k-1)))
 _bit(f,k) = Bool((f >> (k-1)) & 1)
 function phase_factor(focknbr1,focknbr2,subinds::NTuple) 
     bitmask = focknbr(subinds)

@@ -46,7 +46,6 @@ struct BdGFermion{S,B,T} <: AbstractBdGFermion
     amp::T
     hole::Bool
     function BdGFermion(id::S,basis::B,amp::T=true,hole=true) where {S,B,T}
-        # pos = findfirst(==(id), labels(basis))
         new{S,B,T}(id,basis,amp,hole)
     end
 end

@@ -164,17 +164,7 @@ function khatri_rao(L1,L2,blocksizes)
     end
     hvcat(length(inds),maps...)
 end
-# function khatri_rao(L1::Diagonal,L2::Diagonal,blocksizes)
-#     inds = sizestoinds(blocksizes)
-#     T = promote_type(eltype(L1),eltype(L2))
-#     l1 = parent(L1)
-#     l2 = parent(L2)
-#     diagonals = Vector{T}[]
-#     for inds in inds#, j in eachindex(blocksizes)
-#         push!(diagonals, diag(kron(Diagonal(l1[inds]),Diagonal(l2[inds]))))
-#     end
-#     Diagonal(reduce(vcat,diagonals))
-# end
+
 khatri_rao(L1::Diagonal,L2::Diagonal) = kron(L1,L2)
 khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal) = cat([khatri_rao(B1,B2) for (B1,B2) in zip(blocks(L1),blocks(L2))]...; dims=(1,2))
 function khatri_rao(L1::BlockDiagonal,L2::BlockDiagonal,bz) 

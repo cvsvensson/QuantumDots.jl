@@ -1,4 +1,3 @@
-# abstract type AbstractQuasiParticle end
 struct QuasiParticle{T,M,L} <: AbstractBdGFermion
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
@@ -12,20 +11,10 @@ end
 Base.getindex(qp::QuasiParticle, i) = getindex(qp.weights, i)
 Base.getindex(qp::QuasiParticle, i...) = getindex(qp.weights, i)
 
-# function majorana_transform(bdgham::AbstractMatrix)
-#     n = div(size(bdgham,1),2)
-#     i = Matrix(I/2,n,n)
-#     U = [i i; 1im*i -1im*i]
-#     U*bdgham*U'
-# end
 function majoranas(qp::QuasiParticle)
     return qp + qp', qp - qp'
 end
-# function majorana_densities
-# function majorana_coefficients(a::QuasiParticle)
-#     N = div(length(a),2)
-#     return [(a[k] + a[k+N])/2 for k in 1:N], [(a[k] - a[k+N])/2 for k in 1:N] 
-# end
+
 Base.keys(b::FermionBdGBasis) = keys(b.position)
 labels(b::FermionBdGBasis) = keys(b).values
 Base.keys(qp::QuasiParticle) = keys(qp.weights)
@@ -41,10 +30,7 @@ function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(
 end
 
 function majorana_wavefunctions(f::QuasiParticle, labels = labels(basis(f)))
-    # ls = labels(basis(f))
     xylabels = [map(l -> (l, :x), labels); map(l -> (l, :y), labels)]
-    # ylabels = map(l -> (l, :y), labels)
-
     xplus = map(l -> real(f[l,:h] + f[l, :p]), labels)
     xminus = map(l -> imag(f[l, :h] + f[l, :p]), labels)
     yplus = map(l -> imag(f[l, :h] - f[l, :p]), labels)
@@ -53,10 +39,6 @@ function majorana_wavefunctions(f::QuasiParticle, labels = labels(basis(f)))
     Dictionary(xylabels, [xminus; yminus])
 end
 function majorana_densities(f::QuasiParticle, labels=_left_half_labels(basis(f)))
-    # xplus = map(l -> real(f[l, :h] + f[l, :p]), labels)
-    # xminus = map(l -> imag(f[l, :h] + f[l, :p]), labels)
-    # yplus = map(l -> imag(f[l, :h] - f[l, :p]), labels)
-    # yminus = map(l -> real(f[l, :h] - f[l, :p]), labels)
     γplus,γminus = majorana_wavefunctions(f,labels)
     sum(abs2, γplus), sum(abs2, γminus)
 end
@@ -79,7 +61,6 @@ function visualize(qp::QuasiParticle)
     pweights = map(l -> qp[l], plabels)
     display(barplot(hlabels, abs2.(hweights), title="Quasiparticle", maximum=1, border=:ascii))
     display(barplot(plabels, abs2.(pweights), maximum=1, border=:dashed))
-    # barplot(labels(qp), abs2.(qp.weights.values), title="QuasiParticle weights", maximum=1,border = :dashed)
 end
 
 """
@@ -124,7 +105,6 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
         if abs(dot(op2, op)) < cutoff #op is not a majorana
             ops[:, k2] = op2
         else
-            #@warn "majoranas $op $op2"
             majplus = ph(op) + op + (ph(ops[:, k2]) + ops[:, k2]) / 2
             normalize!(majplus)
             majminus = ph(op) - op + (ph(ops[:, k2]) - ops[:, k2]) / 2
@@ -135,19 +115,6 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
     end
     es, ops
 end
-
-# function enforce_ph_symmetry2(es,ops)
-#     p = sortperm(es,by = energysort)
-#     es = es[p]
-#     ops = ops[:,p]
-#     N = div(length(es), 2)
-#     ph = quasiparticle_adjoint
-#     Eflip = sparse(1:2N,circshift(1:2N,N),ones(2N))
-#     ops2 = mapslices(ph, ops, dims = 1)*Eflip'
-#     # phases = Diagonal([k<=N ? 1 : (ops[:,k]'*ops2[:,k]) for k in 1:2N])
-#     opsph = (ops + ops2)/2 #FIXME: ops2 may be =-ops, cancelling everything out.
-#     es, opsph
-# end
 
 function check_ph_symmetry(es, ops; cutoff = 1e-11)
     N = div(length(es), 2)

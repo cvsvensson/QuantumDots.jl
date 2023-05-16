@@ -10,10 +10,9 @@ function coulomb(f1::BdGFermion, f2::BdGFermion)
     @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog=1
     0*numberop(f1)
 end
-# su2_rotation(θ::Number) = @SMatrix [cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
 function su2_rotation((θ,ϕ))
     pf = mod(ϕ,π) == 0 ? real(exp(1im*ϕ)) : exp(1im*ϕ)
-    _su2_rotation(θ,pf) #@SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
+    _su2_rotation(θ,pf)
 end
 _su2_rotation(θ,pf) = @SMatrix [cos(θ/2) -sin(θ/2)pf'; sin(θ/2)pf cos(θ/2)]
 
