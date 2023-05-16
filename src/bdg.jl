@@ -109,8 +109,15 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
             normalize!(majplus)
             majminus = ph(op) - op + (ph(ops[:, k2]) - ops[:, k2]) / 2
             normalize!(majminus)
-            ops[:, k] = (majplus + 1 * majminus) / sqrt(2)
-            ops[:, k2] = (majplus - 1 * majminus) / sqrt(2)
+            o1 =  (majplus + 1 * majminus) / sqrt(2)
+            o2 =  (majplus - 1 * majminus) / sqrt(2)
+            if abs(dot(o1,op)) > abs(dot(o2,op))
+                ops[:, k] = o1
+                ops[:, k2] = o2
+            else
+                ops[:, k] = o2
+                ops[:, k2] = o1
+            end
         end
     end
     es, ops
