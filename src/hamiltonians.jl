@@ -62,7 +62,7 @@ function _tovec((x,symb),N)
     if symb == :diff
         return _tovec(x,N) .* (0:N-1) 
     elseif symb == :reflect
-        @assert length(x) == ceil(N/2)
+        @assert length(x) == Int(ceil(N/2)) "$x does not match half the sites of $N"
         if iseven(N)
             return (x...,reverse(x)...)
         else
