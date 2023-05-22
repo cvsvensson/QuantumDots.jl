@@ -6,7 +6,7 @@ using Symbolics
 using StaticArrays
 using UnicodePlots
 
-export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal
+export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns,Z2,QArray, Z2Symmetry, QNIndex
 export one_particle_density_matrix
 

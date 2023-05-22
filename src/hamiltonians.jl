@@ -70,7 +70,7 @@ end
     open::Bool = true
 end
 @kwdef struct InHomogeneousChainParameter{T} <: AbstractChainParameter{T}
-    value::T
+    values::T
 end
 parameter(value::Number; open=true) = HomogeneousChainParameter(; value, open)
 parameter(value::AbstractVector; open=true) = InHomogeneousChainParameter(; value, open)
@@ -89,7 +89,7 @@ function parameter(value, option; open=true)
 end
 _tovec(p::DiffChainParameter, N) = p.value .* (p.open ? (0:N-1) : 0:N)
 _tovec(p::HomogeneousChainParameter, N) = p.open ? fill(p.value, N - 1) : fill(p.value, N)
-_tovec(p::InHomogeneousChainParameter, N) = length(p.value) < N ? [p.value; zeros(first(p.value), N - length(p.value))] : p.value
+_tovec(p::InHomogeneousChainParameter, N) = length(p.values) < N ? [p.values; zeros(first(p.values), N - length(p.values))] : p.values
 function _tovec(p::ReflectedChainParameter, N)
     @assert length(p.values) == Int(ceil(N / 2)) "$p does not match half the sites of $N"
     if iseven(N)

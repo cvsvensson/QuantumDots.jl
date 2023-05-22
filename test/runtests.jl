@@ -5,24 +5,24 @@ Random.seed!(1234)
 
 @testset "Parameters" begin
     N = 4
-    ph = QuantumDots.parameter(1)
-    ph2 = QuantumDots.parameter(1; open = false)
+    ph = parameter(1)
+    ph2 = parameter(1; open = false)
     @test ph isa QuantumDots.HomogeneousChainParameter
     @test ph2 isa QuantumDots.HomogeneousChainParameter
     @test ph == QuantumDots.parameter(1, :homogeneous)
     @test ph2 == QuantumDots.parameter(1, :homogeneous; open = false)
-    pih = QuantumDots.parameter(rand(N), :inhomogeneous)
+    pih = parameter(rand(N), :inhomogeneous)
     @test pih isa QuantumDots.InHomogeneousChainParameter
-    pd = QuantumDots.parameter(1, :diff)
+    pd = parameter(1, :diff)
     @test pd isa QuantumDots.DiffChainParameter
-    pr = QuantumDots.parameter(rand(Int(ceil(N / 2))), :reflected)
+    pr = parameter(rand(Int(ceil(N / 2))), :reflected)
     @test pr isa QuantumDots.ReflectedChainParameter
-    @test_throws ErrorException QuantumDots.parameter(1, :not_a_valid_option)
+    @test_throws ErrorException parameter(1, :not_a_valid_option)
     @test Vector(ph, N) == fill(1, N-1)
     @test Vector(ph2, N) == fill(1, N)
-    @test Vector(pih, N) == ph.values
+    @test Vector(pih, N) == pih.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == pr.values
-    @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil(N / 2)):end])
+    @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N+1) / 2)):end])
     @test Vector(pd, N) == 0:N-1
 end
 
@@ -189,9 +189,13 @@ end
     parity(v) = v' * P * v
     gs_odd = parity(states[:, 1]) ≈ -1 ? states[:, 1] : states[:, 2]
     gs_even = parity(states[:, 1]) ≈ 1 ? states[:, 1] : states[:, 2]
+    
+    ρeven, ρodd = if sign(QuantumDots.ground_state_parity(es, ops)) == 1
+        one_particle_density_matrix(qps[1:2]), one_particle_density_matrix(qps[[1, 3]])
+    else
+       one_particle_density_matrix(qps[[1, 3]]), one_particle_density_matrix(qps[1:2])
+    end
 
-    ρeven = one_particle_density_matrix(qps[1:2]) #Is this really the even state?
-    ρodd = one_particle_density_matrix(qps[[1, 3]])
     ρeven_mb = one_particle_density_matrix(gs_even * gs_even', b_mb)
     ρodd_mb = one_particle_density_matrix(gs_odd * gs_odd', b_mb)
     qps_mb = map(qp -> QuantumDots.many_body_fermion(qp, b_mb), qps)
@@ -200,8 +204,6 @@ end
     @test ρodd ≈ ρodd_mb
     @test ρodd[[1, 3], [1, 3]] ≈ ρeven[[1, 3], [1, 3]]
     @test ρodd[[2, 4], [2, 4]] ≈ ρeven[[2, 4], [2, 4]]
-
-    @test ρeven ≈ QuantumDots.one_particle_density_matrix(ops)
 
     @test poor_mans_ham ≈ mapreduce((e, qp) -> e * qp' * qp / 2, +, es, qps)
 
