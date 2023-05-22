@@ -18,12 +18,16 @@ Random.seed!(1234)
     pr = parameter(rand(Int(ceil(N / 2))), :reflected)
     @test pr isa QuantumDots.ReflectedChainParameter
     @test_throws ErrorException parameter(1, :not_a_valid_option)
-    @test Vector(ph, N) == fill(1, N-1)
+    @test Vector(ph, N) == [fill(1, N-1)...,0]
     @test Vector(ph2, N) == fill(1, N)
     @test Vector(pih, N) == pih.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == pr.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N+1) / 2)):end])
-    @test Vector(pd, N) == 0:N-1
+    @test Vector(pd, N) == [0:N-2...,0]
+
+    for p in (ph,ph2,pih,pr,pd)
+        @test [QuantumDots.getvalue(p,i,N) for i in 1:N] == Vector(p,N)
+    end
 end
 
 

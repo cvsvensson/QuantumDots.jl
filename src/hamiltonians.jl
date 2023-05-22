@@ -60,7 +60,6 @@ end
 abstract type AbstractChainParameter{T} end
 @kwdef struct DiffChainParameter{T} <: AbstractChainParameter{T}
     value::T
-    open::Bool = true
 end
 struct ReflectedChainParameter{T} <: AbstractChainParameter{T}
     values::T
@@ -76,7 +75,7 @@ parameter(value::Number; open=true) = HomogeneousChainParameter(; value, open)
 parameter(value::AbstractVector; open=true) = InHomogeneousChainParameter(; value, open)
 function parameter(value, option; open=true)
     if option == :diff
-        return DiffChainParameter(; value, open)
+        return DiffChainParameter(; value)
     elseif option == :homogeneous
         return HomogeneousChainParameter(; value, open)
     elseif option == :reflected
@@ -87,9 +86,16 @@ function parameter(value, option; open=true)
         error("Unknown option $option. Possible options are :diff, :homogeneous, :reflected and :homogeneous")
     end
 end
-_tovec(p::DiffChainParameter, N) = p.value .* (p.open ? (0:N-1) : 0:N)
-_tovec(p::HomogeneousChainParameter, N) = p.open ? fill(p.value, N - 1) : fill(p.value, N)
+
+_tovec(p::DiffChainParameter, N) = p.value .* [0:N-2; [0]]
+getvalue(p::DiffChainParameter,i,N) = p.value * (i-1) * (i != N)
+
+_tovec(p::HomogeneousChainParameter, N) = p.open ? [fill(p.value, N - 1); [0]] : fill(p.value, N)
+getvalue(p::HomogeneousChainParameter,i, N) = p.value .* (p.open ? 0<=i<N : 0<=i<=N)
+
 _tovec(p::InHomogeneousChainParameter, N) = length(p.values) < N ? [p.values; zeros(first(p.values), N - length(p.values))] : p.values
+getvalue(p::InHomogeneousChainParameter, i, N) = p.values[i]
+
 function _tovec(p::ReflectedChainParameter, N)
     @assert length(p.values) == Int(ceil(N / 2)) "$p does not match half the sites of $N"
     if iseven(N)
@@ -97,6 +103,9 @@ function _tovec(p::ReflectedChainParameter, N)
     else
         return [p.values; reverse(p.values)[2:end]]
     end
+end
+function getvalue(p::ReflectedChainParameter,i,N)
+    i <= Int(ceil(N / 2)) ? p.values[i] : p.values[2Int(ceil(N/2)) - i + iseven(N)]
 end
 Base.Vector(p::AbstractChainParameter, N) = _tovec(p,N)
 
@@ -115,6 +124,22 @@ function _tovec((x, symb), N)
         end
     end
     return _tovec(x, N)
+end
+
+struct BD1Parameters{NT1}
+    params::NT1
+    function BD1Parameters(;t, Δ, V, θ,ϕ, h, U, Δ1, μ)
+        params = (; t, Δ, V, θ,ϕ, h, U, Δ1, μ)
+        new{typeof(params)}(params)
+    end
+end
+paramlabels = [:t, :Δ, :V, :θ, :ϕ, :h, :U, :Δ1, :μ]
+function Base.getproperty(p::BD1Parameters, s::Symbol)
+    if s == :params 
+        getfield(p, :params)
+    else
+        getproperty(getfield(p, :params), s)
+    end
 end
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     M = nbr_of_fermions(c)
