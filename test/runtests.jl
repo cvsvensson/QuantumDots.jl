@@ -6,11 +6,11 @@ Random.seed!(1234)
 @testset "Parameters" begin
     N = 4
     ph = parameter(1)
-    ph2 = parameter(1; open = false)
+    ph2 = parameter(1; closed = true)
     @test ph isa QuantumDots.HomogeneousChainParameter
     @test ph2 isa QuantumDots.HomogeneousChainParameter
     @test ph == QuantumDots.parameter(1, :homogeneous)
-    @test ph2 == QuantumDots.parameter(1, :homogeneous; open = false)
+    @test ph2 == QuantumDots.parameter(1, :homogeneous; closed = true)
     pih = parameter(rand(N), :inhomogeneous)
     @test pih isa QuantumDots.InHomogeneousChainParameter
     pd = parameter(1, :diff)
@@ -18,15 +18,17 @@ Random.seed!(1234)
     pr = parameter(rand(Int(ceil(N / 2))), :reflected)
     @test pr isa QuantumDots.ReflectedChainParameter
     @test_throws ErrorException parameter(1, :not_a_valid_option)
-    @test Vector(ph, N) == [fill(1, N-1)...,0]
+    @test Vector(ph, N; size = 1) == fill(1, N)
+    @test Vector(ph, N; size = 2) == [fill(1, N-1)...,0]
     @test Vector(ph2, N) == fill(1, N)
+    @test Vector(ph2, N; size = 2) == fill(1, N)
     @test Vector(pih, N) == pih.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == pr.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N+1) / 2)):end])
-    @test Vector(pd, N) == [0:N-2...,0]
+    @test Vector(pd, N) == 0:N-1
 
     for p in (ph,ph2,pih,pr,pd)
-        @test [QuantumDots.getvalue(p,i,N) for i in 1:N] == Vector(p,N)
+        @test [QuantumDots.getvalue(p,i,N) for i in 1:N] == Vector(p,N; size=1)
     end
 end
 
@@ -291,7 +293,7 @@ end
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
 
-    N = 4
+    N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0, t=1, Δ=1)), c)
     vals, vecs = BlockDiagonals.eigen_blockwise(ham)
@@ -303,6 +305,7 @@ end
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
+
 end
 
 @testset "Parity and number operator" begin
@@ -446,13 +449,15 @@ end
     Δk = QuantumDots.pairing(exp(1im * ϕ), b[1, :↑], b[2, :↑]) + QuantumDots.pairing(exp(-1im * ϕ), b[1, :↓], b[2, :↓])
     @test QuantumDots.pairing_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (0, 0), (θ, ϕ)) ≈ standard_pairing * cos(θ / 2) + sin(θ / 2) * Δk
 
-    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1, μ=0, V=0, U=0, h=0, θ=(0, :diff), ϕ=(0, :diff), Δ=0, Δ1=0)
-    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=(0, :diff), ϕ=(0, :diff), Δ=0, Δ1=1)
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=(θ, :diff), ϕ=(ϕ, :diff), Δ=1, Δ1=0) ≈ local_pairing
+    θp = parameter(θ, :diff)
+    ϕp = parameter(ϕ, :diff)
+    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0)
+    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=1)
+    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=1, Δ1=0) ≈ local_pairing
 
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=(θ, :diff), ϕ=(ϕ, :diff), Δ=0, Δ1=0) ≈ -QuantumDots.numberoperator(b)
+    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) ≈ -QuantumDots.numberoperator(b)
 
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=(θ, :diff), ϕ=(ϕ, :diff), Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
+    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
 end
 
 @testset "transport" begin

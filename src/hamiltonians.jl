@@ -29,16 +29,12 @@ end
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + 4V * coulomb(f1, f2) + pairing(Δ, f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
-function kitaev_hamiltonian(basis::AbstractBasis; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0)
-    N = nbr_of_fermions(basis)
-    dbias = bias * collect(range(-0.5, 0.5, length=N))
-    _kitaev_hamiltonian(basis; μ=fill(μ, N), t=fill(t, N - 1), Δ=fill(Δ, N - 1), V=fill(V, N - 1), bias=dbias)
-end
-
-function _kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V, bias)
+function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
     N = nbr_of_fermions(c)
-    h1s = (_kitaev_1site(c[j]; μ=μ[j] + bias[j]) for j in 1:N)
-    h2s = (_kitaev_2site(c[j], c[j+1]; t=t[j], Δ=Δ[j], V=V[j]) for j in 1:N-1)
+    # h1s = (_kitaev_1site(c[j]; μ=μ[j] + bias[j]) for j in 1:N)
+    # h2s = (_kitaev_2site(c[j], c[j+1]; t=t[j], Δ=Δ[j], V=V[j]) for j in 1:N-1)
+    h1s = (_kitaev_1site(c[j]; μ=getvalue(μ, j, N)) for j in 1:N)
+    h2s = (_kitaev_2site(c[j], c[mod1(j + 1, N)]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
     hs = Iterators.flatten((h1s, h2s))
     sum(hs)
 end
@@ -66,18 +62,18 @@ struct ReflectedChainParameter{T} <: AbstractChainParameter{T}
 end
 @kwdef struct HomogeneousChainParameter{T} <: AbstractChainParameter{T}
     value::T
-    open::Bool = true
+    closed::Bool = false
 end
 @kwdef struct InHomogeneousChainParameter{T} <: AbstractChainParameter{T}
     values::T
 end
-parameter(value::Number; open=true) = HomogeneousChainParameter(; value, open)
-parameter(value::AbstractVector; open=true) = InHomogeneousChainParameter(; value, open)
-function parameter(value, option; open=true)
+parameter(value::Number; closed=false) = HomogeneousChainParameter(; value, closed)
+parameter(values::AbstractVector) = InHomogeneousChainParameter(values)
+function parameter(value, option; closed=false)
     if option == :diff
         return DiffChainParameter(; value)
     elseif option == :homogeneous
-        return HomogeneousChainParameter(; value, open)
+        return HomogeneousChainParameter(; value, closed)
     elseif option == :reflected
         return ReflectedChainParameter(value)
     elseif option == :inhomogeneous
@@ -87,16 +83,16 @@ function parameter(value, option; open=true)
     end
 end
 
-_tovec(p::DiffChainParameter, N) = p.value .* [0:N-2; [0]]
-getvalue(p::DiffChainParameter,i,N) = p.value * (i-1) * (i != N)
+_tovec(p::DiffChainParameter, N; size=1) = p.value .* 0:N-1
+getvalue(p::DiffChainParameter, i, N; size = 1) = p.value * (i - 1) * (i <= N+1-size)
 
-_tovec(p::HomogeneousChainParameter, N) = p.open ? [fill(p.value, N - 1); [0]] : fill(p.value, N)
-getvalue(p::HomogeneousChainParameter,i, N) = p.value .* (p.open ? 0<=i<N : 0<=i<=N)
+_tovec(p::HomogeneousChainParameter, N; size=1) = !p.closed ? [fill(p.value, N + 1 - size); fill(zero(p.value), size - 1)] : fill(p.value, N)
+getvalue(p::HomogeneousChainParameter, i, N; size=1) = p.value * (!p.closed ? 1 <= i <= N + 1 - size : 1)
 
-_tovec(p::InHomogeneousChainParameter, N) = length(p.values) < N ? [p.values; zeros(first(p.values), N - length(p.values))] : p.values
-getvalue(p::InHomogeneousChainParameter, i, N) = p.values[i]
+_tovec(p::InHomogeneousChainParameter, N; size=1) = length(p.values) < N ? [p.values; zeros(first(p.values), N - length(p.values))] : p.values
+getvalue(p::InHomogeneousChainParameter, i, N; size=1) = p.values[i]
 
-function _tovec(p::ReflectedChainParameter, N)
+function _tovec(p::ReflectedChainParameter, N; size=1)
     @assert length(p.values) == Int(ceil(N / 2)) "$p does not match half the sites of $N"
     if iseven(N)
         return [p.values; reverse(p.values)]
@@ -104,58 +100,18 @@ function _tovec(p::ReflectedChainParameter, N)
         return [p.values; reverse(p.values)[2:end]]
     end
 end
-function getvalue(p::ReflectedChainParameter,i,N)
-    i <= Int(ceil(N / 2)) ? p.values[i] : p.values[2Int(ceil(N/2)) - i + iseven(N)]
-end
-Base.Vector(p::AbstractChainParameter, N) = _tovec(p,N)
+getvalue(p::ReflectedChainParameter, i, N; size=1) = i <= Int(ceil(N / 2)) ? p.values[i] : p.values[2Int(ceil(N / 2))-i+iseven(N)]
+Base.Vector(p::AbstractChainParameter, N; size=1) = _tovec(p, N; size)
+getvalue(v::AbstractVector, i, N; size=1) = v[i]
+getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
-
-_tovec(μ::Number, N) = fill(μ, N)
-_tovec(μ::Vector, N) = (@assert length(μ) == N; μ)
-function _tovec((x, symb), N)
-    if symb == :diff
-        return _tovec(x, N) .* (0:N-1)
-    elseif symb == :reflect
-        @assert length(x) == Int(ceil(N / 2)) "$x does not match half the sites of $N"
-        if iseven(N)
-            return (x..., reverse(x)...)
-        else
-            return (x..., reverse(x)[2:end]...)
-        end
-    end
-    return _tovec(x, N)
-end
-
-struct BD1Parameters{NT1}
-    params::NT1
-    function BD1Parameters(;t, Δ, V, θ,ϕ, h, U, Δ1, μ)
-        params = (; t, Δ, V, θ,ϕ, h, U, Δ1, μ)
-        new{typeof(params)}(params)
-    end
-end
-paramlabels = [:t, :Δ, :V, :θ, :ϕ, :h, :U, :Δ1, :μ]
-function Base.getproperty(p::BD1Parameters, s::Symbol)
-    if s == :params 
-        getfield(p, :params)
-    else
-        getproperty(getfield(p, :params), s)
-    end
-end
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     M = nbr_of_fermions(c)
     @assert length(cell(1, c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    #    @assert length(μ) == div(M, 2)
     N = div(M, 2)
-    θϕ = collect(zip(_tovec(θ, N), _tovec(ϕ, N)))
-    _BD1_hamiltonian(c; μ=_tovec(μ, N), h=_tovec(h, N), t=_tovec(t, N), Δ=_tovec(Δ, N), Δ1=_tovec(Δ1, N), U=_tovec(U, N), V=_tovec(V, N), θϕ)
-end
-
-function _BD1_hamiltonian(c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ::Vector, Δ1::Vector, U::Vector, V::Vector, θϕ::Vector)
-    M = nbr_of_fermions(c)
-    @assert length(cell(1, c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
-    @assert length(μ) == div(M, 2)
-    N = div(M, 2)
-    h1s = (_BD1_1site(cell(j, c); μ=μ[j], h=h[j], Δ=Δ[j], U=U[j]) for j in 1:N)
-    h2s = (_BD1_2site(cell(j, c), cell(j + 1, c); t=t[j], Δ1=Δ1[j], V=V[j], θϕ1=θϕ[j], θϕ2=θϕ[j+1]) for j in 1:N-1)
+    h1s = (_BD1_1site(cell(j, c); μ=getvalue(μ, j, N), h=getvalue(h, j, N), Δ=getvalue(Δ, j, N), U=getvalue(U, j, N)) for j in 1:N)
+    h2s = (_BD1_2site(cell(j, c), cell(mod1(j + 1, N), c); t=getvalue(t, j, N; size=2), Δ1=getvalue(Δ1, j, N; size=2), V=getvalue(V, j, N; size=2), θϕ1=(getvalue(θ, j, N; size=1), getvalue(ϕ, j, N; size=1)), θϕ2=(getvalue(θ, mod1(j + 1, N), N; size=2), getvalue(ϕ, mod1(j + 1, N), N; size=2))) for j in 1:N)
     sum(Iterators.flatten((h1s, h2s)))
 end
 
