@@ -164,9 +164,15 @@ end
     parity(v) = v'*P*v
     gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
     gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
-  
-    ρeven = one_particle_density_matrix(qps[1:2]) #Is this really the even state?
-    ρodd = one_particle_density_matrix(qps[[1,3]])
+    
+    gs_parity = QuantumDots.ground_state_parity(es, ops)
+    ρeven, ρodd = if gs_parity == 1
+        one_particle_density_matrix(qps[1:2]),
+        one_particle_density_matrix(qps[[1,3]])
+    else
+        one_particle_density_matrix(qps[[1,3]]),
+        one_particle_density_matrix(qps[1:2])
+    end
     ρeven_mb = one_particle_density_matrix(gs_even*gs_even',b_mb)
     ρodd_mb = one_particle_density_matrix(gs_odd*gs_odd',b_mb)
     qps_mb = map(qp->QuantumDots.many_body_fermion(qp,b_mb), qps)
@@ -176,7 +182,7 @@ end
     @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
     @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
 
-    @test ρeven ≈ QuantumDots.one_particle_density_matrix(ops)
+    @test (gs_parity == 1 ? ρeven : ρodd) ≈ QuantumDots.one_particle_density_matrix(ops)
 
     @test poor_mans_ham ≈ mapreduce((e,qp)->e*qp'*qp/2, +,es,qps)
 
