@@ -5,11 +5,16 @@ const hc = HC()
 hopping(t, f1, f2) = t*f1'f2 + hc
 pairing(Δ, f1, f2) = Δ*f2 * f1 + hc
 numberop(f) = f'f
+hopping!(H,t, f1, f2) = @. H += t*f1'f2 + t'*f2'f1
+pairing!(H,Δ, f1, f2) = @. H += Δ*f2 * f1 + Δ'*f1' * f2'
+numberop!(H,μ,f) = H .+= μ*f'f
 coulomb(f1, f2) = numberop(f1) * numberop(f2)
+coulomb!(H,V,f1, f2) = H .+= V*numberop(f1) * numberop(f2)
 function coulomb(f1::BdGFermion, f2::BdGFermion) 
     @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog=1
     0*numberop(f1)
 end
+coulomb!(H,V,f1::BdGFermion, f2::BdGFermion) = @warn "No Coulomb term added for BdGFermions. This message is not displayed again." maxlog=1
 function su2_rotation((θ,ϕ))
     pf = mod(ϕ,π) == 0 ? real(exp(1im*ϕ)) : exp(1im*ϕ)
     _su2_rotation(θ,pf)
@@ -20,14 +25,26 @@ function hopping_rotated(t,(c1up,c1dn),(c2up,c2dn), angles1, angles2)
     Ω = su2_rotation(angles1)'*su2_rotation(angles2)
     t*(Ω[1,1]*c1up'*c2up + Ω[2,1]*c1dn'*c2up + Ω[1,2]*c1up'*c2dn + Ω[2,2]*c1dn'*c2dn) + hc
 end
+function hopping_rotated!(H,t,(c1up,c1dn),(c2up,c2dn), angles1, angles2)
+    Ω = su2_rotation(angles1)'*su2_rotation(angles2)
+    @. H += t*(Ω[1,1]*c1up'*c2up + Ω[2,1]*c1dn'*c2up + Ω[1,2]*c1up'*c2dn + Ω[2,2]*c1dn'*c2dn) + 
+    t'*(Ω[1,1]'*c2up'*c1up + Ω[2,1]'*c2up'*c1dn + Ω[1,2]'*c2dn'*c1up + Ω[2,2]'*c2dn'*c1dn)
+end
 
 function pairing_rotated(Δ,(c1up,c1dn),(c2up,c2dn),  angles1, angles2)
     Ω = transpose(su2_rotation(angles1))*[0 -1; 1 0]*su2_rotation(angles2)
     Δ*(Ω[1,1]*c1up*c2up + Ω[2,1]*c1dn*c2up + Ω[1,2]*c1up*c2dn + Ω[2,2]*c1dn*c2dn) + hc
 end
+function pairing_rotated!(H,Δ,(c1up,c1dn),(c2up,c2dn),  angles1, angles2)
+    Ω = transpose(su2_rotation(angles1))*[0 -1; 1 0]*su2_rotation(angles2)
+    @. H += Δ*(Ω[1,1]*c1up*c2up + Ω[2,1]*c1dn*c2up + Ω[1,2]*c1up*c2dn + Ω[2,2]*c1dn*c2dn) + 
+    Δ'*(Ω[1,1]'*c2up'*c1up' + Ω[2,1]'*c2up'*c1dn' + Ω[1,2]'*c2dn'*c1up' + Ω[2,2]'*c2dn'*c1dn')
+end
 
+_kitaev_1site(f; μ) = μ*numberop(f)
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t,f1, f2) + 4V * coulomb(f1, f2) + pairing(Δ,f1, f2)
-_kitaev_1site(f; μ) = -μ * numberop(f)
+_kitaev_1site!(H,f; μ) = numberop!(H,μ,f)
+_kitaev_2site!(H,f1, f2; t, Δ, V) = hopping!(H, -t,f1, f2) + coulomb!(H,4V,f1, f2) + pairing!(H,Δ,f1, f2)
 
 function kitaev_hamiltonian(basis::AbstractBasis; μ::Number, t::Number, Δ::Number, V::Number=0.0, bias::Number=0.0)
     N = nbr_of_fermions(basis)
@@ -55,6 +72,19 @@ function _BD1_1site((cup,cdn); μ,h,Δ,U)
     (-μ - h)*numberop(cup) + (-μ + h)*numberop(cdn) +
     pairing(Δ, cup,cdn) + U*(numberop(cup)*numberop(cdn))
 end
+function _BD1_2site!(H,(c1up,c1dn),(c2up,c2dn); t, Δ1, V, θϕ1,θϕ2)
+    hopping_rotated!(H,t,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2)
+    pairing_rotated!(H,Δ1,(c1up,c1dn),(c2up,c2dn),θϕ1,θϕ2)
+    H .+= V*((numberop(c1up)+numberop(c1dn))*(numberop(c2up)+numberop(c2dn)))
+    return H
+end
+function _BD1_1site!(H,(cup,cdn); μ,h,Δ,U)
+    numberop!(H,(-μ - h),cup)
+    numberop!(H,(-μ + h),cdn)
+    pairing!(H,Δ, cup,cdn)
+    coulomb!(H,U,cup,cdn)
+    return H
+end
 
 _tovec(μ::Number,N) = fill(μ,N)
 _tovec(μ::Vector,N) = (@assert length(μ)==N; μ)
@@ -78,6 +108,14 @@ function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
     _BD1_hamiltonian(c; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
 end
+function BD1_hamiltonian!(H,c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
+    M = nbr_of_fermions(c)
+    @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    N = div(M,2)
+    θϕ = collect(zip(_tovec(θ,N),_tovec(ϕ,N)))
+    # H = zeros(promote_type(eltype((μ, h, t, Δ, Δ1, U, V, θ, ϕ))...),2^M,2^M)
+    _BD1_hamiltonian!(H,c; μ = _tovec(μ,N), h = _tovec(h,N), t = _tovec(t,N), Δ = _tovec(Δ,N),Δ1 = _tovec(Δ1,N), U = _tovec(U,N), V = _tovec(V,N), θϕ)
+end
 
 function _BD1_hamiltonian(c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector)
     M = nbr_of_fermions(c)
@@ -87,6 +125,16 @@ function _BD1_hamiltonian(c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ
     h1s = (_BD1_1site(cell(j,c); μ = μ[j], h = h[j], Δ = Δ[j], U = U[j]) for j in 1:N)
     h2s = (_BD1_2site(cell(j,c), cell(j+1,c); t = t[j] ,Δ1 = Δ1[j],V = V[j],θϕ1=θϕ[j], θϕ2=θϕ[j+1]) for j in 1:N-1)
     sum(Iterators.flatten((h1s,h2s)))
+end
+
+function _BD1_hamiltonian!(H,c::AbstractBasis; μ::Vector, h::Vector, t::Vector, Δ::Vector,Δ1::Vector, U::Vector, V::Vector, θϕ::Vector)
+    M = nbr_of_fermions(c)
+    @assert length(cell(1,c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    @assert length(μ) == div(M,2)
+    N = div(M,2)
+    foreach(j->_BD1_1site!(H,cell(j,c); μ = μ[j], h = h[j], Δ = Δ[j], U = U[j]), 1:N)
+    foreach(j->_BD1_2site!(H,cell(j,c), cell(j+1,c); t = t[j] ,Δ1 = Δ1[j],V = V[j],θϕ1=θϕ[j], θϕ2=θϕ[j+1]),1:N-1)
+    H
 end
 
 

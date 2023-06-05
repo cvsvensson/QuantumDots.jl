@@ -11,7 +11,7 @@ struct FermionBasis{M,S,T,Sym} <: AbstractBasis
     function FermionBasis(fermions, sym::Sym) where {Sym<:AbstractSymmetry}
         M = length(fermions)
         S = eltype(fermions)
-        reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M)
+        reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M) ##TODO: Let user choose dense matrices
         new{M,S,eltype(reps),Sym}(Dictionary(fermions, reps), sym)
     end
 end
