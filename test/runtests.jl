@@ -436,6 +436,8 @@ end
     H0 = Matrix(QuantumDots.BD1_hamiltonian(b; t=1,μ=1,V=2,U=3,h=4,θ=(1/2,:diff),ϕ=(1/3,:diff),Δ = -2,Δ1 = -10))
     H1 = zero(H0)
     @test H0 ≈ QuantumDots.BD1_hamiltonian!(H1,b; t=1,μ=1,V=2,U=3,h=4,θ=(1/2,:diff),ϕ=(1/3,:diff),Δ = -2,Δ1 = -10)
+    H1 = zero(H0)
+    @test H0 ≈ QuantumDots.BD1_hamiltonian!(H1,b2; t=1,μ=1,V=2,U=3,h=4,θ=(1/2,:diff),ϕ=(1/3,:diff),Δ = -2,Δ1 = -10)
 end
 
 @testset "transport" begin
