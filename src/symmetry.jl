@@ -67,12 +67,6 @@ end
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
-function fermion_sparse_matrix(fermion_number,totalsize,sym::AbelianFockSymmetry)
-    mat = spzeros(Int,totalsize,totalsize)
-    _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
-    mat
-end
-
 blockdiagonal(m::AbstractMatrix,basis::FermionBasis) = blockdiagonal(m,basis.symmetry)
 blockdiagonal(::Type{T},m::AbstractMatrix,basis::FermionBasis) where T = blockdiagonal(T, m,basis.symmetry)
 

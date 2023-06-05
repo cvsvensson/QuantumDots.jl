@@ -63,6 +63,7 @@ end
 @testset "Basis" begin
     N = 6
     B = FermionBasis(1:N)
+    Bdense = FermionBasis(1:N; sparse = false)
     @test QuantumDots.nbr_of_fermions(B) == N
     Bspin = FermionBasis(1:N,(:↑,:↓))
     @test QuantumDots.nbr_of_fermions(Bspin) == 2N
@@ -70,6 +71,8 @@ end
     @test Bspin[1,:↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
+    @test Bdense[1] isa Matrix
+    @test parityoperator(Bdense) isa Matrix
 
     (c,) = QuantumDots.cell(1,B)
     @test c == B[1]
@@ -404,6 +407,7 @@ end
 @testset "rotations" begin
     N=2
     b = FermionBasis(1:N,(:↑,:↓))
+    b2 = FermionBasis(1:N,(:↑,:↓); sparse = false)
     standard_hopping = QuantumDots.hopping(1,b[1,:↑],b[2,:↑]) +  QuantumDots.hopping(1,b[1,:↓],b[2,:↓])
     standard_pairing = QuantumDots.pairing(1,b[1,:↑],b[2,:↓]) - QuantumDots.pairing(1,b[1,:↓],b[2,:↑])
     local_pairing = sum(QuantumDots.pairing(1,QuantumDots.cell(j,b)...) for j in 1:N)
@@ -427,6 +431,11 @@ end
     @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) ≈ -QuantumDots.numberoperator(b)
 
     @test QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=(θ,:diff),ϕ=(ϕ,:diff),Δ = 0,Δ1 = 0) == QuantumDots.BD1_hamiltonian(b; t=0,μ=1,V=0,U=0,h=0,θ=θ.*[0,1],ϕ=ϕ.*[0,1],Δ = 0,Δ1 = 0)
+    
+    
+    H0 = Matrix(QuantumDots.BD1_hamiltonian(b; t=1,μ=1,V=2,U=3,h=4,θ=(1/2,:diff),ϕ=(1/3,:diff),Δ = -2,Δ1 = -10))
+    H1 = zero(H0)
+    @test H0 ≈ QuantumDots.BD1_hamiltonian!(H1,b; t=1,μ=1,V=2,U=3,h=4,θ=(1/2,:diff),ϕ=(1/3,:diff),Δ = -2,Δ1 = -10)
 end
 
 @testset "transport" begin

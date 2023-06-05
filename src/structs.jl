@@ -8,10 +8,10 @@ struct NoSymmetry <: AbstractSymmetry end
 struct FermionBasis{M,S,T,Sym} <: AbstractBasis
     dict::Dictionary{S,T}
     symmetry::Sym
-    function FermionBasis(fermions, sym::Sym) where {Sym<:AbstractSymmetry}
+    function FermionBasis(fermions, sym::Sym; sparse = true) where {Sym<:AbstractSymmetry}
         M = length(fermions)
         S = eltype(fermions)
-        reps = ntuple(n->fermion_sparse_matrix(n,2^M,sym),M) ##TODO: Let user choose dense matrices
+        reps = ntuple(n->fermion_matrix(n,2^M,sym; sparse),M) ##TODO: Let user choose dense matrices
         new{M,S,eltype(reps),Sym}(Dictionary(fermions, reps), sym)
     end
 end
@@ -24,8 +24,8 @@ Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "Fer
 
 
 symmetry(labels,::NoSymmetry) = NoSymmetry()
-FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
-FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(iter, symmetry(iter,qn))
+FermionBasis(iters...; qn = NoSymmetry(), sparse = true) = FermionBasis(Base.product(iters...), symmetry(Base.product(iters...), qn); sparse)
+FermionBasis(iter; qn = NoSymmetry(), sparse = true) = FermionBasis(iter, symmetry(iter,qn); sparse)
 nbr_of_fermions(::FermionBasis{M}) where M = M
 
 

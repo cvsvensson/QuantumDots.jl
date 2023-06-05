@@ -25,9 +25,10 @@ function numberoperator(basis::FermionBasis)
     return mat
 end
 
-function fermion_sparse_matrix(fermion_number, total_size ,::NoSymmetry)
-    mat = spzeros(Int, total_size, total_size)
-    _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
+fill_fermion_matrix!(mat,fermion_number,sym) =  _fill!(mat, fs -> removefermion(fermion_number,fs), sym)
+function fermion_matrix(fermion_number, total_size, sym; sparse = true)
+    mat = sparse ? spzeros(Int, total_size, total_size) : zeros(Int, total_size, total_size)
+    fill_fermion_matrix!(mat,fermion_number, sym)
     return mat
 end
 
