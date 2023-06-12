@@ -498,10 +498,13 @@ end
         @test first(numeric_current).label == :left
 
         rate_eq = QuantumDots.prepare_rate_equations(diagonalsystem)
+        @test rate_eq.total_master_matrix ≈ .5(rate_eq+rate_eq).total_master_matrix
+        @test (rate_eq+rate_eq.rate_equations[1]).total_master_matrix ≈ (rate_eq.rate_equations[1]+rate_eq).total_master_matrix
         ρdiag = QuantumDots.stationary_state(rate_eq)
         @test ρdiag ≈ rhod
         @test sum(ρdiag) ≈ 1
         rate_current = QuantumDots.get_currents(ρdiag, rate_eq)
+        @test map(c->c.total,rate_current) ≈ map(c->c.total,QuantumDots.get_currents(rate_eq))
         @test all(c1.in/c1.out ≈ c2.in/c2.out for (c1,c2) in zip(numeric_current, rate_current))
     end
     test_qd_transport(QuantumDots.NoSymmetry())
