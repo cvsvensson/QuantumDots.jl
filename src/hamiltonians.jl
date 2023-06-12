@@ -38,12 +38,14 @@ function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
 end
 
 
-
 function _BD1_2site((c1up, c1dn), (c2up, c2dn); t, Δ1, V, θϕ1, θϕ2)
-    ms = @SVector [hopping_rotated(t, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2),
-        pairing_rotated(Δ1, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2),
-        iszero(V) ? missing : V * ((numberop(c1up) + numberop(c1dn)) * (numberop(c2up) + numberop(c2dn)))]
-    sum(skipmissing(ms))
+    ms = hopping_rotated(t, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2) +
+        pairing_rotated(Δ1, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2)
+    if iszero(V)
+        return ms
+    else
+        return ms + V * ((numberop(c1up) + numberop(c1dn)) * (numberop(c2up) + numberop(c2dn)))
+    end
 end
 function _BD1_1site((cup, cdn); μ, h, Δ, U)
     (-μ - h) * numberop(cup) + (-μ + h) * numberop(cdn) +
@@ -109,7 +111,7 @@ function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     N = div(M, 2)
     h1s = (_BD1_1site(cell(j, c); μ=getvalue(μ, j, N), h=getvalue(h, j, N), Δ=getvalue(Δ, j, N), U=getvalue(U, j, N)) for j in 1:N)
     h2s = (_BD1_2site(cell(j, c), cell(mod1(j + 1, N), c); t=getvalue(t, j, N; size=2), Δ1=getvalue(Δ1, j, N; size=2), V=getvalue(V, j, N; size=2), θϕ1=(getvalue(θ, j, N; size=1), getvalue(ϕ, j, N; size=1)), θϕ2=(getvalue(θ, mod1(j + 1, N), N; size=2), getvalue(ϕ, mod1(j + 1, N), N; size=2))) for j in 1:N)
-    sum(Iterators.flatten((h1s, h2s)))
+    return sum(h1s) + sum(h2s)
 end
 
 
