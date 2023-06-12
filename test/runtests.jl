@@ -537,3 +537,32 @@ end
     @test abs(sum(numeric_current)) < 1e-10
     @test sum(numeric_current; dims=2) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
 end
+
+@testset "TSL" begin
+    p = (;zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
+    tsl,tsl!,m,c = QuantumDots.TSL_generator()
+    @test c isa FermionBasis{6}
+    m2 = tsl(;p...)
+    tsl!(m;p...)
+    @test m ≈ m2
+
+    tsl,tsl!,m,c = QuantumDots.TSL_generator(QuantumDots.parity)
+    @test c isa FermionBasis{6}
+    @test m isa BlockDiagonal
+    m2 = tsl(;p...)
+    tsl!(m;p...)
+    @test m ≈ m2
+
+    tsl,tsl!,m,c = QuantumDots.TSL_generator(;dense = true)
+    @test m isa Matrix{Float64}
+    m2 = tsl(;p...)
+    tsl!(m;p...)
+    @test m ≈ reshape(m2,size(m))
+
+    tsl,tsl!,m,c = QuantumDots.TSL_generator(;bdg = true, dense = true)
+    @test c isa QuantumDots.FermionBdGBasis{6}
+    @test m isa Matrix{Float64}
+    m2 = tsl(;p...)
+    tsl!(m;p...)
+    @test m ≈ reshape(m2,size(m))
+end
