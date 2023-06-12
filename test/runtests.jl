@@ -475,13 +475,14 @@ end
     rightlead = QuantumDots.NormalLead(T, μR; in=a[N]', out=a[N])
     particle_number = numberoperator(a)
     system = QuantumDots.OpenSystem(hamiltonian(μH), [leftlead, rightlead])
+    diagonalsystem = QuantumDots.diagonalize(system)
     measurements = [particle_number]
-    lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(system, measurements)
+    lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(diagonalsystem, measurements)
     @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ [0.0, μH]
     lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
     @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
 
-    ρ = QuantumDots.stationary_state(lindbladsystem)
+    ρ, sol = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH, T, μL) + QuantumDots.fermidirac(μH, T, μR)) / 2
     p1 = 1 - p2
@@ -492,6 +493,10 @@ end
     @test abs(sum(numeric_current)) < 1e-10
     @test sum(numeric_current; dims=2) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
 
+    rate_eq = QuantumDots.prepare_rate_equations(diagonalsystem)
+    ρdiag = QuantumDots.stationary_state(rate_eq)
+    current2 = QuantumDots.get_currents(ρdiag, rate_eq)
+    @test ρdiag ≈ rhod
 
     N = 1
     a = FermionBasis(1:N; qn=QuantumDots.parity)
@@ -505,7 +510,7 @@ end
     lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
     @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
 
-    ρ = QuantumDots.stationary_state(lindbladsystem)
+    ρ, sol = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH, T, μL) + QuantumDots.fermidirac(μH, T, μR)) / 2
     p1 = 1 - p2
@@ -527,7 +532,7 @@ end
     lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
     @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
 
-    ρ = QuantumDots.stationary_state(lindbladsystem)
+    ρ, sol = QuantumDots.stationary_state(lindbladsystem)
     rhod = diag(ρ)
     p2 = (QuantumDots.fermidirac(μH, T, μL) + QuantumDots.fermidirac(μH, T, μR)) / 2
     p1 = 1 - p2
