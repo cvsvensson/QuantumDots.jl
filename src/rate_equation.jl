@@ -18,10 +18,10 @@ struct RateEquations{W,A,I,R}
     total_current_operator::I
     rate_equations::R
 end
-Base.:+(r1::RateEquation, r2::RateEquation) = RateEquations(r1.rate_matrix .+ r2.rate_matrix, r1.master_matrix + r2.master_matrix, r1.current_operator + r2.current_operator, (r1, r2))
-Base.:+(r1::RateEquation, r2::RateEquations) = RateEquations(r1.rate_matrix .+ r2.total_rate_matrix, r1.master_matrix + r2.total_master_matrix, r1.current_operator + r2.total_current_operator, (r1, r2.rate_equations...))
-Base.:+(r1::RateEquations, r2::RateEquation) = RateEquations(r2.rate_matrix .+ r1.total_rate_matrix, r2.master_matrix + r1.total_master_matrix, r2.current_operator + r1.total_current_operator, (r1.rate_equations..., r2))
-Base.:+(r1::RateEquations, r2::RateEquations) = RateEquations(r1.total_rate_matrix .+ r2.total_rate_matrix, r1.total_master_matrix + r2.total_master_matrix, r1.total_current_operator + r2.total_current_operator, (r1.rate_equations..., r2.rate_equations...))
+Base.:+(r1::RateEquation, r2::RateEquation) = RateEquations(r1.rate_matrix .+ r2.rate_matrix, r1.master_matrix + r2.master_matrix, r1.current_operator .+ r2.current_operator, (r1, r2))
+Base.:+(r1::RateEquation, r2::RateEquations) = RateEquations(r1.rate_matrix .+ r2.total_rate_matrix, r1.master_matrix + r2.total_master_matrix, r1.current_operator .+ r2.total_current_operator, (r1, r2.rate_equations...))
+Base.:+(r1::RateEquations, r2::RateEquation) = RateEquations(r2.rate_matrix .+ r1.total_rate_matrix, r2.master_matrix + r1.total_master_matrix, r2.current_operator .+ r1.total_current_operator, (r1.rate_equations..., r2))
+Base.:+(r1::RateEquations, r2::RateEquations) = RateEquations(r1.total_rate_matrix .+ r2.total_rate_matrix, r1.total_master_matrix + r2.total_master_matrix, r1.total_current_operator .+ r2.total_current_operator, (r1.rate_equations..., r2.rate_equations...))
 
 function prepare_rate_equations(E::AbstractVector, lead::NormalLead)
     W, A, I = _prepare_rate_equations(E, lead)
@@ -42,8 +42,8 @@ function _prepare_rate_equations(E::AbstractVector, lead::NormalLead)
         Wout[n1, n2] = 2π * dos * abs2(Tout[n1, n2]) * (1 - QuantumDots.fermidirac(-δE, T, μ))#*QuantumDots.fermidirac(E[n1]-E[n2],T,-μ)
     end
     D = (Win + Wout) - Diagonal(vec(sum(Win + Wout, dims=1)))
-    I = vec(sum(Win - Wout, dims=1))
-    return (Win,Wout), D, I
+    Iin,Iout = (vec(sum(Win, dims=1)), vec(sum(-Wout, dims=1)))
+    return (Win,Wout), D, (Iin, Iout)
 end
 function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), size(m, 2))']
@@ -57,13 +57,8 @@ function stationary_state(eq::RateEquations, alg = KrylovJL_LSMR(); kwargs...)
     sol = solve(prob, alg; kwargs...)
     return sol
 end
-get_currents(eq::RateEquations,alg = KrylovJL_LSMR(); kwargs...) = get_currents(stationary_state(eq,alg); kwargs...)
+get_currents(eq::RateEquations, alg = KrylovJL_LSMR(); kwargs...) = get_currents(stationary_state(eq,solver); kwargs...)
 function get_currents(diagonal_density_matrix::AbstractVector, eq::RateEquations)
-    labels = [eq.label for eq in eq.rate_equations]
-    currents = [dot(eq.current_operator, diagonal_density_matrix) for eq in eq.rate_equations]
-    if all(map(!ismissing, labels))
-        return Dict(zip(labels,currents))
-    else
-        return currents
-    end
+    currents = [(;in = dot(eq.current_operator[1], diagonal_density_matrix), out = dot(eq.current_operator[2], diagonal_density_matrix)) for eq in eq.rate_equations]
+    [merge(c,(;total = c.in + c.out, label=eq.label)) for (c,eq) in zip(currents,eq.rate_equations)]
 end
