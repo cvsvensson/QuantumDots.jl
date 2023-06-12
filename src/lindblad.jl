@@ -7,7 +7,6 @@ struct NormalLead{T,Opin,Opout,L} <: AbstractLead
     jump_out::Opout
     label::L
 end
-
 NormalLead(temp,μ,jin,jout; label = missing) = NormalLead(temp,μ,jin,jout, label)
 NormalLead(temp,μ,jin; label = missing) = NormalLead(temp,μ,jin,jin', label)
 NormalLead(T,μ; in, out = in', label = missing) = NormalLead(T,μ,in,out, label)
@@ -45,9 +44,9 @@ Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:","\nOpenS
 
 reprlindblad(lm::LM) where {LM<:LinearMap} = "LinearMap{$(eltype(lm))}"
 reprlindblad(m::AbstractMatrix) = typeof(m)
-reprdissipators(lms::Matrix{LM}) where {LM<:LinearMap} = "Matrix{LinearMap{$(eltype(first(lms)))}}"
-reprdissipators(ms::Matrix{<:AbstractArray}) = typeof(ms)
-
+# reprdissipators(lms::Matrix{LM}) where {LM<:LinearMap} = "Matrix{LinearMap{$(eltype(first(lms)))}}"
+# reprdissipators(ms::Matrix{<:AbstractArray}) = typeof(ms)
+reprdissipators(x) = string(typeof(x), ", Labels: ", map(x->x.label,x)) #Base.repr(x)
 
 abstract type AbstractVectorizer end
 struct KronVectorizer{T} <: AbstractVectorizer
@@ -84,9 +83,14 @@ function dissipator(L,kv::KronVectorizer)
 end
 commutator(A,::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A),A) - kron(transpose(A),one(A))
-measure(rho, op, ls::LindbladSystem) = measure(rho,op,ls.vectorizer, ls.dissipators)
-measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipators) = map(dissipator->dot(conj(vec(op)), dissipator*vec(rho)), dissipators)
-measure(rho::BlockDiagonal, op::BlockDiagonal,::KhatriRaoVectorizer, dissipators) = map(dissipator->dot(conj(vecdp(op)), dissipator*vecdp(rho)), dissipators)
+measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, ls.vectorizer, d) , ls.dissipators)
+
+function measure_dissipator(rho, op::AbstractMatrix, vectorizer, dissipator::NamedTuple{(:in, :out, :label),<:Any})
+    results = map(dissipator_op -> measure(rho,op,vectorizer,dissipator_op), (;dissipator.in,dissipator.out))
+    merge(results,(;total = sum(results), label=dissipator.label))
+end
+measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipator) = dot(conj(vec(op)), dissipator*vec(rho))
+measure(rho::BlockDiagonal, op::BlockDiagonal,::KhatriRaoVectorizer, dissipator) = dot(conj(vecdp(op)), dissipator*vecdp(rho))
 # measure(rho, op, dissipator) = dot(vec(op),dissipator*rho)
 # current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1
@@ -286,14 +290,22 @@ end
 function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian}, measurements; kwargs...)
     transformedsystem = ratetransform(diagonalsystem)
     vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
-    superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))
-    superjumpouts = map(op->dissipator(op,vectorizer), jumpouts(transformedsystem))
+    dissipators = map(lead->dissipator_from_transformed_lead(lead, vectorizer), transformedsystem.leads)
+    # superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))
+    # superjumpouts = map(op->dissipator(op,vectorizer), jumpouts(transformedsystem))
     unitary = -1im*commutator(eigenvalues(transformedsystem), vectorizer)
-    dissipators = hcat(superjumpins,superjumpouts)
-    lindblad = unitary + sum(dissipators)
+    # dissipators = hcat(superjumpins,superjumpouts)
+    lindblad = unitary + sum(d->d.in + d.out , dissipators)
     lindbladsystem = LindbladSystem(transformedsystem,unitary,dissipators,lindblad,vectorizer)
     
     transformedmeasureops = map(op->changebasis(op,lindbladsystem), measurements)
     return lindbladsystem, transformedmeasureops
 end
 changebasis(op,ls::LindbladSystem) = ls.system.hamiltonian.eigenvectors' * op * ls.system.hamiltonian.eigenvectors
+
+function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer)
+    opin = dissipator(lead.jump_in, vectorizer)
+    opout = dissipator(lead.jump_out, vectorizer)
+    # f = Tuple ∘ collect ∘ skipmissing ∘ tuple
+    (;in = opin, out = opout, label = lead.label)
+end
