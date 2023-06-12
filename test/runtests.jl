@@ -469,19 +469,20 @@ end
     function test_qd_transport(qn)
         N = 1
         a = FermionBasis(1:N; qn)
-        hamiltonian(μ) = μ * sum(a[i]'a[i] for i in 1:N)
+        bd(m) = QuantumDots.blockdiagonal(m, a)
+        hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
         leftlead = QuantumDots.NormalLead(T, μL; in=a[1]', out=a[1], label=:left)
         rightlead = QuantumDots.NormalLead(T, μR; in=a[N]', out=a[N], label=:right)
-        particle_number = numberoperator(a)
+        particle_number = bd(numberoperator(a))
         system = QuantumDots.OpenSystem(hamiltonian(μH), [leftlead, rightlead])
         diagonalsystem = QuantumDots.diagonalize(system)
         measurements = [particle_number]
         lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(diagonalsystem, measurements)
-        @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ [0.0, μH]
+        @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
-        @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0.0]
+        @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
 
         ρ, sol = QuantumDots.stationary_state(lindbladsystem)
         rhod = diag(ρ)
@@ -490,7 +491,7 @@ end
         p2 = (QuantumDots.fermidirac(μH, T, μL) + QuantumDots.fermidirac(μH, T, μR)) / 2
         p1 = 1 - p2
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
-        @test rhod ≈ [p1, p2]
+        @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, transformed_measurements[1], lindbladsystem)#real.(QuantumDots.conductance(system,[particle_number])[1])
         @test abs(sum(I->I.total, numeric_current)) < 1e-10

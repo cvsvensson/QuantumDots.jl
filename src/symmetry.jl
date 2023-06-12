@@ -76,6 +76,7 @@ end
 blockdiagonal(m::AbstractMatrix,basis::FermionBasis) = blockdiagonal(m,basis.symmetry)
 blockdiagonal(::Type{T},m::AbstractMatrix,basis::FermionBasis) where T = blockdiagonal(T, m,basis.symmetry)
 
+blockdiagonal(m::AbstractMatrix, ::NoSymmetry) = m
 function blockdiagonal(m::AbstractMatrix,sym::AbelianFockSymmetry)
     blockinds = values(sym.qntoinds)
     BlockDiagonal([m[block,block] for block in blockinds])
