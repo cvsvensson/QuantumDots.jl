@@ -248,9 +248,6 @@ end
 fermidirac(E,T,μ) = (I + exp(E/T)exp(-μ/T))^(-1)
 
 leads(system::OpenSystem) = system.leads
-jumpins(system::AbstractOpenSystem) = [lead.jump_in for lead in leads(system)]
-jumpouts(system::AbstractOpenSystem) = [lead.jump_out for lead in leads(system)]
-jumpops(system::AbstractOpenSystem) = hcat(jumpins(system),jumpouts(system))
 
 trnorm(rho,n) = tr(reshape(rho,n,n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
@@ -291,13 +288,9 @@ function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian},
     transformedsystem = ratetransform(diagonalsystem)
     vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
     dissipators = map(lead->dissipator_from_transformed_lead(lead, vectorizer), transformedsystem.leads)
-    # superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))
-    # superjumpouts = map(op->dissipator(op,vectorizer), jumpouts(transformedsystem))
     unitary = -1im*commutator(eigenvalues(transformedsystem), vectorizer)
-    # dissipators = hcat(superjumpins,superjumpouts)
     lindblad = unitary + sum(d->d.in + d.out , dissipators)
     lindbladsystem = LindbladSystem(transformedsystem,unitary,dissipators,lindblad,vectorizer)
-    
     transformedmeasureops = map(op->changebasis(op,lindbladsystem), measurements)
     return lindbladsystem, transformedmeasureops
 end
