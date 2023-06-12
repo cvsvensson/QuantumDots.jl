@@ -309,7 +309,7 @@ end
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
-    @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
+    @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
 
 end
 
