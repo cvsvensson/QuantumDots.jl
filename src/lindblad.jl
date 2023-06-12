@@ -1,16 +1,23 @@
-
 abstract type AbstractLead end
-struct NormalLead{Opin,Opout} <: AbstractLead
-    temperature::Float64
-    chemical_potential::Float64
+struct NormalLead{T,Opin,Opout,L} <: AbstractLead
+    temperature::T
+    chemical_potential::T
     jump_in::Opin
     jump_out::Opout
-    NormalLead(T,μ,jin::O1,jout::O2) where {O1,O2} = new{O1,O2}(T,μ,jin,jout)
+    label::L
 end
-NormalLead(T,μ; in, out) = NormalLead(T,μ,in,out)
+NormalLead(temp,μ,jin,jout; label = missing) = NormalLead(temp,μ,jin,jout, label)
+NormalLead(temp,μ,jin; label = missing) = NormalLead(temp,μ,jin,jin', label)
+NormalLead(T,μ; in, out = in', label = missing) = NormalLead(T,μ,in,out, label)
 
-Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "NormalLead{$Opin,$Opout}(", "T=",lead.temperature,", μ=", lead.chemical_potential,")")
-Base.show(io::IO, lead::NormalLead{Opin,Opout}) where {Opin,Opout} = print(io, "Lead(", "T=", round(lead.temperature,digits=4),", μ=", round(lead.chemical_potential, digits=4),")")
+Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(Label=",lead.label, ", T=",lead.temperature,", μ=", lead.chemical_potential,")")
+Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(",lead.label, ", T=", round(lead.temperature,digits=4),", μ=", round(lead.chemical_potential, digits=4),")")
+
+struct DiagonalizedHamiltonian{Vals,Vecs}
+    eigenvalues::Vals
+    eigenvectors::Vecs
+end
+Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals, Vecs} = promote_type(eltype(Vals),eltype(Vecs))
 
 abstract type AbstractOpenSystem end
 struct OpenSystem{H,Ls} <: AbstractOpenSystem
@@ -36,15 +43,7 @@ Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:","\nOpenS
 
 reprlindblad(lm::LM) where {LM<:LinearMap} = "LinearMap{$(eltype(lm))}"
 reprlindblad(m::AbstractMatrix) = typeof(m)
-reprdissipators(lms::Matrix{LM}) where {LM<:LinearMap} = "Matrix{LinearMap{$(eltype(first(lms)))}}"
-reprdissipators(ms::Matrix{<:AbstractArray}) = typeof(ms)
-
-
-struct DiagonalizedHamiltonian{Vals,Vecs}
-    eigenvalues::Vals
-    eigenvectors::Vecs
-end
-Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals, Vecs} = promote_type(eltype(Vals),eltype(Vecs))
+reprdissipators(x) = string(typeof(x), ", Labels: ", map(x->x.label,x)) #Base.repr(x)
 
 abstract type AbstractVectorizer end
 struct KronVectorizer{T} <: AbstractVectorizer
@@ -81,9 +80,14 @@ function dissipator(L,kv::KronVectorizer)
 end
 commutator(A,::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A),A) - kron(transpose(A),one(A))
-measure(rho, op, ls::LindbladSystem) = measure(rho,op,ls.vectorizer, ls.dissipators)
-measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipators) = map(dissipator->dot(conj(vec(op)), dissipator*vec(rho)), dissipators)
-measure(rho::BlockDiagonal, op::BlockDiagonal,::KhatriRaoVectorizer, dissipators) = map(dissipator->dot(conj(vecdp(op)), dissipator*vecdp(rho)), dissipators)
+measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, ls.vectorizer, d) , ls.dissipators)
+
+function measure_dissipator(rho, op::AbstractMatrix, vectorizer, dissipator::NamedTuple{(:in, :out, :label),<:Any})
+    results = map(dissipator_op -> measure(rho,op,vectorizer,dissipator_op), (;dissipator.in,dissipator.out))
+    merge(results,(;total = sum(results), label=dissipator.label))
+end
+measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipator) = dot(conj(vec(op)), dissipator*vec(rho))
+measure(rho::BlockDiagonal, op::BlockDiagonal,::KhatriRaoVectorizer, dissipator) = dot(conj(vecdp(op)), dissipator*vecdp(rho))
 # measure(rho, op, dissipator) = dot(vec(op),dissipator*rho)
 # current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1
@@ -156,7 +160,7 @@ end
 function khatri_rao(L1,L2,blocksizes)
     inds = sizestoinds(blocksizes)
     T = promote_type(eltype(L1),eltype(L2))
-    maps = []
+    maps = promote_type(typeof(L1),typeof(L2))[]
     for i in eachindex(blocksizes),j in eachindex(blocksizes)
         l1 = L1[inds[i],inds[j]]
         l2 = L2[inds[i],inds[j]]
@@ -207,12 +211,12 @@ function ratetransform(lead::NormalLead, commutator_hamiltonian)
     T = temperature(lead)
     newjumpin = ratetransform(lead.jump_in,commutator_hamiltonian,T,μ) #reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(Lin),size(Lin))
     newjumpout = ratetransform(lead.jump_out,commutator_hamiltonian,T,-μ) #reshape(sqrt(fermidirac(commutator_hamiltonian,T,-μ))*vec(Lout),size(Lout))
-    return NormalLead(T, μ, newjumpin, newjumpout)
+    return NormalLead(T, μ, newjumpin, newjumpout, lead.label)
 end
 ratetransform(op,commutator_hamiltonian,T,μ) = reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(op),size(op))
 
 
-diagonalize(S,lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S'*lead.jump_in*S,  S'*lead.jump_out*S)
+diagonalize(S,lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S'*lead.jump_in*S,  S'*lead.jump_out*S,lead.label)
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system))
 
 function diagonalize(m::AbstractMatrix)
@@ -241,9 +245,6 @@ end
 fermidirac(E,T,μ) = (I + exp(E/T)exp(-μ/T))^(-1)
 
 leads(system::OpenSystem) = system.leads
-jumpins(system::AbstractOpenSystem) = [lead.jump_in for lead in leads(system)]
-jumpouts(system::AbstractOpenSystem) = [lead.jump_out for lead in leads(system)]
-jumpops(system::AbstractOpenSystem) = hcat(jumpins(system),jumpouts(system))
 
 trnorm(rho,n) = tr(reshape(rho,n,n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
@@ -251,41 +252,49 @@ vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 _lindblad_with_normalizer(lindblad,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer(out,in,lindblad,kv)
 _lindblad_with_normalizer_adj(lindblad ,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer_adj(out,in,lindblad,kv)
 
-_lindblad_with_normalizer(out,in,lindblad,kv::KronVectorizer) = (mul!((@view out[2:end]),lindblad,in); out[1] = trnorm(in,kv.size);)
-_lindblad_with_normalizer_adj(out,in, lindblad ,kv::KronVectorizer) = (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*kv.idvec;)
-_lindblad_with_normalizer(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[2:end]),lindblad,in); out[1] = dot(krv.idvec, in);)
-_lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!(out,lindblad',(@view in[2:end]));  out .+= in[1]*krv.idvec;)
+_lindblad_with_normalizer(out,in,lindblad,kv::KronVectorizer) = (mul!((@view out[1:end-1]),lindblad,in); out[end] = trnorm(in,kv.size); return out)
+_lindblad_with_normalizer_adj(out,in, lindblad ,kv::KronVectorizer) = (mul!(out,lindblad',(@view in[1:end-1]));  out .+= in[end]*kv.idvec; return out)
+_lindblad_with_normalizer(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[1:end-1]),lindblad,in); out[end] = dot(krv.idvec, in); return out)
+_lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!(out,lindblad',(@view in[1:end-1]));  out .+= in[end]*krv.idvec; return out)
+
+Base.reshape(rho, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
+Base.reshape(rho, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
+stationary_state(lindbladsystem; solver = solver(lindbladsystem), kwargs...) = stationary_state(lindbladsystem, solver; kwargs...)
+solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
+
 
 function stationary_state(lindbladsystem, solver; kwargs...)
     lindblad = lindbladsystem.lindblad
     vectorizer = lindbladsystem.vectorizer
-    newmult! = _lindblad_with_normalizer(lindblad,vectorizer)
-    newmultadj! = _lindblad_with_normalizer_adj(lindblad,vectorizer)
+    newmult! = QuantumDots._lindblad_with_normalizer(lindblad,vectorizer)
+    newmultadj! = QuantumDots._lindblad_with_normalizer_adj(lindblad,vectorizer)
     n = size(lindblad,2)
-    lm! = LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
-    v = Vector(sparsevec([1],ComplexF64[1.0],n+1))
+    lm! = QuantumDots.LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
+    x = zeros(eltype(lm!),n)
+    push!(x,one(eltype(lm!)))
     solver.x .= vectorizer.idvec ./ n
-    sol = solve!(solver, lm!, v; kwargs...)
-    Matrix(sol.x, vectorizer)
+    sol = Krylov.solve!(solver, lm!, x; kwargs...)
+    reshape(sol.x, vectorizer), sol
 end
 
-Base.Matrix(rho::Vector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size,vectorizer.size)
-Base.Matrix(rho::Vector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
-stationary_state(lindbladsystem; solver = solver(lindbladsystem), kwargs...) = stationary_state(lindbladsystem, solver; kwargs...)
-solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
-
-function prepare_lindblad(system, measurements; kwargs...)
+function prepare_lindblad(system::OpenSystem, measurements; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)
+    prepare_lindblad(diagonalsystem, measurements; kwargs...)
+end
+function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian}, measurements; kwargs...)
     transformedsystem = ratetransform(diagonalsystem)
     vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
-    superjumpins = map(op->dissipator(op,vectorizer), jumpins(transformedsystem))
-    superjumpouts = map(op->dissipator(op,vectorizer), jumpouts(transformedsystem))
+    dissipators = map(lead->dissipator_from_transformed_lead(lead, vectorizer), transformedsystem.leads)
     unitary = -1im*commutator(eigenvalues(transformedsystem), vectorizer)
-    dissipators = hcat(superjumpins,superjumpouts)
-    lindblad = unitary + sum(dissipators)
+    lindblad = unitary + sum(d->d.in + d.out , dissipators)
     lindbladsystem = LindbladSystem(transformedsystem,unitary,dissipators,lindblad,vectorizer)
-    
     transformedmeasureops = map(op->changebasis(op,lindbladsystem), measurements)
     return lindbladsystem, transformedmeasureops
 end
 changebasis(op,ls::LindbladSystem) = ls.system.hamiltonian.eigenvectors' * op * ls.system.hamiltonian.eigenvectors
+
+function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer)
+    opin = dissipator(lead.jump_in, vectorizer)
+    opout = dissipator(lead.jump_out, vectorizer)
+    (;in = opin, out = opout, label = lead.label)
+end

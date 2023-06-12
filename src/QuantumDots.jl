@@ -5,6 +5,7 @@ using Dictionaries#: sortkeys!
 using Symbolics
 using StaticArrays
 using UnicodePlots
+using LinearSolve
 
 export bits,FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns,Z2,QArray, Z2Symmetry, QNIndex
@@ -21,5 +22,5 @@ include("hamiltonians.jl")
 include("QArray.jl")
 include("bdg.jl")
 include("pretty_print.jl")
-
+include("rate_equation.jl")
 end
