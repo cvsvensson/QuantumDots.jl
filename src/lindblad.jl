@@ -1,4 +1,3 @@
-
 abstract type AbstractLead end
 struct NormalLead{T,Opin,Opout,L} <: AbstractLead
     temperature::T
@@ -44,8 +43,6 @@ Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:","\nOpenS
 
 reprlindblad(lm::LM) where {LM<:LinearMap} = "LinearMap{$(eltype(lm))}"
 reprlindblad(m::AbstractMatrix) = typeof(m)
-# reprdissipators(lms::Matrix{LM}) where {LM<:LinearMap} = "Matrix{LinearMap{$(eltype(first(lms)))}}"
-# reprdissipators(ms::Matrix{<:AbstractArray}) = typeof(ms)
 reprdissipators(x) = string(typeof(x), ", Labels: ", map(x->x.label,x)) #Base.repr(x)
 
 abstract type AbstractVectorizer end
@@ -299,6 +296,5 @@ changebasis(op,ls::LindbladSystem) = ls.system.hamiltonian.eigenvectors' * op * 
 function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer)
     opin = dissipator(lead.jump_in, vectorizer)
     opout = dissipator(lead.jump_out, vectorizer)
-    # f = Tuple ∘ collect ∘ skipmissing ∘ tuple
     (;in = opin, out = opout, label = lead.label)
 end

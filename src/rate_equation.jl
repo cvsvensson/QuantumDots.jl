@@ -42,23 +42,23 @@ function _prepare_rate_equations(E::AbstractVector, lead::NormalLead)
         Wout[n1, n2] = 2π * dos * abs2(Tout[n1, n2]) * (1 - QuantumDots.fermidirac(-δE, T, μ))#*QuantumDots.fermidirac(E[n1]-E[n2],T,-μ)
     end
     D = (Win + Wout) - Diagonal(vec(sum(Win + Wout, dims=1)))
-    Iin,Iout = (vec(sum(Win, dims=1)), vec(sum(-Wout, dims=1)))
-    return (Win,Wout), D, (Iin, Iout)
+    Iin, Iout = (vec(sum(Win, dims=1)), vec(sum(-Wout, dims=1)))
+    return (Win, Wout), D, (Iin, Iout)
 end
 function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), size(m, 2))']
 end
 
-function stationary_state(eq::RateEquations, alg = KrylovJL_LSMR(); kwargs...)
+function stationary_state(eq::RateEquations, alg=KrylovJL_LSMR(); kwargs...)
     M = add_normalizer(eq.total_master_matrix)
-    v0 = zeros(eltype(M),size(M,2))
-    push!(v0,one(eltype(M)))
+    v0 = zeros(eltype(M), size(M, 2))
+    push!(v0, one(eltype(M)))
     prob = LinearProblem(M, v0)
     sol = solve(prob, alg; kwargs...)
     return sol
 end
-get_currents(eq::RateEquations, alg = KrylovJL_LSMR(); kwargs...) = get_currents(stationary_state(eq,solver), eq; kwargs...)
+get_currents(eq::RateEquations, alg=KrylovJL_LSMR(); kwargs...) = get_currents(stationary_state(eq, solver), eq; kwargs...)
 function get_currents(diagonal_density_matrix::AbstractVector, eq::RateEquations)
-    currents = [(;in = dot(eq.current_operator[1], diagonal_density_matrix), out = dot(eq.current_operator[2], diagonal_density_matrix)) for eq in eq.rate_equations]
-    [merge(c,(;total = c.in + c.out, label=eq.label)) for (c,eq) in zip(currents,eq.rate_equations)]
+    currents = [(; in=dot(eq.current_operator[1], diagonal_density_matrix), out=dot(eq.current_operator[2], diagonal_density_matrix)) for eq in eq.rate_equations]
+    [merge(c, (; total=c.in + c.out, label=eq.label)) for (c, eq) in zip(currents, eq.rate_equations)]
 end
