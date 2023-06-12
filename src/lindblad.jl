@@ -279,7 +279,7 @@ function stationary_state(lindbladsystem, solver; kwargs...)
     x = zeros(eltype(lm!),n)
     push!(x,one(eltype(lm!)))
     solver.x .= vectorizer.idvec ./ n
-    sol = solve!(solver, lm!, x; kwargs...)
+    sol = Krylov.solve!(solver, lm!, x; kwargs...)
     reshape(sol.x, vectorizer), sol
 end
 
