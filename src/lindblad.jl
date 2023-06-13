@@ -260,11 +260,8 @@ _lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!
 
 Base.reshape(rho, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
 Base.reshape(rho, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
-stationary_state(lindbladsystem; solver = solver(lindbladsystem), kwargs...) = stationary_state(lindbladsystem, solver; kwargs...)
-solver(ls::LindbladSystem) = LsmrSolver(size(ls.lindblad,1)+1, size(ls.lindblad,1), Vector{ComplexF64})
 
-
-function stationary_state(lindbladsystem, solver; kwargs...)
+function stationary_state(lindbladsystem; kwargs...)
     lindblad = lindbladsystem.lindblad
     vectorizer = lindbladsystem.vectorizer
     newmult! = QuantumDots._lindblad_with_normalizer(lindblad,vectorizer)
@@ -273,9 +270,13 @@ function stationary_state(lindbladsystem, solver; kwargs...)
     lm! = QuantumDots.LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
     x = zeros(eltype(lm!),n)
     push!(x,one(eltype(lm!)))
-    solver.x .= vectorizer.idvec ./ sqrt(n)
-    sol = Krylov.solve!(solver, lm!, x; kwargs...)
-    reshape(sol.x, vectorizer), sol
+
+    # For dense matrices, and for large enough parity blockdiagonal matrices,
+    # this is faster than Krylov.
+    # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
+    prob = LinearProblem(Matrix(lm!), x; u0 = vectorizer.idvec ./ sqrt(n), kwargs...)
+    sol = solve(prob)
+    return reshape(sol, vectorizer)
 end
 
 function prepare_lindblad(system::OpenSystem, measurements; kwargs...)
