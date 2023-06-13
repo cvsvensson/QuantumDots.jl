@@ -1,5 +1,5 @@
 using QuantumDots
-using Test, LinearAlgebra, SparseArrays, Random, Krylov, BlockDiagonals
+using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
 Random.seed!(1234)
 
 
@@ -484,7 +484,7 @@ end
         lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
         @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
 
-        ρ, sol = QuantumDots.stationary_state(lindbladsystem)
+        ρ = QuantumDots.stationary_state(lindbladsystem)
         rhod = diag(ρ)
         @test ρ ≈ ρ'
         @test tr(ρ) ≈ 1

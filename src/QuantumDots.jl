@@ -1,5 +1,5 @@
 module QuantumDots
-using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals, Krylov
+using LinearAlgebra, SparseArrays,LinearMaps, BlockDiagonals
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
 using Symbolics
