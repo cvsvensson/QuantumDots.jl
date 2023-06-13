@@ -1,5 +1,5 @@
 using QuantumDots
-using Test, LinearAlgebra, SparseArrays, Random, Krylov, BlockDiagonals
+using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
 Random.seed!(1234)
 
 
