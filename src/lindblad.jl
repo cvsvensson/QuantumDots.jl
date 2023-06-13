@@ -70,9 +70,10 @@ default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
 # A*rho*B = transpose(B)⊗A = kron(transpose(B),A)
 # A*rho*transpose(B) = B⊗A = kron(B,A)
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
-const DENSE_CUTOFF = 6
-dissipator(L,krv::KhatriRaoVectorizer) = sum(krv.sizes) > DENSE_CUTOFF ? khatri_rao_lazy_dissipator(L,krv.sizes) : khatri_rao_dissipator(Matrix(L),krv.sizes)
-commutator(A,krv::KhatriRaoVectorizer) = sum(krv.sizes) > DENSE_CUTOFF ? khatri_rao_lazy_commutator(A,krv.sizes) : khatri_rao_commutator(Matrix(A),krv.sizes)
+const DENSE_CUTOFF = 16
+const KR_LAZY_CUTOFF = 40
+dissipator(L,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_dissipator(L,krv.sizes) : khatri_rao_dissipator(Matrix(L),krv.sizes)
+commutator(A,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_commutator(A,krv.sizes) : khatri_rao_commutator(Matrix(A),krv.sizes)
 
 function dissipator(L,kv::KronVectorizer)
     D = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
