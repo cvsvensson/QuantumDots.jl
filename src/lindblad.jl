@@ -272,7 +272,7 @@ function stationary_state(lindbladsystem, solver; kwargs...)
     lm! = QuantumDots.LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
     x = zeros(eltype(lm!),n)
     push!(x,one(eltype(lm!)))
-    solver.x .= vectorizer.idvec ./ n
+    solver.x .= vectorizer.idvec ./ sqrt(n)
     sol = Krylov.solve!(solver, lm!, x; kwargs...)
     reshape(sol.x, vectorizer), sol
 end
