@@ -128,21 +128,25 @@ function khatri_rao_dissipator(L,blocksizes)
     L2 = L'*L
     inds = sizestoinds(blocksizes)
     T = eltype(L)
-    prodmaps = Matrix{T}[]
-    summaps = Matrix{T}[]
-    for ind1 in inds, ind2 in inds
+    newinds = sizestoinds(blocksizes .^2)
+    N = sum(abs2, blocksizes)
+    D = zeros(T,N,N)
+    for k1 in eachindex(inds), k2 in eachindex(inds)
+        ind1 = inds[k1]
+        ind2 = inds[k2]
         Lblock = L[ind1,ind2]
         leftprodmap = Lblock
         rightprodmap = conj(Lblock)
-        push!(prodmaps, kron(rightprodmap,leftprodmap))
-        if ind1==ind2
+        kron!(@view(D[newinds[k1],newinds[k2]]), rightprodmap, leftprodmap)
+        if k1 == k2
             L2block = L2[ind1,ind2]
             leftsummap = L2block
             rightsummap = transpose(L2block)
-            push!(summaps, kronsum(rightsummap,leftsummap))
+            id = I(blocksizes[k2])
+            D[newinds[k1],newinds[k2]] .+= - 1/2 .* (kron(rightsummap,id) .+ kron(id,leftsummap))
         end
     end
-    hvcat(length(inds),prodmaps...) - 1/2*cat(summaps...; dims=(1,2))
+    return D
 end
 
 function khatri_rao_lazy(L1,L2,blocksizes)
