@@ -167,13 +167,26 @@ end
 function khatri_rao(L1,L2,blocksizes)
     inds = sizestoinds(blocksizes)
     T = promote_type(eltype(L1),eltype(L2))
-    maps = promote_type(typeof(L1),typeof(L2))[]
+    maps = Matrix{T}[]
     for i in eachindex(blocksizes),j in eachindex(blocksizes)
         l1 = L1[inds[i],inds[j]]
         l2 = L2[inds[i],inds[j]]
         push!(maps, kron(l1,l2))
     end
     hvcat(length(inds),maps...)
+end
+
+function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, blocksizes) where {T1,T2}
+    inds = sizestoinds(blocksizes)
+    T = promote_type(T1,T2)
+    indsd = sizestoinds(blocksizes .^2)
+    d = zeros(T,sum(abs2,blocksizes))
+    for i in eachindex(blocksizes)
+        l1 = Diagonal(@view(L1.diag[inds[i]]))
+        l2 = Diagonal(@view(L2.diag[inds[i]]))
+        kron!(Diagonal(@view(d[indsd[i]])),l1,l2)
+    end
+    return Diagonal(d)
 end
 
 khatri_rao(L1::Diagonal,L2::Diagonal) = kron(L1,L2)
@@ -256,32 +269,42 @@ leads(system::OpenSystem) = system.leads
 trnorm(rho,n) = tr(reshape(rho,n,n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
+lindblad_with_normalizer_dense(lindblad::Matrix,kv::AbstractVectorizer) = vcat(lindblad,transpose(kv.idvec))
+
 _lindblad_with_normalizer(lindblad,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer(out,in,lindblad,kv)
 _lindblad_with_normalizer_adj(lindblad ,kv::AbstractVectorizer) = (out,in) -> _lindblad_with_normalizer_adj(out,in,lindblad,kv)
 
 _lindblad_with_normalizer(out,in,lindblad,kv::KronVectorizer) = (mul!((@view out[1:end-1]),lindblad,in); out[end] = trnorm(in,kv.size); return out)
 _lindblad_with_normalizer_adj(out,in, lindblad ,kv::KronVectorizer) = (mul!(out,lindblad',(@view in[1:end-1]));  out .+= in[end]*kv.idvec; return out)
 _lindblad_with_normalizer(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[1:end-1]),lindblad,in); out[end] = dot(krv.idvec, in); return out)
-_lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!(out,lindblad',(@view in[1:end-1]));  out .+= in[end]*krv.idvec; return out)
+_lindblad_with_normalizer_adj(out,in,lindblad, krv::KhatriRaoVectorizer) = (mul!(out,lindblad',(@view in[1:end-1]));  out .+= in[end].*krv.idvec; return out)
 
 Base.reshape(rho, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
 Base.reshape(rho, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size,inds)->reshape(rho[inds],size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^2)))
 
-function stationary_state(lindbladsystem; kwargs...)
-    lindblad = lindbladsystem.lindblad
-    vectorizer = lindbladsystem.vectorizer
+function lindblad_with_normalizer(lindblad,vectorizer)
     newmult! = QuantumDots._lindblad_with_normalizer(lindblad,vectorizer)
     newmultadj! = QuantumDots._lindblad_with_normalizer_adj(lindblad,vectorizer)
     n = size(lindblad,2)
-    lm! = QuantumDots.LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n)
-    x = zeros(eltype(lm!),n)
-    push!(x,one(eltype(lm!)))
+    lm! = QuantumDots.LinearMap{ComplexF64}(newmult!,newmultadj!,n+1,n; ismutating = true)
+    return Matrix(lm!)
+end
+lindblad_with_normalizer(lindblad::Matrix,vectorizer) = lindblad_with_normalizer_dense(lindblad,vectorizer)
+
+function stationary_state(lindbladsystem, alg = nothing; kwargs...)
+    lindblad = lindbladsystem.lindblad
+    vectorizer = lindbladsystem.vectorizer
+    
+    A = lindblad_with_normalizer(lindblad, vectorizer)
+    n = size(lindblad,2)
+    x = zeros(eltype(A),n)
+    push!(x,one(eltype(A)))
 
     # For dense matrices, and for large enough parity blockdiagonal matrices,
     # this is faster than Krylov.
     # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
-    prob = LinearProblem(Matrix(lm!), x; u0 = vectorizer.idvec ./ sqrt(n), kwargs...)
-    sol = solve(prob)
+    prob = LinearProblem(A, x; u0 = vectorizer.idvec ./ sqrt(n), kwargs...)
+    sol = solve(prob, alg)
     return reshape(sol, vectorizer)
 end
 
