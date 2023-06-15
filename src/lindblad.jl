@@ -50,7 +50,7 @@ struct KronVectorizer{T} <: AbstractVectorizer
     size::Int
     idvec::Vector{T}
 end
-KronVectorizer(size::Integer,::Type{T} = Float64) where T = KronVectorizer{T}(size, vec(Matrix(I,n,n)))
+KronVectorizer(n::Integer,::Type{T} = Float64) where T = KronVectorizer{T}(n, vec(Matrix{T}(I,n,n)))
 
 struct KhatriRaoVectorizer{T} <: AbstractVectorizer
     sizes::Vector{Int}
