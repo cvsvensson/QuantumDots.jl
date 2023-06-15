@@ -50,19 +50,20 @@ struct KronVectorizer{T} <: AbstractVectorizer
     size::Int
     idvec::Vector{T}
 end
+KronVectorizer(size::Integer,::Type{T} = Float64) where T = KronVectorizer{T}(size, vec(Matrix(I,n,n)))
+
 struct KhatriRaoVectorizer{T} <: AbstractVectorizer
     sizes::Vector{Int}
     idvec::Vector{T}
 end
-function KronVectorizer(ham::DiagonalizedHamiltonian)
-    n = size(ham.eigenvalues,1)
-    KronVectorizer{eltype(ham)}(n, vec(Matrix(I,n,n)))
+function KhatriRaoVectorizer(sizes::Vector{Int}, ::Type{T} = Float64) where T
+    blockid = BlockDiagonal([Matrix{T}(I,size,size) for size in sizes])
+    KhatriRaoVectorizer{T}(sizes, vecdp(blockid))
 end
-function KhatriRaoVectorizer(ham::DiagonalizedHamiltonian)
-    sizes = first.(blocksizes(ham.eigenvalues))
-    blockid = BlockDiagonal([Matrix{eltype(ham)}(I,size,size) for size in sizes])
-    KhatriRaoVectorizer{eltype(ham)}(sizes, vecdp(blockid))
-end
+
+KronVectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(size(ham.eigenvalues,1), eltype(ham))
+KhatriRaoVectorizer(ham::DiagonalizedHamiltonian) = KhatriRaoVectorizer(first.(blocksizes(ham.eigenvalues)), eltype(ham))
+
 default_vectorizer(ham::DiagonalizedHamiltonian{<:BlockDiagonal}) = KhatriRaoVectorizer(ham)
 default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
 
@@ -72,8 +73,8 @@ default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
 const DENSE_CUTOFF = 16
 const KR_LAZY_CUTOFF = 40
-dissipator(L,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_dissipator(L,krv.sizes) : khatri_rao_dissipator(Matrix(L),krv.sizes)
-commutator(A,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_commutator(A,krv.sizes) : khatri_rao_commutator(Matrix(A),krv.sizes)
+dissipator(L,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_dissipator(L,krv.sizes) : khatri_rao_dissipator(L,krv.sizes)
+commutator(A,krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_commutator(A,krv.sizes) : khatri_rao_commutator(A,krv.sizes)
 
 function dissipator(L,kv::KronVectorizer)
     D = (conj(L)⊗L - 1/2*kronsum(transpose(L'*L), L'*L))
@@ -101,8 +102,9 @@ eigenvalues(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvalues
 eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
 
 
-khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
-khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes) #Lazy seems slighly faster
+khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(one(A),A,blocksizes) - khatri_rao_lazy(transpose(A),one(A),blocksizes) 
+khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A),A,blocksizes) - khatri_rao(transpose(A),one(A),blocksizes) 
+khatri_rao_commutator(A::BlockDiagonal{<:Any,<:Diagonal}, blocksizes) = khatri_rao_commutator(Diagonal(A), blocksizes)
 
 function khatri_rao_lazy_dissipator(L,blocksizes)
     L2 = L'*L
