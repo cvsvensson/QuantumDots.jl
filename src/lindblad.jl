@@ -218,7 +218,7 @@ function ratetransform(lead::NormalLead, commutator_hamiltonian)
     newjumpout = ratetransform(lead.jump_out,commutator_hamiltonian,T,-μ) #reshape(sqrt(fermidirac(commutator_hamiltonian,T,-μ))*vec(Lout),size(Lout))
     return NormalLead(T, μ, newjumpin, newjumpout, lead.label)
 end
-ratetransform(op,commutator_hamiltonian,T,μ) = reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(op),size(op))
+ratetransform(op,commutator_hamiltonian::Diagonal,T,μ) = reshape(sqrt(fermidirac(commutator_hamiltonian,T,μ))*vec(op),size(op))
 
 
 diagonalize(S,lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S'*lead.jump_in*S,  S'*lead.jump_out*S,lead.label)
