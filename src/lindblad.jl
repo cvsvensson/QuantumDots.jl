@@ -207,11 +207,11 @@ function stationary_state(lindbladsystem, alg = nothing; kwargs...)
     n = size(lindblad,2)
     x = zeros(eltype(A),n)
     push!(x,one(eltype(A)))
-
+    u0 = complex(vectorizer.idvec ./ sqrt(n))
     # For dense matrices, and for large enough parity blockdiagonal matrices,
     # this is faster than Krylov.
     # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
-    prob = LinearProblem(A, x; u0 = vectorizer.idvec ./ sqrt(n), kwargs...)
+    prob = LinearProblem(A, x; u0, kwargs...)
     sol = solve(prob, alg)
     return reshape(sol, vectorizer)
 end
