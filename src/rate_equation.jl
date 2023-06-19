@@ -49,7 +49,7 @@ function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), size(m, 2))']
 end
 
-function stationary_state(eq::RateEquations, alg=KrylovJL_LSMR(); kwargs...)
+function stationary_state(eq::RateEquations, alg = nothing; kwargs...)
     M = add_normalizer(eq.total_master_matrix)
     v0 = zeros(eltype(M), size(M, 2))
     push!(v0, one(eltype(M)))
@@ -57,7 +57,7 @@ function stationary_state(eq::RateEquations, alg=KrylovJL_LSMR(); kwargs...)
     sol = solve(prob, alg; kwargs...)
     return sol
 end
-get_currents(eq::RateEquations, alg=KrylovJL_LSMR(); kwargs...) = get_currents(stationary_state(eq, alg), eq; kwargs...)
+get_currents(eq::RateEquations, alg=nothing; kwargs...) = get_currents(stationary_state(eq, alg), eq; kwargs...)
 function get_currents(diagonal_density_matrix::AbstractVector, eq::RateEquations)
     currents = [(; in=dot(eq.current_operator[1], diagonal_density_matrix), out=dot(eq.current_operator[2], diagonal_density_matrix)) for eq in eq.rate_equations]
     [merge(c, (; total=c.in + c.out, label=eq.label)) for (c, eq) in zip(currents, eq.rate_equations)]
