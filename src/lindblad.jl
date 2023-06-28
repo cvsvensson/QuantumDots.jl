@@ -1,4 +1,3 @@
-
 struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     system::O
     unitary::U
@@ -6,10 +5,17 @@ struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     lindblad::L
     vectorizer::V
 end
-
+isdiagonalized(::LindbladSystem{<:DiagonalizedHamiltonian}) = true
+isdiagonalized(::LindbladSystem) = false 
+leads(ls::LindbladSystem) = leads(ls.system)
+transformed_leads(ls::LindbladSystem) = transformed_leads(ls.system)
+measurements(ls::LindbladSystem) = measurements(ls.system)
+transformed_measurements(ls::LindbladSystem) = transformed_measurements(ls.system)
 struct Lindblad <: AbstractOpenSolver end
 
 LinearOperator(system::LindbladSystem; kwargs...) = LinearOperator(system.lindblad; kwargs...)
+LinearOperatorWithNormalizer(system::LindbladSystem; kwargs...) = LinearOperator(lindblad_with_normalizer(system.lindblad, system.vectorizer); kwargs...)
+
 
 Base.show(io::IO, ::MIME"text/plain", system::LindbladSystem) = show(io, system)
 Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:", "\nOpenSystem", repr(system.system),
@@ -36,6 +42,7 @@ function dissipator(L, kv::KronVectorizer)
 end
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
+measure(rho, ls::LindbladSystem) = map(op-> measure(rho, op, ls::LindbladSystem), ls.system.transformed_measurements)
 measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, ls.vectorizer, d), ls.dissipators)
 
 function measure_dissipator(rho, op::AbstractMatrix, vectorizer, dissipator::NamedTuple{(:in, :out, :label),<:Any})
@@ -60,6 +67,7 @@ _lindblad_with_normalizer_adj(out, in, lindblad, kv::KronVectorizer) = (mul!(out
 _lindblad_with_normalizer(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[1:end-1]), lindblad, in); out[end] = dot(krv.idvec, in); return out)
 _lindblad_with_normalizer_adj(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!(out, lindblad', (@view in[1:end-1])); out .+= in[end] .* krv.idvec; return out)
 
+Base.reshape(rho, system::LindbladSystem) = reshape(rho, system.vectorizer)
 Base.reshape(rho, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
 Base.reshape(rho, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
 
@@ -72,38 +80,43 @@ function lindblad_with_normalizer(lindblad, vectorizer)
 end
 lindblad_with_normalizer(lindblad::Matrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
-function stationary_state(lindbladsystem, alg=nothing; kwargs...)
-    lindblad = lindbladsystem.lindblad
-    vectorizer = lindbladsystem.vectorizer
+identity_density_matrix(system::LindbladSystem) = one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))) 
 
-    A = lindblad_with_normalizer(lindblad, vectorizer)
-    n = size(lindblad, 2)
-    x = zeros(eltype(A), n)
-    push!(x, one(eltype(A)))
-    u0 = complex(vectorizer.idvec ./ sqrt(n))
-    # For dense matrices, and for large enough parity blockdiagonal matrices,
-    # this is faster than Krylov.
-    # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
-    prob = LinearProblem(A, x; u0, kwargs...)
-    sol = solve(prob, alg)
-    return reshape(sol, vectorizer)
+# function stationary_state(lindbladsystem, alg=nothing; kwargs...)
+#     lindblad = lindbladsystem.lindblad
+#     vectorizer = lindbladsystem.vectorizer
+
+#     A = lindblad_with_normalizer(lindblad, vectorizer)
+#     n = size(lindblad, 2)
+#     x = zeros(eltype(A), n)
+#     push!(x, one(eltype(A)))
+#     u0 = complex(vectorizer.idvec ./ sqrt(n))
+#     # For dense matrices, and for large enough parity blockdiagonal matrices,
+#     # this is faster than Krylov.
+#     # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
+#     prob = LinearProblem(A, x; u0, kwargs...)
+#     sol = solve(prob, alg)
+#     return reshape(sol, vectorizer)
+# end
+
+LinearProblem(H, leads, measurements, ::Lindblad; kwargs...) = prepare_lindblad(H, leads, measurements; kwargs...)
+LinearProblem(system, ::Lindblad; kwargs...) = prepare_lindblad(system; kwargs...)
+function prepare_lindblad(H::AbstractMatrix, leads, measurements = nothing; kwargs...)
+    prepare_lindblad(OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
 end
-
-function prepare_lindblad(system::OpenSystem, measurements; kwargs...)
+function prepare_lindblad(system::OpenSystem; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)
-    prepare_lindblad(diagonalsystem, measurements; kwargs...)
+    prepare_lindblad(diagonalsystem; kwargs...)
 end
-function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian}, measurements; kwargs...)
+function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian}; kwargs...)
     transformedsystem = ratetransform(diagonalsystem)
-    vectorizer = default_vectorizer(diagonalsystem.hamiltonian)
-    dissipators = map(lead -> dissipator_from_transformed_lead(lead, vectorizer), transformedsystem.leads)
+    vectorizer = default_vectorizer(hamiltonian(diagonalsystem))
+    dissipators = map(lead -> dissipator_from_transformed_lead(lead, vectorizer), transformed_leads(transformedsystem))
     unitary = -1im * commutator(eigenvalues(transformedsystem), vectorizer)
     lindblad = unitary + sum(d -> d.in + d.out, dissipators)
     lindbladsystem = LindbladSystem(transformedsystem, unitary, dissipators, lindblad, vectorizer)
-    transformedmeasureops = map(op -> changebasis(op, lindbladsystem), measurements)
-    return lindbladsystem, transformedmeasureops
+    return lindbladsystem
 end
-changebasis(op, ls::LindbladSystem) = ls.system.hamiltonian.eigenvectors' * op * ls.system.hamiltonian.eigenvectors
 
 function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer)
     opin = dissipator(lead.jump_in, vectorizer)

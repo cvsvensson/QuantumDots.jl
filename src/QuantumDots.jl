@@ -1,12 +1,16 @@
 module QuantumDots
 using LinearAlgebra, SparseArrays, LinearMaps, BlockDiagonals
+using Reexport
 using SplitApplyCombine: group
 using Dictionaries#: sortkeys!
 using Symbolics
 using StaticArrays
 using UnicodePlots
-using LinearSolve
 using OrdinaryDiffEq
+@reexport import OrdinaryDiffEq: ODEProblem, solve, solve!, init
+using LinearSolve
+@reexport import LinearSolve: LinearProblem
+# import AbstractDifferentiation as AD
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex
