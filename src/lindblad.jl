@@ -1,11 +1,4 @@
 
-struct DiagonalizedHamiltonian{Vals,Vecs}
-    eigenvalues::Vals
-    eigenvectors::Vecs
-end
-Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
-
-
 struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     system::O
     unitary::U

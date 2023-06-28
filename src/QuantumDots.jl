@@ -6,6 +6,7 @@ using Symbolics
 using StaticArrays
 using UnicodePlots
 using LinearSolve
+using OrdinaryDiffEq
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex
@@ -17,8 +18,8 @@ include("operators.jl")
 include("symmetry.jl")
 include("lattice.jl")
 include("symbolic.jl")
-include("vectorizers.jl")
 include("opensystems.jl")
+include("vectorizers.jl")
 include("lindblad.jl")
 include("hamiltonians.jl")
 include("QArray.jl")
