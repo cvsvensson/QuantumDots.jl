@@ -20,6 +20,17 @@ function currents(V)
     # real(QuantumDots.measure(sol,m1[1],l1)[1].in)
 end
 
+function currents2(V)
+    newleads = [QuantumDots.NormalLead(leads[1]; μ=V), leads[2]]
+    sys = QuantumDots.OpenSystem(H, newleads)
+    l, m = QuantumDots.prepare_lindblad(sys, ms)
+    prob = LinearProblem(l)
+    
+    sol = QuantumDots.stationary_state(l)
+    real(dot(vec(m[1]), l.dissipators[1].in * vec(sol)) -
+         dot(vec(m[1]), l.dissipators[1].out * vec(sol)))
+    # real(QuantumDots.measure(sol,m1[1],l1)[1].in)
+end
 function get_lsys(V)
     newleads = [QuantumDots.NormalLead(leads[1]; μ=V), leads[2]]
     sys = QuantumDots.OpenSystem(H, newleads)
