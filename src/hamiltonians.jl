@@ -40,7 +40,7 @@ end
 
 function _BD1_2site((c1up, c1dn), (c2up, c2dn); t, Δ1, V, θϕ1, θϕ2)
     ms = hopping_rotated(t, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2) +
-        pairing_rotated(Δ1, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2)
+         pairing_rotated(Δ1, (c1up, c1dn), (c2up, c2dn), θϕ1, θϕ2)
     if iszero(V)
         return ms
     else
@@ -83,8 +83,8 @@ function parameter(value, option; closed=false)
     end
 end
 
-_tovec(p::DiffChainParameter, N; size=1) = p.value .* 0:N-1
-getvalue(p::DiffChainParameter, i, N; size = 1) = p.value * (i - 1) * (i <= N+1-size)
+_tovec(p::DiffChainParameter, N; size=1) = p.value.*0:N-1
+getvalue(p::DiffChainParameter, i, N; size=1) = p.value * (i - 1) * (i <= N + 1 - size)
 
 _tovec(p::HomogeneousChainParameter, N; size=1) = !p.closed ? [fill(p.value, N + 1 - size); fill(zero(p.value), size - 1)] : fill(p.value, N)
 getvalue(p::HomogeneousChainParameter, i, N; size=1) = p.value * (!p.closed ? 1 <= i <= N + 1 - size : 1)

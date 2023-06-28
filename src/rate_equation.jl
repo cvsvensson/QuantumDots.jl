@@ -1,31 +1,36 @@
+struct Pauli <: AbstractOpenSolver end
 
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-
 prepare_rate_equations(H::OpenSystem) = prepare_rate_equations(diagonalize(H))
 function prepare_rate_equations(H::OpenSystem{<:DiagonalizedHamiltonian})
-    sum(prepare_rate_equations(diag(eigenvalues(H)), lead) for lead in leads(H))
+    sum(prepare_rate_equations(H, lead) for lead in leads(H))
 end
 
-struct RateEquation{W,A,I,L}
+struct RateEquation{W,A,I,L,S}
     rate_matrix::W
     master_matrix::A
     current_operator::I
     label::L
+    system::S
 end
-struct RateEquations{W,A,I,R}
+struct PauliSystem{W,A,I,R,S} <: AbstractOpenSystem
     total_rate_matrix::W
     total_master_matrix::A
     total_current_operator::I
     rate_equations::R
+    system::S
 end
-Base.:+(r1::RateEquation, r2::RateEquation) = RateEquations(r1.rate_matrix .+ r2.rate_matrix, r1.master_matrix + r2.master_matrix, r1.current_operator .+ r2.current_operator, (r1, r2))
-Base.:+(r1::RateEquation, r2::RateEquations) = RateEquations(r1.rate_matrix .+ r2.total_rate_matrix, r1.master_matrix + r2.total_master_matrix, r1.current_operator .+ r2.total_current_operator, (r1, r2.rate_equations...))
-Base.:+(r1::RateEquations, r2::RateEquation) = RateEquations(r2.rate_matrix .+ r1.total_rate_matrix, r2.master_matrix + r1.total_master_matrix, r2.current_operator .+ r1.total_current_operator, (r1.rate_equations..., r2))
-Base.:+(r1::RateEquations, r2::RateEquations) = RateEquations(r1.total_rate_matrix .+ r2.total_rate_matrix, r1.total_master_matrix + r2.total_master_matrix, r1.total_current_operator .+ r2.total_current_operator, (r1.rate_equations..., r2.rate_equations...))
+LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
 
-function prepare_rate_equations(E::AbstractVector, lead::NormalLead)
-    W, A, I = _prepare_rate_equations(E, lead)
-    return RateEquation(W, A, I, lead.label)
+
+Base.:+(r1::RateEquation, r2::RateEquation) = PauliSystem(r1.rate_matrix .+ r2.rate_matrix, r1.master_matrix + r2.master_matrix, r1.current_operator .+ r2.current_operator, (r1, r2), r1.system)
+Base.:+(r1::RateEquation, r2::PauliSystem) = PauliSystem(r1.rate_matrix .+ r2.total_rate_matrix, r1.master_matrix + r2.total_master_matrix, r1.current_operator .+ r2.total_current_operator, (r1, r2.rate_equations...), r1.system)
+Base.:+(r1::PauliSystem, r2::RateEquation) = PauliSystem(r2.rate_matrix .+ r1.total_rate_matrix, r2.master_matrix + r1.total_master_matrix, r2.current_operator .+ r1.total_current_operator, (r1.rate_equations..., r2), r1.system)
+Base.:+(r1::PauliSystem, r2::PauliSystem) = PauliSystem(r1.total_rate_matrix .+ r2.total_rate_matrix, r1.total_master_matrix + r2.total_master_matrix, r1.total_current_operator .+ r2.total_current_operator, (r1.rate_equations..., r2.rate_equations...), r1.system)
+
+function prepare_rate_equations(system::AbstractOpenSystem, lead::NormalLead)
+    W, A, I = _prepare_rate_equations(eigenvaluevector(system), lead)
+    return RateEquation(W, A, I, lead.label, system)
 end
 function _prepare_rate_equations(E::AbstractVector, lead::NormalLead)
     Tin = lead.jump_in
@@ -49,7 +54,7 @@ function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), size(m, 2))']
 end
 
-function stationary_state(eq::RateEquations, alg = nothing; kwargs...)
+function stationary_state(eq::PauliSystem, alg=nothing; kwargs...)
     M = add_normalizer(eq.total_master_matrix)
     v0 = zeros(eltype(M), size(M, 2))
     push!(v0, one(eltype(M)))
@@ -57,8 +62,8 @@ function stationary_state(eq::RateEquations, alg = nothing; kwargs...)
     sol = solve(prob, alg; kwargs...)
     return sol
 end
-get_currents(eq::RateEquations, alg=nothing; kwargs...) = get_currents(stationary_state(eq, alg), eq; kwargs...)
-function get_currents(diagonal_density_matrix::AbstractVector, eq::RateEquations)
+get_currents(eq::PauliSystem, alg=nothing; kwargs...) = get_currents(stationary_state(eq, alg), eq; kwargs...)
+function get_currents(diagonal_density_matrix::AbstractVector, eq::PauliSystem)
     currents = [(; in=dot(eq.current_operator[1], diagonal_density_matrix), out=dot(eq.current_operator[2], diagonal_density_matrix)) for eq in eq.rate_equations]
     [merge(c, (; total=c.in + c.out, label=eq.label)) for (c, eq) in zip(currents, eq.rate_equations)]
 end
