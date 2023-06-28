@@ -10,8 +10,8 @@ NormalLead(T, μ, in, out, label) = NormalLead(promote(T, μ)..., in, out, label
 NormalLead(jin, jout; T, μ, label=missing) = NormalLead(T, μ, jin, jout, label)
 NormalLead(jin; T, μ, label=missing) = NormalLead(T, μ, jin, jin', label)
 
-Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(Label=", lead.label, ", T=", lead.temperature, ", μ=", lead.chemical_potential, ")")
-Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(", lead.label, ", T=", round(lead.temperature, digits=4), ", μ=", round(lead.chemical_potential, digits=4), ")")
+Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(Label=", lead.label, ", T=", temperature(lead), ", μ=", chemical_potential(lead), ")")
+Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(", lead.label, ", T=", round(temperature(lead), digits=4), ", μ=", round(chemical_potential(lead), digits=4), ")")
 
 chemical_potential(lead::NormalLead) = lead.μ
 temperature(lead::NormalLead) = lead.T
@@ -87,7 +87,7 @@ end
 ratetransform(op, commutator_hamiltonian::Diagonal, T, μ) = reshape(sqrt(fermidirac(commutator_hamiltonian, T, μ)) * vec(op), size(op))
 
 
-diagonalize(S, lead::NormalLead) = NormalLead(lead.temperature, lead.chemical_potential, S' * lead.jump_in * S, S' * lead.jump_out * S, lead.label)
+diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), S' * lead.jump_in * S, S' * lead.jump_out * S, lead.label)
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system))
 
 function diagonalize(m::AbstractMatrix)

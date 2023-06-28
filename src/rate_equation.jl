@@ -38,8 +38,8 @@ function _prepare_rate_equations(E::AbstractVector, lead::NormalLead)
     Win = zeros(Float64, size(Tin))
     Wout = zeros(Float64, size(Tin))
     dos = density_of_states(lead)
-    T = lead.T
-    μ = lead.chemical_potential
+    T = temperature(lead)
+    μ = chemical_potential(lead)
     for I in CartesianIndices(Win)
         n1, n2 = Tuple(I)
         δE = E[n1] - E[n2]
