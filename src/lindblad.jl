@@ -82,28 +82,8 @@ lindblad_with_normalizer(lindblad::Matrix, vectorizer) = lindblad_with_normalize
 
 identity_density_matrix(system::LindbladSystem) = one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))) 
 
-# function stationary_state(lindbladsystem, alg=nothing; kwargs...)
-#     lindblad = lindbladsystem.lindblad
-#     vectorizer = lindbladsystem.vectorizer
+LinearProblem(::Lindblad, system; kwargs...) = prepare_lindblad(system; kwargs...)
 
-#     A = lindblad_with_normalizer(lindblad, vectorizer)
-#     n = size(lindblad, 2)
-#     x = zeros(eltype(A), n)
-#     push!(x, one(eltype(A)))
-#     u0 = complex(vectorizer.idvec ./ sqrt(n))
-#     # For dense matrices, and for large enough parity blockdiagonal matrices,
-#     # this is faster than Krylov.
-#     # The operator approach with Krylov.jl could be faster in the case with many blocks, such as fermion number conservation.
-#     prob = LinearProblem(A, x; u0, kwargs...)
-#     sol = solve(prob, alg)
-#     return reshape(sol, vectorizer)
-# end
-
-LinearProblem(H, leads, measurements, ::Lindblad; kwargs...) = prepare_lindblad(H, leads, measurements; kwargs...)
-LinearProblem(system, ::Lindblad; kwargs...) = prepare_lindblad(system; kwargs...)
-function prepare_lindblad(H::AbstractMatrix, leads, measurements = nothing; kwargs...)
-    prepare_lindblad(OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
-end
 function prepare_lindblad(system::OpenSystem; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)
     prepare_lindblad(diagonalsystem; kwargs...)

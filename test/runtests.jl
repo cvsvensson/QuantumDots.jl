@@ -507,6 +507,7 @@ end
         @test rate_eq.total_master_matrix ≈ 0.5(rate_eq + rate_eq).total_master_matrix
         @test (rate_eq + rate_eq.rate_equations[1]).total_master_matrix ≈ (rate_eq.rate_equations[1] + rate_eq).total_master_matrix
         ρ_pauli = QuantumDots.stationary_state(rate_eq)
+        @test ρ_pauli ≈ QuantumDots.stationary_state(QuantumDots.Pauli(), diagonalsystem)
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, rate_eq)

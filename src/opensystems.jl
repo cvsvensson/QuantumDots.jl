@@ -53,36 +53,6 @@ Base.show(io::IO, system::OpenSystem{H, Ls1, Ls2, M1, M2}) where {H,Ls1,Ls2,M1, 
 
 abstract type AbstractOpenSolver end
 
-# struct OpenSystemLinearProblem{bType,isinplace,S,LP} <: SciMLBase.AbstractLinearProblem{bType,isinplace}
-#     system::S
-#     linearproblem::LP
-#     function OpenSystemLinearProblem(system::S, lp::SciMLBase.AbstractLinearProblem{bType,isinplace}) where {bType,isinplace,S}
-#         new{bType,isinplace,S,typeof(lp)}(system, lp)
-#     end
-# end
-# function Base.getproperty(obj::OpenSystemLinearProblem, sym::Symbol)
-#     if sym === :system || sym === :linearproblem
-#         return getfield(obj, sym)
-#     else 
-#         return getproperty(obj.linearproblem,sym)
-#     end
-# end
-
-# struct OpenSystemODEProblem{uType,tType,isinplace,S,OP} <: SciMLBase.AbstractODEProblem{uType,tType,isinplace}
-#     system::S
-#     odeproblem::OP
-#     function OpenSystemODEProblem(system::S, lp::SciMLBase.AbstractODEProblem{uType,tType,isinplace}) where {uType,tType,isinplace,S}
-#         new{uType,tType,isinplace,S,typeof(op)}(system, op)
-#     end
-# end
-# function Base.getproperty(obj::OpenSystemODEProblem, sym::Symbol)
-#     if sym === :system || sym === :odeproblem
-#         return getfield(obj, sym)
-#     else 
-#         return getproperty(obj.odeproblem,sym)
-#     end
-# end
-
 function normalized_steady_state_rhs(A)
     n = size(A, 2)
     b = zeros(eltype(A), n)
@@ -105,11 +75,6 @@ function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
     linsolve.b = -dA * x0
     solve!(linsolve)
 end
-
-# init(::OpenSystemLinearProblem, args...; kwargs...) :: SolverType
-# solve!(::SolverType) :: SolutionType
-# init(::OpenSystemODEProblem, args...; kwargs...) :: SolverType
-# solve!(::SolverType) :: SolutionType
 
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
@@ -185,3 +150,8 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
 end
 
 stationary_state(system::AbstractOpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(system), alg; kwargs...),system)
+stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(method, system), alg; kwargs...),system)
+
+function LinearProblem(::AbstractOpenSolver, H::AbstractMatrix, leads, measurements = nothing; kwargs...)
+    LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
+end

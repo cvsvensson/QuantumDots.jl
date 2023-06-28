@@ -77,3 +77,5 @@ function get_currents(diagonal_density_matrix::AbstractVector, eq::PauliSystem)
 end
 
 Base.reshape(rho::AbstractVector, ::PauliSystem) = Diagonal(rho)
+
+LinearProblem(::Pauli, system; kwargs...) = prepare_rate_equations(system; kwargs...)
