@@ -16,6 +16,7 @@ import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex
 export one_particle_density_matrix
+export tomatrix
 
 include("structs.jl")
 include("fock.jl")

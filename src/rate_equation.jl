@@ -25,17 +25,21 @@ function LinearProblem(::Pauli, system::OpenSystem; kwargs...)
     system = prepare_rate_equations(system; kwargs...)
     LinearProblem(system; kwargs...)
 end
-internal_rep(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
-internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
-internal_rep(u::AbstractVector, ::PauliSystem) = u
-external_rep(u::AbstractVector, ::PauliSystem) = Diagonal(u)
-external_rep(u::AbstractMatrix, ::PauliSystem) = u
+_internal_vec(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
+_internal_vec(u::AbstractMatrix, ::PauliSystem) = diag(u)
+_internal_vec(u::AbstractVector, ::PauliSystem) = u
+# external_rep(u::AbstractVector, ::PauliSystem) = Diagonal(u)
+# external_rep(u::AbstractMatrix, ::PauliSystem) = u
 
 LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
 LinearOperatorWithNormalizer(system::PauliSystem; kwargs...) = LinearOperator(add_normalizer(system.total_master_matrix); kwargs...)
 
 Base.reshape(rho::AbstractVector, ::PauliSystem) = Diagonal(rho)
-function identity_density_matrix(system::PauliSystem)
+function identity_density_matrix(system::AbstractOpenSystem)
+    MatVector(_identity_density_matrix(system), system)
+end
+
+function _identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
     fill(one(eltype(A)), size(A, 2))
 end

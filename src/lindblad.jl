@@ -18,44 +18,60 @@ function LinearProblem(::Lindblad, system::OpenSystem; kwargs...)
     LinearProblem(ls; kwargs...)
 end
 
-struct LindbladDensityMatrix{T,V} <: AbstractMatrix{T}
-    data::Vector{T}
-    vectorizer::V
+struct MatVector{V,T,R} <: AbstractVector{T}
+    data::V
+    reshaper::R
+    function MatVector(data::V, reshaper::R) where {V <: AbstractVector, R}
+        new{V,eltype(V),R}(data, reshaper)
+    end
 end
-function Base.getindex(m::LindbladDensityMatrix{T}, i1::Integer, i2::Integer) where T
-    ind = indexmap(m.vectorizer,i1,i2)
-    isnothing(ind) && return zero(T)
-    m.data[ind]
+MatVector{V, T, F}(::UndefInitializer,n) where {V,T,F} = Vector{T}(undef,n)
+tomatrix(v::MatVector) = v.reshaper(v.data)
+tomatrix(sol::LinearSolution) = tomatrix(sol.u)
+Base.size(v::MatVector) = size(v.data)
+function Base.getindex(v::MatVector, args...)
+    getindex(v.data,args...)
 end
-function Base.setindex!(m::LindbladDensityMatrix{T}, v, i1::Integer, i2::Integer) where T
-    ind = indexmap(m.vectorizer,i1,i2)
-    isnothing(ind) && return error("Index $((i1,i2)) is not allowed")
-    m.data[ind] = v
+function Base.setindex!(v::MatVector,args...)
+    setindex!(v.data, args...)
 end
-indexmap(v::KronVectorizer,i1,i2) = LinearIndices((v.size,v.size))[i1,i2]
-function indexmap(v::KhatriRaoVectorizer,i1,i2)
-    index = findfirst(ind -> i1 in ind && i2 in ind, v.inds)
-    isnothing(index) && return nothing
-    offset = v.cumsum[index]
-    LinearIndices((v.inds[index],v.inds[index]))[i1-offset, i2-offset] + v.cumsumsquared[index]
-end
-Base.size(m::LindbladDensityMatrix{<:Any,<:KhatriRaoVectorizer}) = (m.vectorizer.cumsum[end],m.vectorizer.cumsum[end])
-Base.size(m::LindbladDensityMatrix{<:Any,<:KronVectorizer}) = (m.vectorizer.size,m.vectorizer.size)
+Base.similar(m::MatVector) = MatVector(similar(m.data), m.reshaper)
+Base.similar(m::MatVector,::Type{S}) where S = MatVector(similar(m.data,S), m.reshaper)
+MatVector(m::AbstractVector, system::AbstractOpenSystem) = MatVector(m, Reshaper(system))
+Reshaper(system::LindbladSystem) = Reshaper(system.vectorizer)
+Reshaper(v::KronVectorizer) = vec->reshape(vec,v.size,v.size)
+Reshaper(v::KhatriRaoVectorizer) = vec->BlockDiagonal(map((size, inds) -> reshape(vec[inds], size, size), v.sizes, v.vectorinds))
+Reshaper(::PauliSystem) = Diagonal
+# function Base.getindex(m::LindbladDensityMatrix{T}, i1::Integer, i2::Integer) where T
+#     ind = indexmap(m.vectorizer,i1,i2)
+#     isnothing(ind) && return zero(T)
+#     m.data[ind]
+# end
+# function Base.setindex!(m::LindbladDensityMatrix{T}, v, i1::Integer, i2::Integer) where T
+#     ind = indexmap(m.vectorizer,i1,i2)
+#     isnothing(ind) && return error("Index $((i1,i2)) is not allowed")
+#     m.data[ind] = v
+# end
+# indexmap(v::KronVectorizer,i1,i2) = LinearIndices((v.size,v.size))[i1,i2]
+# function indexmap(v::KhatriRaoVectorizer,i1,i2)
+#     index = findfirst(ind -> i1 in ind && i2 in ind, v.inds)
+#     isnothing(index) && return nothing
+#     offset = v.cumsum[index]
+#     LinearIndices((v.inds[index],v.inds[index]))[i1-offset, i2-offset] + v.cumsumsquared[index]
+# end
 
-Base.similar(m::LindbladDensityMatrix) = LindbladDensityMatrix(similar(m.data), m.vectorizer)
-Base.similar(m::LindbladDensityMatrix,::Type{S}) where S = LindbladDensityMatrix(similar(m.data,S), m.vectorizer)
-
-external_rep(rho::AbstractVector, system::LindbladSystem) = external_rep(rho, system.vectorizer)
-external_rep(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
-external_rep(rho::AbstractVector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
-internal_rep(rho, system::LindbladSystem) = internal_rep(rho, system.vectorizer)
-internal_rep(rho, ::KronVectorizer) = vec(rho)
-internal_rep(rho::UniformScaling, v::KronVectorizer) = vec(Diagonal(rho,v.size))
-internal_rep(rho::UniformScaling, v::KhatriRaoVectorizer) = vecdp(BlockDiagonal([Diagonal(rho, sz) for sz in  v.sizes]))
-internal_rep(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = iscompatible(rho,vectorizer) ? vecdp(rho) : internal_rep(Matrix(rho), vectorizer)
+# external_rep(rho::AbstractVector, system::LindbladSystem) = external_rep(rho, system.vectorizer)
+# external_rep(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
+# external_rep(rho::AbstractVector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
+internal_rep(rho, system) = MatVector(_internal_vec(rho, system), Reshaper(system))
+_internal_vec(rho, system::LindbladSystem) = _internal_vec(rho, system.vectorizer)
+_internal_vec(rho, ::KronVectorizer) = vec(rho)
+_internal_vec(rho::UniformScaling, v::KronVectorizer) = vec(Diagonal(rho,v.size))
+_internal_vec(rho::UniformScaling, v::KhatriRaoVectorizer) = vecdp(BlockDiagonal([Diagonal(rho, sz) for sz in  v.sizes]))
+_internal_vec(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = iscompatible(rho,vectorizer) ? vecdp(rho) : internal_rep(Matrix(rho), vectorizer)
 iscompatible(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = size.(rho.blocks, 1) == size.(rho.blocks, 2) == vectorizer.sizes 
-internal_rep(rho, vectorizer::KhatriRaoVectorizer)  = internal_rep(Matrix(rho), vectorizer)
-function internal_rep(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) where T
+_internal_vec(rho, vectorizer::KhatriRaoVectorizer)  = internal_rep(Matrix(rho), vectorizer)
+function _internal_vec(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) where T
     inds = sizestoinds(vectorizer.sizes)
     indsv = sizestoinds(vectorizer.sizes .^2 )
     v = Vector{T}(undef, sum(vectorizer.sizes .^2))
@@ -65,16 +81,6 @@ function internal_rep(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) w
     return v
 end
 
-struct InternalOperator{F}
-    op::F
-end
-LinearSolve.Krylov.ktypeof(v::LindbladDensityMatrix) = typeof(v.data)
-(fo::InternalOperator{F})(u::LindbladDensityMatrix,p,t) where F = LindbladDensityMatrix(fo.op*u.data, u.vectorizer)
-(fo::InternalOperator{F})(v,u::LindbladDensityMatrix,p,t) where F = (mul!(v.data,fo.op,u.data); return v)
-(fo::InternalOperator{F})(v,u::LindbladDensityMatrix,p,t,a,b) where F = (mul!(v.data,fo.op,u.data,a,b); return v)
-internal_lindblad_action(op) = (u, p, t) -> op*u.data
-internal_lindblad_action_mut(op) =  (v, u, p, t) -> mul!(v,op,u.data)
-internal_lindblad_action_mut2(op) =  (v, u, p, t,a,b) -> mul!(v,op,u.data,a,b)
 LinearOperator(system::LindbladSystem; kwargs...) = LinearOperator(system.lindblad; kwargs...)
 LinearOperatorWithNormalizer(system::LindbladSystem; kwargs...) = LinearOperator(lindblad_with_normalizer(system.lindblad, system.vectorizer); kwargs...)
 
@@ -103,6 +109,7 @@ function dissipator(L, kv::KronVectorizer)
 end
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
+measure(rho::AbstractMatrix, ls::LindbladSystem) = measure(internal_rep(rho,ls), ls)
 measure(rho, ls::LindbladSystem) = map(op-> measure(rho, op, ls::LindbladSystem), transformed_measurements(ls))
 measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, d,ls), ls.dissipators)
 
@@ -110,7 +117,7 @@ function measure_dissipator(rho, op::AbstractMatrix, dissipator::NamedTuple{(:in
     results = map(dissipator_op -> measure(rho, op, dissipator_op, system), (; dissipator.in, dissipator.out))
     merge(results, (; total=sum(results), label=dissipator.label))
 end
-measure(rho, op, dissipator, system::LindbladSystem) = dot(conj(internal_rep(op, system)), dissipator * internal_rep(rho, system))
+measure(rho, op, dissipator, system::LindbladSystem) = dot(conj(op), dissipator * rho)
 # measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipator) = dot(conj(vec(op)), dissipator * vec(rho))
 # measure(rho::BlockDiagonal, op::BlockDiagonal, ::KhatriRaoVectorizer, dissipator) = dot(conj(vecdp(op)), dissipator * vecdp(rho))
 # measure(rho, op, dissipator) = dot(vec(op),dissipator*rho)
@@ -138,7 +145,7 @@ function lindblad_with_normalizer(lindblad, vectorizer)
 end
 lindblad_with_normalizer(lindblad::Matrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
-identity_density_matrix(system::LindbladSystem) = LindbladDensityMatrix(one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))), system.vectorizer)
+_identity_density_matrix(system::LindbladSystem) = one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2)))
 
 function prepare_lindblad(system::OpenSystem; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)

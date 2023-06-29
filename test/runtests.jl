@@ -487,10 +487,11 @@ end
         @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
 
         prob = LinearProblem(lindbladsystem)
-        ρ = solve(prob)
+        ρinternal = solve(prob)
+        ρ = tomatrix(ρinternal, lindbladsystem)
         linsolve = init(prob)
-        @test solve!(linsolve) ≈ ρ
-        @test ρ ≈ QuantumDots.stationary_state(lindbladsystem)
+        @test solve!(linsolve) ≈ ρinternal
+        @test ρ ≈ tomatrix(QuantumDots.stationary_state(lindbladsystem))
         rhod = diag(ρ)
         @test ρ ≈ ρ'
         @test tr(ρ) ≈ 1
@@ -500,6 +501,7 @@ end
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, lindbladsystem)[1]#real.(QuantumDots.conductance(system,[particle_number])[1])
+        @test numeric_current[1].total ≈ QuantumDots.measure(ρinternal, lindbladsystem)[1][1].total#real.(QuantumDots.conductance(system,[particle_number])[1])
         @test abs(sum(I -> I.total, numeric_current)) < 1e-10
         @test map(I -> I.total, numeric_current) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
         @test first(numeric_current).label == :left
@@ -507,11 +509,13 @@ end
         rate_eq = QuantumDots.prepare_rate_equations(diagonalsystem)
         @test rate_eq.total_master_matrix ≈ 0.5(rate_eq + rate_eq).total_master_matrix
         @test (rate_eq + rate_eq.rate_equations[1]).total_master_matrix ≈ (rate_eq.rate_equations[1] + rate_eq).total_master_matrix
-        ρ_pauli = QuantumDots.stationary_state(rate_eq)
-        @test ρ_pauli ≈ QuantumDots.stationary_state(QuantumDots.Pauli(), diagonalsystem)
+        ρ_pauli_internal = QuantumDots.stationary_state(rate_eq)
+        ρ_pauli = tomatrix(ρ_pauli_internal)
+        @test ρ_pauli_internal ≈ QuantumDots.stationary_state(QuantumDots.Pauli(), diagonalsystem)
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, rate_eq)
+        @test rate_current[1].total ≈ QuantumDots.get_currents(ρ_pauli_internal, rate_eq)[1].total
         @test map(c -> c.total, rate_current) ≈ map(c -> c.total, QuantumDots.get_currents(rate_eq))
         @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
 
