@@ -64,15 +64,16 @@ function dissipator(L, kv::KronVectorizer)
 end
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
-measure(rho, ls::LindbladSystem) = map(op-> measure(rho, op, ls::LindbladSystem), ls.system.transformed_measurements)
-measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, ls.vectorizer, d), ls.dissipators)
+measure(rho, ls::LindbladSystem) = map(op-> measure(rho, op, ls::LindbladSystem), transformed_measurements(ls))
+measure(rho, op, ls::LindbladSystem) = map(d -> measure_dissipator(rho, op, d,ls), ls.dissipators)
 
-function measure_dissipator(rho, op::AbstractMatrix, vectorizer, dissipator::NamedTuple{(:in, :out, :label),<:Any})
-    results = map(dissipator_op -> measure(rho, op, vectorizer, dissipator_op), (; dissipator.in, dissipator.out))
+function measure_dissipator(rho, op::AbstractMatrix, dissipator::NamedTuple{(:in, :out, :label),<:Any}, system)
+    results = map(dissipator_op -> measure(rho, op, dissipator_op, system), (; dissipator.in, dissipator.out))
     merge(results, (; total=sum(results), label=dissipator.label))
 end
-measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipator) = dot(conj(vec(op)), dissipator * vec(rho))
-measure(rho::BlockDiagonal, op::BlockDiagonal, ::KhatriRaoVectorizer, dissipator) = dot(conj(vecdp(op)), dissipator * vecdp(rho))
+measure(rho, op, dissipator, system::LindbladSystem) = dot(conj(internal_rep(op, system)), dissipator * internal_rep(rho, system))
+# measure(rho, op::AbstractMatrix, ::KronVectorizer, dissipator) = dot(conj(vec(op)), dissipator * vec(rho))
+# measure(rho::BlockDiagonal, op::BlockDiagonal, ::KhatriRaoVectorizer, dissipator) = dot(conj(vecdp(op)), dissipator * vecdp(rho))
 # measure(rho, op, dissipator) = dot(vec(op),dissipator*rho)
 # current(ρ,op,sj) = tr(op * reshape(sj*ρ,size(op)))
 # commutator(T1,T2) = -T1⊗T2 + T2⊗T1

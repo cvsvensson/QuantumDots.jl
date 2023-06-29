@@ -1,5 +1,7 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
+using DifferentialEquations
+using LinearSolve
 Random.seed!(1234)
 
 

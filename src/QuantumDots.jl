@@ -10,6 +10,7 @@ using OrdinaryDiffEq
 @reexport import OrdinaryDiffEq: ODEProblem, solve, solve!, init
 using LinearSolve
 @reexport import LinearSolve: LinearProblem
+import SciMLBase: LinearSolution
 # import AbstractDifferentiation as AD
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter

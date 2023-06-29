@@ -186,8 +186,19 @@ end
 init(rp::ReshaperProblem, args...; kwargs...) = ReshaperCache(init(rp.problem, args...; kwargs...), rp.vectorize, rp.matrix)
 solve!(rc::ReshaperCache, args...; kwargs...) = ReshaperSolution(solve!(rc.cache, args...; kwargs...), rc.vectorize, rc.matrix)
 
-(sol::ReshaperSolution)(args...; kwargs...) = sol.matrix(sol.sol(args...; kwargs...))
-Base.Matrix(sol::ReshaperSolution) = sol.matrix(sol.sol)
+(sol::ReshaperSolution{<:ODESolution})(args...; kwargs...) = sol.matrix(sol.sol(args...; kwargs...))
+Base.Matrix(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol.matrix(sol.sol))
+LinearAlgebra.diag(sol::ReshaperSolution{<:LinearSolution}) = diag(sol.matrix(sol.sol))
+LinearAlgebra.tr(sol::ReshaperSolution{<:LinearSolution}) = tr(sol.matrix(sol.sol))
+Base.vec(sol::ReshaperSolution{<:LinearSolution}) = vec(sol.sol)
+Base.adjoint(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol)'
+Base.isapprox(s1::ReshaperSolution, s2::ReshaperSolution; kwargs...) = isapprox(s1.sol,s2.sol; kwargs...)
+Base.isapprox(s1::ReshaperSolution{<:LinearSolution}, s2::AbstractMatrix; kwargs...) = isapprox(Matrix(s1),s2; kwargs...)
+Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:SciMLBase.LinearSolution}; kwargs...) = isapprox(s1,Matrix(s2); kwargs...)
+Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.sol,args...)
+
+internal_rep(sol::ReshaperSolution{<:SciMLBase.LinearSolution}) = sol.sol
+
 
 function Base.getproperty(obj::ReshaperProblem, sym::Symbol)
     if sym === :matrix || sym === :vectorize || sym === :problem 
