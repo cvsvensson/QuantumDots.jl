@@ -13,9 +13,9 @@ measurements(ls::LindbladSystem) = measurements(ls.system)
 transformed_measurements(ls::LindbladSystem) = transformed_measurements(ls.system)
 struct Lindblad <: AbstractOpenSolver end
 
+LinearProblem(::Lindblad, system; kwargs...) = LinearProblem(prepare_lindblad(system; kwargs...); kwargs...)
 LinearOperator(system::LindbladSystem; kwargs...) = LinearOperator(system.lindblad; kwargs...)
 LinearOperatorWithNormalizer(system::LindbladSystem; kwargs...) = LinearOperator(lindblad_with_normalizer(system.lindblad, system.vectorizer); kwargs...)
-
 
 Base.show(io::IO, ::MIME"text/plain", system::LindbladSystem) = show(io, system)
 Base.show(io::IO, system::LindbladSystem) = print(io, "LindbladSystem:", "\nOpenSystem", repr(system.system),
@@ -81,8 +81,6 @@ end
 lindblad_with_normalizer(lindblad::Matrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
 identity_density_matrix(system::LindbladSystem) = one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))) 
-
-LinearProblem(::Lindblad, system; kwargs...) = prepare_lindblad(system; kwargs...)
 
 function prepare_lindblad(system::OpenSystem; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)

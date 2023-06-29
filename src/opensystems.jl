@@ -152,6 +152,6 @@ end
 stationary_state(system::AbstractOpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(system), alg; kwargs...),system)
 stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(method, system), alg; kwargs...),system)
 
-function LinearProblem(::AbstractOpenSolver, H::AbstractMatrix, leads, measurements = nothing; kwargs...)
+function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements = nothing; kwargs...)
     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
 end

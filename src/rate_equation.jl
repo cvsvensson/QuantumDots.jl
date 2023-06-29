@@ -20,8 +20,16 @@ struct PauliSystem{W,A,I,R,S} <: AbstractOpenSystem
     rate_equations::R
     system::S
 end
+
+LinearProblem(::Pauli, system::OpenSystem; kwargs...) = LinearProblem(prepare_rate_equations(system); kwargs...)
 LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
 LinearOperatorWithNormalizer(system::PauliSystem; kwargs...) = LinearOperator(add_normalizer(system.total_master_matrix); kwargs...)
+
+Base.reshape(rho::AbstractVector, ::PauliSystem) = Diagonal(rho)
+function identity_density_matrix(system::PauliSystem)
+    A = system.total_master_matrix
+    fill(one(eltype(A)), size(A, 2))
+end
 
 
 Base.:+(r1::RateEquation, r2::RateEquation) = PauliSystem(r1.rate_matrix .+ r2.rate_matrix, r1.master_matrix + r2.master_matrix, r1.current_operator .+ r2.current_operator, (r1, r2), r1.system)
@@ -63,10 +71,7 @@ end
 #     sol = solve(prob, alg; kwargs...)
 #     return sol
 # end
-function identity_density_matrix(system::PauliSystem)
-    A = system.total_master_matrix
-    fill(one(eltype(A)), size(A, 2))
-end
+
 
 
 get_currents(eq::PauliSystem, alg=nothing; kwargs...) = get_currents(stationary_state(eq, alg), eq; kwargs...)
@@ -76,6 +81,6 @@ function get_currents(diagonal_density_matrix::AbstractVector, eq::PauliSystem)
     [merge(c, (; total=c.in + c.out, label=eq.label)) for (c, eq) in zip(currents, eq.rate_equations)]
 end
 
-Base.reshape(rho::AbstractVector, ::PauliSystem) = Diagonal(rho)
 
-LinearProblem(::Pauli, system; kwargs...) = prepare_rate_equations(system; kwargs...)
+
+# LinearProblem(system::PauliSystem; kwargs...) = LinearProblem(LinearOperator(system; kwargs...); kwargs...)
