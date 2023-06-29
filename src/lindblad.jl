@@ -26,12 +26,13 @@ internal_rep(rho, ::KronVectorizer) = vec(rho)
 internal_rep(rho::UniformScaling, v::KronVectorizer) = vec(Diagonal(rho,v.size))
 internal_rep(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = iscompatible(rho,vectorizer) ? vecdp(rho) : internal_rep(Matrix(rho), vectorizer)
 iscompatible(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = size.(rho.blocks, 1) == size.(rho.blocks, 2) == vectorizer.sizes 
+internal_rep(rho, vectorizer::KhatriRaoVectorizer)  = internal_rep(Matrix(rho), vectorizer)
 function internal_rep(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) where T
     inds = sizestoinds(vectorizer.sizes)
     indsv = sizestoinds(vectorizer.sizes .^2 )
-    v = Vector{T}(sum(vectorizer.sizes .^2))
+    v = Vector{T}(undef, sum(vectorizer.sizes .^2))
     for i in eachindex(inds)
-        v[indsv[i]] = vec(rho[i,i])
+        v[indsv[i]] = vec(rho[inds[i],inds[i]])
     end
     return v
 end
