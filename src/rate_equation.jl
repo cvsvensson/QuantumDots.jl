@@ -25,15 +25,9 @@ function LinearProblem(::Pauli, system::OpenSystem; kwargs...)
     system = prepare_rate_equations(system; kwargs...)
     LinearProblem(system; kwargs...)
 end
-function ReshaperProblem(prob, system::AbstractOpenSystem)
-    int = Base.Fix2(internal_rep, system)
-    ext = Base.Fix2(external_rep, system)
-    ReshaperProblem(prob, int, ext)
-end
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
 internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
-internal_rep(u::ReshaperSolution{<:LinearSolution}, ::PauliSystem) = u.sol
 external_rep(u::AbstractVector, ::PauliSystem) = Diagonal(u)
 external_rep(u::AbstractMatrix, ::PauliSystem) = u
 

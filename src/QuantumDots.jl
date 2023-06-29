@@ -8,6 +8,7 @@ using StaticArrays
 using UnicodePlots
 # using OrdinaryDiffEq
 # @reexport import OrdinaryDiffEq: ODEProblem, solve, solve!, init
+using LinearSolve
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem
 # @reexport import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem

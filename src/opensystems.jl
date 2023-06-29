@@ -62,7 +62,6 @@ end
 
 function LinearProblem(system::AbstractOpenSystem; kwargs...)
     prob = _LinearProblem(system; kwargs...)
-    ReshaperProblem(prob, system; kwargs...)
 end
 function _LinearProblem(system::AbstractOpenSystem, args...; kwargs...)
     A = LinearOperatorWithNormalizer(system; kwargs...)
@@ -73,7 +72,6 @@ end
 function ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
     internalu0 = internal_rep(u0, system)
     prob = _ODEProblem(system, internalu0, args...; kwargs...)
-    ReshaperProblem(prob, system; kwargs...)
 end
 function _ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
     op = ODEProblem(LinearOperator(system; kwargs...), u0, args...; kwargs...)
@@ -162,65 +160,4 @@ stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg=nothing; kw
 
 function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements=nothing; kwargs...)
     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
-end
-
-
-struct ReshaperProblem{P,FV,FM}
-    problem::P
-    vectorize::FV
-    matrix::FM
-end
-
-struct ReshaperCache{C,FV,FM}
-    cache::C
-    vectorize::FV
-    matrix::FM
-end
-
-struct ReshaperSolution{S,FV,FM}
-    sol::S
-    vectorize::FV
-    matrix::FM
-end
-
-init(rp::ReshaperProblem, args...; kwargs...) = ReshaperCache(init(rp.problem, args...; kwargs...), rp.vectorize, rp.matrix)
-solve!(rc::ReshaperCache, args...; kwargs...) = ReshaperSolution(solve!(rc.cache, args...; kwargs...), rc.vectorize, rc.matrix)
-
-(sol::ReshaperSolution{<:ODESolution})(args...; kwargs...) = sol.matrix(sol.sol(args...; kwargs...))
-Base.Matrix(sol::ReshaperSolution{<:LinearSolution}) = (sol.matrix(sol.sol))
-LinearAlgebra.diag(sol::ReshaperSolution{<:LinearSolution}) = diag(sol.matrix(sol.sol))
-LinearAlgebra.tr(sol::ReshaperSolution{<:LinearSolution}) = tr(sol.matrix(sol.sol))
-Base.vec(sol::ReshaperSolution{<:LinearSolution}) = vec(sol.sol)
-Base.adjoint(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol)'
-Base.isapprox(s1::ReshaperSolution, s2::ReshaperSolution; kwargs...) = isapprox(s1.sol, s2.sol; kwargs...)
-Base.isapprox(s1::ReshaperSolution{<:LinearSolution}, s2::AbstractMatrix; kwargs...) = isapprox(Matrix(s1), s2; kwargs...)
-Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:LinearSolution}; kwargs...) = isapprox(s1, Matrix(s2); kwargs...)
-Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.matrix(s.sol), args...)
-
-
-internal_rep(sol::ReshaperSolution{<:LinearSolution}) = sol.sol
-
-
-function Base.getproperty(obj::ReshaperProblem, sym::Symbol)
-    if sym === :matrix || sym === :vectorize || sym === :problem
-        return getfield(obj, sym)
-    else
-        return getproperty(getfield(obj, :problem), sym)
-    end
-end
-
-function Base.getproperty(obj::ReshaperCache, sym::Symbol)
-    if sym === :matrix || sym === :vectorize || sym == :cache
-        return getfield(obj, sym)
-    else
-        return getproperty(getfield(obj, :cache), sym)
-    end
-end
-
-function Base.getproperty(obj::ReshaperSolution, sym::Symbol)
-    if sym === :matrix || sym === :vectorize || sym == :sol
-        return getfield(obj, sym)
-    else
-        return getproperty(getfield(obj, :sol), sym)
-    end
 end

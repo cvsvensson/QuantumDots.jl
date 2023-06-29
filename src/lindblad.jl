@@ -18,6 +18,33 @@ function LinearProblem(::Lindblad, system::OpenSystem; kwargs...)
     LinearProblem(ls; kwargs...)
 end
 
+struct LindbladDensityMatrix{T,V} <: AbstractMatrix{T}
+    data::Vector{T}
+    vectorizer::V
+end
+function Base.getindex(m::LindbladDensityMatrix{T}, i1::Integer, i2::Integer) where T
+    ind = indexmap(m.vectorizer,i1,i2)
+    isnothing(ind) && return zero(T)
+    m.data[ind]
+end
+function Base.setindex!(m::LindbladDensityMatrix{T}, v, i1::Integer, i2::Integer) where T
+    ind = indexmap(m.vectorizer,i1,i2)
+    isnothing(ind) && return error("Index $((i1,i2)) is not allowed")
+    m.data[ind] = v
+end
+indexmap(v::KronVectorizer,i1,i2) = LinearIndices((v.size,v.size))[i1,i2]
+function indexmap(v::KhatriRaoVectorizer,i1,i2)
+    index = findfirst(ind -> i1 in ind && i2 in ind, v.inds)
+    isnothing(index) && return nothing
+    offset = v.cumsum[index]
+    LinearIndices((v.inds[index],v.inds[index]))[i1-offset, i2-offset] + v.cumsumsquared[index]
+end
+Base.size(m::LindbladDensityMatrix{<:Any,<:KhatriRaoVectorizer}) = (m.vectorizer.cumsum[end],m.vectorizer.cumsum[end])
+Base.size(m::LindbladDensityMatrix{<:Any,<:KronVectorizer}) = (m.vectorizer.size,m.vectorizer.size)
+
+Base.similar(m::LindbladDensityMatrix) = LindbladDensityMatrix(similar(m.data), m.vectorizer)
+Base.similar(m::LindbladDensityMatrix,::Type{S}) where S = LindbladDensityMatrix(similar(m.data,S), m.vectorizer)
+
 external_rep(rho::AbstractVector, system::LindbladSystem) = external_rep(rho, system.vectorizer)
 external_rep(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
 external_rep(rho::AbstractVector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
@@ -38,6 +65,16 @@ function internal_rep(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) w
     return v
 end
 
+struct InternalOperator{F}
+    op::F
+end
+LinearSolve.Krylov.ktypeof(v::LindbladDensityMatrix) = typeof(v.data)
+(fo::InternalOperator{F})(u::LindbladDensityMatrix,p,t) where F = LindbladDensityMatrix(fo.op*u.data, u.vectorizer)
+(fo::InternalOperator{F})(v,u::LindbladDensityMatrix,p,t) where F = (mul!(v.data,fo.op,u.data); return v)
+(fo::InternalOperator{F})(v,u::LindbladDensityMatrix,p,t,a,b) where F = (mul!(v.data,fo.op,u.data,a,b); return v)
+internal_lindblad_action(op) = (u, p, t) -> op*u.data
+internal_lindblad_action_mut(op) =  (v, u, p, t) -> mul!(v,op,u.data)
+internal_lindblad_action_mut2(op) =  (v, u, p, t,a,b) -> mul!(v,op,u.data,a,b)
 LinearOperator(system::LindbladSystem; kwargs...) = LinearOperator(system.lindblad; kwargs...)
 LinearOperatorWithNormalizer(system::LindbladSystem; kwargs...) = LinearOperator(lindblad_with_normalizer(system.lindblad, system.vectorizer); kwargs...)
 
@@ -92,7 +129,6 @@ _lindblad_with_normalizer_adj(out, in, lindblad, kv::KronVectorizer) = (mul!(out
 _lindblad_with_normalizer(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[1:end-1]), lindblad, in); out[end] = dot(krv.idvec, in); return out)
 _lindblad_with_normalizer_adj(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!(out, lindblad', (@view in[1:end-1])); out .+= in[end] .* krv.idvec; return out)
 
-
 function lindblad_with_normalizer(lindblad, vectorizer)
     newmult! = QuantumDots._lindblad_with_normalizer(lindblad, vectorizer)
     newmultadj! = QuantumDots._lindblad_with_normalizer_adj(lindblad, vectorizer)
@@ -102,7 +138,7 @@ function lindblad_with_normalizer(lindblad, vectorizer)
 end
 lindblad_with_normalizer(lindblad::Matrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
-identity_density_matrix(system::LindbladSystem) = one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))) 
+identity_density_matrix(system::LindbladSystem) = LindbladDensityMatrix(one(eltype(system.lindblad)) * (system.vectorizer.idvec ./ sqrt(size(system.lindblad, 2))), system.vectorizer)
 
 function prepare_lindblad(system::OpenSystem; kwargs...)
     diagonalsystem = diagonalize(system; kwargs...)

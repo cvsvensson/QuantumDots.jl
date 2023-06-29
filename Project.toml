@@ -28,9 +28,9 @@ UnicodePlots = "3"
 julia = "1.8.2"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 LinearSolve = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "DifferentialEquations", "LinearSolve"]

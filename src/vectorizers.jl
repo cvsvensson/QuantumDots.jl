@@ -9,10 +9,14 @@ KronVectorizer(n::Integer, ::Type{T}=Float64) where {T} = KronVectorizer{T}(n, v
 struct KhatriRaoVectorizer{T} <: AbstractVectorizer
     sizes::Vector{Int}
     idvec::Vector{T}
+    cumsum::Vector{Int}
+    cumsumsquared::Vector{Int}
+    inds::Vector{UnitRange{Int}}
+    vectorinds::Vector{UnitRange{Int}}
 end
 function KhatriRaoVectorizer(sizes::Vector{Int}, ::Type{T}=Float64) where {T}
     blockid = BlockDiagonal([Matrix{T}(I, size, size) for size in sizes])
-    KhatriRaoVectorizer{T}(sizes, vecdp(blockid))
+    KhatriRaoVectorizer{T}(sizes, vecdp(blockid), [0, cumsum(sizes)...], [0, cumsum(sizes .^2)...], sizestoinds(sizes), sizestoinds(sizes .^2))
 end
 
 KronVectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(size(ham.eigenvalues, 1), eltype(ham))
