@@ -70,12 +70,13 @@ function _LinearProblem(system::AbstractOpenSystem, args...; kwargs...)
     u0 = identity_density_matrix(system)
     lp = LinearProblem(A, b; u0, kwargs...)
 end
-function ODEProblem(system::AbstractOpenSystem; kwargs...)
-    prob = _ODEProblem(system; kwargs...)
+function ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
+    internalu0 = internal_rep(u0, system)
+    prob = _ODEProblem(system, internalu0, args...; kwargs...)
     ReshaperProblem(prob, system; kwargs...)
 end
-function _ODEProblem(system::AbstractOpenSystem, args...; kwargs...)
-    op = ODEProblem(LinearOperator(system; kwargs...); kwargs...)
+function _ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
+    op = ODEProblem(LinearOperator(system; kwargs...), u0, args...; kwargs...)
 end
 
 function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)

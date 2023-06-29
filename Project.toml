@@ -6,6 +6,7 @@ version = "0.3.0"
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 LinearSolve = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
