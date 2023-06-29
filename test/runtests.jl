@@ -485,11 +485,10 @@ end
         @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
 
         prob = LinearProblem(lindbladsystem)
-        ρ = reshape(solve(prob), lindbladsystem)
+        ρ = solve(prob)
         linsolve = init(prob)
-        @test reshape(solve!(linsolve), lindbladsystem) ≈ ρ
+        @test solve!(linsolve) ≈ ρ
         @test ρ ≈ QuantumDots.stationary_state(lindbladsystem)
-        # ρ = QuantumDots.stationary_state(lindbladsystem)
         rhod = diag(ρ)
         @test ρ ≈ ρ'
         @test tr(ρ) ≈ 1

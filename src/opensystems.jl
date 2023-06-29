@@ -59,16 +59,23 @@ function normalized_steady_state_rhs(A)
     push!(b, one(eltype(A)))
     return b
 end
-function LinearProblem(system::AbstractOpenSystem, args...; kwargs...)
+
+function LinearProblem(system::AbstractOpenSystem; kwargs...)
+    prob = _LinearProblem(system; kwargs...)
+    ReshaperProblem(prob, system; kwargs...)
+end
+function _LinearProblem(system::AbstractOpenSystem, args...; kwargs...)
     A = LinearOperatorWithNormalizer(system; kwargs...)
     b = normalized_steady_state_rhs(A)
     u0 = identity_density_matrix(system)
     lp = LinearProblem(A, b; u0, kwargs...)
-    # OpenSystemLinearProblem(system, lp, args...; kwargs...)
 end
-function ODEProblem(system::AbstractOpenSystem, args...; kwargs...)
+function ODEProblem(system::AbstractOpenSystem; kwargs...)
+    prob = _ODEProblem(system; kwargs...)
+    ReshaperProblem(prob, system; kwargs...)
+end
+function _ODEProblem(system::AbstractOpenSystem, args...; kwargs...)
     op = ODEProblem(LinearOperator(system; kwargs...); kwargs...)
-    # OpenSystemODEProblem(system, op, args...; kwargs...)
 end
 
 function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
@@ -149,9 +156,41 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-stationary_state(system::AbstractOpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(system), alg; kwargs...),system)
-stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg = nothing; kwargs...) = reshape(solve(LinearProblem(method, system), alg; kwargs...),system)
+stationary_state(system::AbstractOpenSystem, alg = nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
+stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg = nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
 
 function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements = nothing; kwargs...)
     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
+end
+
+
+struct ReshaperProblem{P,FV,FM}
+    problem::P
+    vectorize::FV
+    matrix::FM
+end
+
+struct ReshaperCache{C,FV,FM}
+    cache::C
+    vectorize::FV
+    matrix::FM
+end
+
+init(rp::ReshaperProblem, args...; kwargs...) = ReshaperCache(init(rp.problem, args...; kwargs...), rp.vectorize, rp.matrix)
+solve!(rc::ReshaperCache, args...; kwargs...) = rc.matrix(solve!(rc.cache, args...; kwargs...))
+
+function Base.getproperty(obj::ReshaperProblem, sym::Symbol)
+    if sym === :matrix || sym === :vectorize || sym === :problem 
+        return getfield(obj, sym)
+    else
+        return getproperty(getfield(obj, :problem), sym)
+    end
+end
+
+function Base.getproperty(obj::ReshaperCache, sym::Symbol)
+    if sym === :matrix || sym === :vectorize || sym == :cache
+        return getfield(obj, sym)
+    else
+        return getproperty(getfield(obj, :cache), sym)
+    end
 end

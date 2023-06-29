@@ -13,7 +13,16 @@ measurements(ls::LindbladSystem) = measurements(ls.system)
 transformed_measurements(ls::LindbladSystem) = transformed_measurements(ls.system)
 struct Lindblad <: AbstractOpenSolver end
 
-LinearProblem(::Lindblad, system; kwargs...) = LinearProblem(prepare_lindblad(system; kwargs...); kwargs...)
+function LinearProblem(::Lindblad, system::OpenSystem; kwargs...)
+    ls = prepare_lindblad(system; kwargs...)
+    LinearProblem(ls; kwargs...)
+end
+function ReshaperProblem(lp, ls::LindbladSystem)
+    vectorize(m) = vec(m, ls.vectorizer)
+    matrix(v) = reshape(v, ls.vectorizer)
+    ReshaperProblem(lp, vectorize, matrix)
+end
+
 LinearOperator(system::LindbladSystem; kwargs...) = LinearOperator(system.lindblad; kwargs...)
 LinearOperatorWithNormalizer(system::LindbladSystem; kwargs...) = LinearOperator(lindblad_with_normalizer(system.lindblad, system.vectorizer); kwargs...)
 
@@ -67,9 +76,21 @@ _lindblad_with_normalizer_adj(out, in, lindblad, kv::KronVectorizer) = (mul!(out
 _lindblad_with_normalizer(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!((@view out[1:end-1]), lindblad, in); out[end] = dot(krv.idvec, in); return out)
 _lindblad_with_normalizer_adj(out, in, lindblad, krv::KhatriRaoVectorizer) = (mul!(out, lindblad', (@view in[1:end-1])); out .+= in[end] .* krv.idvec; return out)
 
-Base.reshape(rho, system::LindbladSystem) = reshape(rho, system.vectorizer)
-Base.reshape(rho, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
-Base.reshape(rho, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
+Base.reshape(rho::AbstractVector, system::LindbladSystem) = reshape(rho, system.vectorizer)
+Base.reshape(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
+Base.reshape(rho::AbstractVector, vectorizer::KhatriRaoVectorizer) = BlockDiagonal(map((size, inds) -> reshape(rho[inds], size, size), vectorizer.sizes, sizestoinds(vectorizer.sizes .^ 2)))
+Base.vec(rho, vectorizer::KronVectorizer) = vec(rho)
+Base.vec(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = iscompatible(rho,vectorizer) ? vecdp(rho) : vec(Matrix(rho), vectprizer)
+iscompatible(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = size.(rho.blocks, 1) == size.(rho.blocks, 2) == vectorizer.sizes 
+function Base.vec(rho::AbstractMatrix{T}, vectorizer::KhatriRaoVectorizer) where T
+    inds = sizestoinds(vectorizer.sizes)
+    indsv = sizestoinds(vectorizer.sizes .^2 )
+    v = Vector{T}(sum(vectorizer.sizes .^2))
+    for i in eachindex(inds)
+        v[indsv[i]] = vec(rho[i,i])
+    end
+    return v
+end
 
 function lindblad_with_normalizer(lindblad, vectorizer)
     newmult! = QuantumDots._lindblad_with_normalizer(lindblad, vectorizer)

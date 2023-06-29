@@ -21,7 +21,16 @@ struct PauliSystem{W,A,I,R,S} <: AbstractOpenSystem
     system::S
 end
 
-LinearProblem(::Pauli, system::OpenSystem; kwargs...) = LinearProblem(prepare_rate_equations(system); kwargs...)
+function LinearProblem(::Pauli, system::OpenSystem; kwargs...)
+    system = prepare_rate_equations(system; kwargs...)
+    LinearProblem(system; kwargs...)
+end
+function ReshaperProblem(lp, ls::PauliSystem)
+    vectorize = diag
+    matrix = Diagonal
+    ReshaperProblem(lp, vectorize, matrix)
+end
+
 LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
 LinearOperatorWithNormalizer(system::PauliSystem; kwargs...) = LinearOperator(add_normalizer(system.total_master_matrix); kwargs...)
 
