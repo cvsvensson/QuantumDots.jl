@@ -177,8 +177,17 @@ struct ReshaperCache{C,FV,FM}
     matrix::FM
 end
 
+struct ReshaperSolution{S,FV,FM}
+    sol::S
+    vectorize::FV
+    matrix::FM
+end
+
 init(rp::ReshaperProblem, args...; kwargs...) = ReshaperCache(init(rp.problem, args...; kwargs...), rp.vectorize, rp.matrix)
-solve!(rc::ReshaperCache, args...; kwargs...) = rc.matrix(solve!(rc.cache, args...; kwargs...))
+solve!(rc::ReshaperCache, args...; kwargs...) = ReshaperSolution(solve!(rc.cache, args...; kwargs...), rc.vectorize, rc.matrix)
+
+(sol::ReshaperSolution)(args...; kwargs...) = sol.matrix(sol.sol(args...; kwargs...))
+Base.Matrix(sol::ReshaperSolution) = sol.matrix(sol.sol)
 
 function Base.getproperty(obj::ReshaperProblem, sym::Symbol)
     if sym === :matrix || sym === :vectorize || sym === :problem 
@@ -193,5 +202,13 @@ function Base.getproperty(obj::ReshaperCache, sym::Symbol)
         return getfield(obj, sym)
     else
         return getproperty(getfield(obj, :cache), sym)
+    end
+end
+
+function Base.getproperty(obj::ReshaperSolution, sym::Symbol)
+    if sym === :matrix || sym === :vectorize || sym == :sol
+        return getfield(obj, sym)
+    else
+        return getproperty(getfield(obj, :sol), sym)
     end
 end
