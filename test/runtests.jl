@@ -514,6 +514,15 @@ end
         rate_current = QuantumDots.get_currents(ρ_pauli, rate_eq)
         @test map(c -> c.total, rate_current) ≈ map(c -> c.total, QuantumDots.get_currents(rate_eq))
         @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
+
+        prob = ODEProblem(lindbladsystem, I/2^N, (0,100))
+        sol = solve(prob)
+        @test all(diff([tr(sol(t)^2) for t in 0:.1:1]) .> 0)
+        @test norm(Matrix(ρ) - sol(100)) < 1e-3
+
+        prob = ODEProblem(rate_eq, I/2^N, (0,100))
+        sol = solve(prob)
+        @test norm(Matrix(ρ) - sol(100)) < 1e-3
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)

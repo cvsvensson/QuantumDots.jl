@@ -24,6 +24,7 @@ external_rep(rho::AbstractVector, vectorizer::KhatriRaoVectorizer) = BlockDiagon
 internal_rep(rho, system::LindbladSystem) = internal_rep(rho, system.vectorizer)
 internal_rep(rho, ::KronVectorizer) = vec(rho)
 internal_rep(rho::UniformScaling, v::KronVectorizer) = vec(Diagonal(rho,v.size))
+internal_rep(rho::UniformScaling, v::KhatriRaoVectorizer) = vecdp(BlockDiagonal([Diagonal(rho, sz) for sz in  v.sizes]))
 internal_rep(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = iscompatible(rho,vectorizer) ? vecdp(rho) : internal_rep(Matrix(rho), vectorizer)
 iscompatible(rho::BlockDiagonal, vectorizer::KhatriRaoVectorizer) = size.(rho.blocks, 1) == size.(rho.blocks, 2) == vectorizer.sizes 
 internal_rep(rho, vectorizer::KhatriRaoVectorizer)  = internal_rep(Matrix(rho), vectorizer)

@@ -6,11 +6,11 @@ using Dictionaries
 using Symbolics
 using StaticArrays
 using UnicodePlots
-using OrdinaryDiffEq
-@reexport import OrdinaryDiffEq: ODEProblem, solve, solve!, init
-using LinearSolve
-@reexport import LinearSolve: LinearProblem
-import SciMLBase: LinearSolution
+# using OrdinaryDiffEq
+# @reexport import OrdinaryDiffEq: ODEProblem, solve, solve!, init
+using SciMLBase
+import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem
+# @reexport import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex

@@ -79,10 +79,10 @@ function _ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
     op = ODEProblem(LinearOperator(system; kwargs...), u0, args...; kwargs...)
 end
 
-function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
-    linsolve.b = -dA * x0
-    solve!(linsolve)
-end
+# function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
+#     linsolve.b = -dA * x0
+#     solve!(linsolve)
+# end
 
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
@@ -187,17 +187,18 @@ init(rp::ReshaperProblem, args...; kwargs...) = ReshaperCache(init(rp.problem, a
 solve!(rc::ReshaperCache, args...; kwargs...) = ReshaperSolution(solve!(rc.cache, args...; kwargs...), rc.vectorize, rc.matrix)
 
 (sol::ReshaperSolution{<:ODESolution})(args...; kwargs...) = sol.matrix(sol.sol(args...; kwargs...))
-Base.Matrix(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol.matrix(sol.sol))
+Base.Matrix(sol::ReshaperSolution{<:LinearSolution}) = (sol.matrix(sol.sol))
 LinearAlgebra.diag(sol::ReshaperSolution{<:LinearSolution}) = diag(sol.matrix(sol.sol))
 LinearAlgebra.tr(sol::ReshaperSolution{<:LinearSolution}) = tr(sol.matrix(sol.sol))
 Base.vec(sol::ReshaperSolution{<:LinearSolution}) = vec(sol.sol)
 Base.adjoint(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol)'
 Base.isapprox(s1::ReshaperSolution, s2::ReshaperSolution; kwargs...) = isapprox(s1.sol, s2.sol; kwargs...)
 Base.isapprox(s1::ReshaperSolution{<:LinearSolution}, s2::AbstractMatrix; kwargs...) = isapprox(Matrix(s1), s2; kwargs...)
-Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:SciMLBase.LinearSolution}; kwargs...) = isapprox(s1, Matrix(s2); kwargs...)
-Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.sol, args...)
+Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:LinearSolution}; kwargs...) = isapprox(s1, Matrix(s2); kwargs...)
+Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.matrix(s.sol), args...)
 
-internal_rep(sol::ReshaperSolution{<:SciMLBase.LinearSolution}) = sol.sol
+
+internal_rep(sol::ReshaperSolution{<:LinearSolution}) = sol.sol
 
 
 function Base.getproperty(obj::ReshaperProblem, sym::Symbol)

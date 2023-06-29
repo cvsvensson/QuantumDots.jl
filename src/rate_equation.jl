@@ -30,6 +30,7 @@ function ReshaperProblem(prob, system::AbstractOpenSystem)
     ext = Base.Fix2(external_rep, system)
     ReshaperProblem(prob, int, ext)
 end
+internal_rep(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
 internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
 internal_rep(u::ReshaperSolution{<:LinearSolution}, ::PauliSystem) = u.sol
