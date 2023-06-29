@@ -25,16 +25,16 @@ end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 
 abstract type AbstractOpenSystem end
-struct OpenSystem{H, Ls1, Ls2, M1, M2} <: AbstractOpenSystem
+struct OpenSystem{H,Ls1,Ls2,M1,M2} <: AbstractOpenSystem
     hamiltonian::H
     leads::Ls1
     rate_transformed_leads::Ls2
     measurements::M1
     transformed_measurements::M2
 end
-OpenSystem(H) = OpenSystem(H, nothing,nothing,nothing,nothing)
-OpenSystem(H,l) = OpenSystem(H, l, nothing, nothing,nothing)
-OpenSystem(H,l,m) = OpenSystem(H, l, nothing, m,nothing)
+OpenSystem(H) = OpenSystem(H, nothing, nothing, nothing, nothing)
+OpenSystem(H, l) = OpenSystem(H, l, nothing, nothing, nothing)
+OpenSystem(H, l, m) = OpenSystem(H, l, nothing, m, nothing)
 eigenvaluevector(H::OpenSystem{<:DiagonalizedHamiltonian}) = diag(eigenvalues(H))
 hamiltonian(system::OpenSystem) = system.hamiltonian
 eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
@@ -49,7 +49,7 @@ changebasis(op, os::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(os)' *
 changebasis(::Nothing, os::OpenSystem{<:DiagonalizedHamiltonian}) = nothing
 
 Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
-Base.show(io::IO, system::OpenSystem{H, Ls1, Ls2, M1, M2}) where {H,Ls1,Ls2,M1, M2} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads), "\ntransformed leads: ", repr(system.leads), "\nmeasurements: ", repr(measurements(system)), "\ntransformed_measurements: ", repr(transformed_measurements(system)))
+Base.show(io::IO, system::OpenSystem{H,Ls1,Ls2,M1,M2}) where {H,Ls1,Ls2,M1,M2} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads), "\ntransformed leads: ", repr(system.leads), "\nmeasurements: ", repr(measurements(system)), "\ntransformed_measurements: ", repr(transformed_measurements(system)))
 
 abstract type AbstractOpenSolver end
 
@@ -106,7 +106,7 @@ ratetransform(op, commutator_hamiltonian::Diagonal, T, μ) = reshape(sqrt(fermid
 
 
 diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), S' * lead.jump_in * S, S' * lead.jump_out * S, lead.label)
-diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), transformed_leads(system),measurements(system), transformed_measurements(system))
+diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), transformed_leads(system), measurements(system), transformed_measurements(system))
 
 function diagonalize(m::AbstractMatrix)
     vals, vecs = eigen(m)
@@ -123,7 +123,7 @@ diagonalize(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize(BlockDiagon
 diagonalize(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize(BlockDiagonal(Hermitian.(Matrix.(m.blocks))))
 
 diagonalize_leads(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), [diagonalize(eigenvectors(system), lead) for lead in leads(system)], nothing, measurements(system), transformed_measurements(system))
-transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), leads(system), transformed_leads(system), measurements(system), map(op->changebasis(op,system), measurements(system)))
+transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), leads(system), transformed_leads(system), measurements(system), map(op -> changebasis(op, system), measurements(system)))
 transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian,<:Any,<:Any,Nothing}) = system
 
 function diagonalize(system::OpenSystem; dE=0.0)
@@ -157,10 +157,10 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-stationary_state(system::AbstractOpenSystem, alg = nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
-stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg = nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
+stationary_state(system::AbstractOpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
+stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
 
-function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements = nothing; kwargs...)
+function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements=nothing; kwargs...)
     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
 end
 
@@ -192,16 +192,16 @@ LinearAlgebra.diag(sol::ReshaperSolution{<:LinearSolution}) = diag(sol.matrix(so
 LinearAlgebra.tr(sol::ReshaperSolution{<:LinearSolution}) = tr(sol.matrix(sol.sol))
 Base.vec(sol::ReshaperSolution{<:LinearSolution}) = vec(sol.sol)
 Base.adjoint(sol::ReshaperSolution{<:LinearSolution}) = Matrix(sol)'
-Base.isapprox(s1::ReshaperSolution, s2::ReshaperSolution; kwargs...) = isapprox(s1.sol,s2.sol; kwargs...)
-Base.isapprox(s1::ReshaperSolution{<:LinearSolution}, s2::AbstractMatrix; kwargs...) = isapprox(Matrix(s1),s2; kwargs...)
-Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:SciMLBase.LinearSolution}; kwargs...) = isapprox(s1,Matrix(s2); kwargs...)
-Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.sol,args...)
+Base.isapprox(s1::ReshaperSolution, s2::ReshaperSolution; kwargs...) = isapprox(s1.sol, s2.sol; kwargs...)
+Base.isapprox(s1::ReshaperSolution{<:LinearSolution}, s2::AbstractMatrix; kwargs...) = isapprox(Matrix(s1), s2; kwargs...)
+Base.isapprox(s1::AbstractMatrix, s2::ReshaperSolution{<:SciMLBase.LinearSolution}; kwargs...) = isapprox(s1, Matrix(s2); kwargs...)
+Base.getindex(s::ReshaperSolution{<:LinearSolution}, args...) = getindex(s.sol, args...)
 
 internal_rep(sol::ReshaperSolution{<:SciMLBase.LinearSolution}) = sol.sol
 
 
 function Base.getproperty(obj::ReshaperProblem, sym::Symbol)
-    if sym === :matrix || sym === :vectorize || sym === :problem 
+    if sym === :matrix || sym === :vectorize || sym === :problem
         return getfield(obj, sym)
     else
         return getproperty(getfield(obj, :problem), sym)
