@@ -5,8 +5,6 @@ struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     lindblad::L
     vectorizer::V
 end
-isdiagonalized(::LindbladSystem{<:DiagonalizedHamiltonian}) = true
-isdiagonalized(::LindbladSystem) = false 
 leads(ls::LindbladSystem) = leads(ls.system)
 transformed_leads(ls::LindbladSystem) = transformed_leads(ls.system)
 measurements(ls::LindbladSystem) = measurements(ls.system)

@@ -527,6 +527,9 @@ end
         prob = ODEProblem(pauli, I/2^N, (0,100))
         sol = solve(prob)
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
+
+        @test QuantumDots.internal_rep(ρ, lindbladsystem) ≈ QuantumDots.internal_rep(ρinternal, lindbladsystem)
+        @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈ QuantumDots.internal_rep(ρ_pauli_internal, pauli)
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
