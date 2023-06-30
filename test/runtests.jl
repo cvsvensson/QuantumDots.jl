@@ -1,16 +1,18 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
+using DifferentialEquations
+using LinearSolve
 Random.seed!(1234)
 
 
 @testset "Parameters" begin
     N = 4
     ph = parameter(1)
-    ph2 = parameter(1; closed = true)
+    ph2 = parameter(1; closed=true)
     @test ph isa QuantumDots.HomogeneousChainParameter
     @test ph2 isa QuantumDots.HomogeneousChainParameter
     @test ph == QuantumDots.parameter(1, :homogeneous)
-    @test ph2 == QuantumDots.parameter(1, :homogeneous; closed = true)
+    @test ph2 == QuantumDots.parameter(1, :homogeneous; closed=true)
     pih = parameter(rand(N), :inhomogeneous)
     @test pih isa QuantumDots.InHomogeneousChainParameter
     pd = parameter(1, :diff)
@@ -18,17 +20,17 @@ Random.seed!(1234)
     pr = parameter(rand(Int(ceil(N / 2))), :reflected)
     @test pr isa QuantumDots.ReflectedChainParameter
     @test_throws ErrorException parameter(1, :not_a_valid_option)
-    @test Vector(ph, N; size = 1) == fill(1, N)
-    @test Vector(ph, N; size = 2) == [fill(1, N-1)...,0]
+    @test Vector(ph, N; size=1) == fill(1, N)
+    @test Vector(ph, N; size=2) == [fill(1, N - 1)..., 0]
     @test Vector(ph2, N) == fill(1, N)
-    @test Vector(ph2, N; size = 2) == fill(1, N)
+    @test Vector(ph2, N; size=2) == fill(1, N)
     @test Vector(pih, N) == pih.values
     @test Vector(pr, N)[1:Int(ceil(N / 2))] == pr.values
-    @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N+1) / 2)):end])
+    @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N + 1) / 2)):end])
     @test Vector(pd, N) == 0:N-1
 
-    for p in (ph,ph2,pih,pr,pd)
-        @test [QuantumDots.getvalue(p,i,N) for i in 1:N] == Vector(p,N; size=1)
+    for p in (ph, ph2, pih, pr, pd)
+        @test [QuantumDots.getvalue(p, i, N) for i in 1:N] == Vector(p, N; size=1)
     end
 end
 
@@ -193,26 +195,26 @@ end
     es_mb, states = eigen(poor_mans_ham_mb)
     P = QuantumDots.parityoperator(b_mb)
 
-    parity(v) = v'*P*v
-    gs_odd = parity(states[:,1]) ≈ -1 ? states[:,1] : states[:,2]
-    gs_even = parity(states[:,1]) ≈ 1 ? states[:,1] : states[:,2]
-    
+    parity(v) = v' * P * v
+    gs_odd = parity(states[:, 1]) ≈ -1 ? states[:, 1] : states[:, 2]
+    gs_even = parity(states[:, 1]) ≈ 1 ? states[:, 1] : states[:, 2]
+
     gs_parity = QuantumDots.ground_state_parity(es, ops)
     ρeven, ρodd = if gs_parity == 1
         one_particle_density_matrix(qps[1:2]),
-        one_particle_density_matrix(qps[[1,3]])
+        one_particle_density_matrix(qps[[1, 3]])
     else
-        one_particle_density_matrix(qps[[1,3]]),
+        one_particle_density_matrix(qps[[1, 3]]),
         one_particle_density_matrix(qps[1:2])
     end
-    ρeven_mb = one_particle_density_matrix(gs_even*gs_even',b_mb)
-    ρodd_mb = one_particle_density_matrix(gs_odd*gs_odd',b_mb)
-    qps_mb = map(qp->QuantumDots.many_body_fermion(qp,b_mb), qps)
-   
+    ρeven_mb = one_particle_density_matrix(gs_even * gs_even', b_mb)
+    ρodd_mb = one_particle_density_matrix(gs_odd * gs_odd', b_mb)
+    qps_mb = map(qp -> QuantumDots.many_body_fermion(qp, b_mb), qps)
+
     @test ρeven ≈ ρeven_mb
     @test ρodd ≈ ρodd_mb
-    @test ρodd[[1,3],[1,3]] ≈ ρeven[[1,3],[1,3]]
-    @test ρodd[[2,4],[2,4]] ≈ ρeven[[2,4],[2,4]]
+    @test ρodd[[1, 3], [1, 3]] ≈ ρeven[[1, 3], [1, 3]]
+    @test ρodd[[2, 4], [2, 4]] ≈ ρeven[[2, 4], [2, 4]]
 
     @test (gs_parity == 1 ? ρeven : ρodd) ≈ QuantumDots.one_particle_density_matrix(ops)
 
@@ -473,18 +475,23 @@ end
         hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
-        leftlead = QuantumDots.NormalLead(T, μL; in=a[1]', out=a[1], label=:left)
-        rightlead = QuantumDots.NormalLead(T, μR; in=a[N]', out=a[N], label=:right)
+        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL, label=:left)
+        rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR, label=:right)
         particle_number = bd(numberoperator(a))
-        system = QuantumDots.OpenSystem(hamiltonian(μH), [leftlead, rightlead])
-        diagonalsystem = QuantumDots.diagonalize(system)
         measurements = [particle_number]
-        lindbladsystem, transformed_measurements = QuantumDots.prepare_lindblad(diagonalsystem, measurements)
+        system = QuantumDots.OpenSystem(hamiltonian(μH), [leftlead, rightlead], measurements)
+        diagonalsystem = QuantumDots.diagonalize(system)
+        lindbladsystem = QuantumDots.prepare_lindblad(diagonalsystem)
         @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
-        lindbladsystem2, _ = QuantumDots.prepare_lindblad(system, []; dE=μH / 2)
+        lindbladsystem2 = QuantumDots.prepare_lindblad(system; dE=μH / 2)
         @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
 
-        ρ = QuantumDots.stationary_state(lindbladsystem)
+        prob = LinearProblem(lindbladsystem)
+        ρinternal = solve(prob)
+        ρ = tomatrix(ρinternal, lindbladsystem)
+        linsolve = init(prob)
+        @test solve!(linsolve) ≈ ρinternal
+        @test ρinternal ≈ QuantumDots.stationary_state(lindbladsystem)
         rhod = diag(ρ)
         @test ρ ≈ ρ'
         @test tr(ρ) ≈ 1
@@ -493,51 +500,90 @@ end
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
-        numeric_current = QuantumDots.measure(ρ, transformed_measurements[1], lindbladsystem)#real.(QuantumDots.conductance(system,[particle_number])[1])
-        @test abs(sum(I->I.total, numeric_current)) < 1e-10
-        @test map(I->I.total, numeric_current) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
+        numeric_current = QuantumDots.measure(ρ, lindbladsystem)[1]#real.(QuantumDots.conductance(system,[particle_number])[1])
+        @test numeric_current[1].total ≈ QuantumDots.measure(ρinternal, lindbladsystem)[1][1].total#real.(QuantumDots.conductance(system,[particle_number])[1])
+        @test abs(sum(I -> I.total, numeric_current)) < 1e-10
+        @test map(I -> I.total, numeric_current) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
         @test first(numeric_current).label == :left
 
-        rate_eq = QuantumDots.prepare_rate_equations(diagonalsystem)
-        @test rate_eq.total_master_matrix ≈ .5(rate_eq+rate_eq).total_master_matrix
-        @test (rate_eq+rate_eq.rate_equations[1]).total_master_matrix ≈ (rate_eq.rate_equations[1]+rate_eq).total_master_matrix
-        ρdiag = QuantumDots.stationary_state(rate_eq)
-        @test ρdiag ≈ rhod
-        @test sum(ρdiag) ≈ 1
-        rate_current = QuantumDots.get_currents(ρdiag, rate_eq)
-        @test map(c->c.total,rate_current) ≈ map(c->c.total,QuantumDots.get_currents(rate_eq))
-        @test all(c1.in/c1.out ≈ c2.in/c2.out for (c1,c2) in zip(numeric_current, rate_current))
+        pauli = QuantumDots.prepare_rate_equations(diagonalsystem)
+        @test pauli.total_master_matrix ≈ 0.5(pauli + pauli).total_master_matrix
+        @test (pauli + pauli.rate_equations[1]).total_master_matrix ≈ (pauli.rate_equations[1] + pauli).total_master_matrix
+        ρ_pauli_internal = QuantumDots.stationary_state(pauli)
+        ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
+        @test ρ_pauli_internal ≈ QuantumDots.stationary_state(QuantumDots.Pauli(), diagonalsystem)
+        @test diag(ρ_pauli) ≈ rhod
+        @test tr(ρ_pauli) ≈ 1
+        rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
+        @test rate_current[1].total ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)[1].total
+        @test map(c -> c.total, rate_current) ≈ map(c -> c.total, QuantumDots.get_currents(pauli))
+        @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
+
+        prob = ODEProblem(lindbladsystem, I / 2^N, (0, 100))
+        sol = solve(prob)
+        @test all(diff([tr(tomatrix(sol(t), lindbladsystem)^2) for t in 0:0.1:1]) .> 0)
+        @test norm(ρinternal - sol(100)) < 1e-3
+
+        prob = ODEProblem(pauli, I / 2^N, (0, 100))
+        sol = solve(prob)
+        @test norm(ρ_pauli_internal - sol(100)) < 1e-3
+
+        @test QuantumDots.internal_rep(ρ, lindbladsystem) ≈
+              QuantumDots.internal_rep(ρinternal, lindbladsystem) ≈
+              QuantumDots.internal_rep(Matrix(ρ), lindbladsystem)
+        @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈
+              QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
+              QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
     test_qd_transport(QuantumDots.fermionnumber)
 end
 
+@testset "Khatri-Rao" begin
+    bd = BlockDiagonal([rand(2, 2), rand(3, 3), rand(5, 5)])
+    bz = size.(blocks(bd), 1)
+    m = Matrix(bd)
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bd, bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m, bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ QuantumDots.khatri_rao_dissipator(m, bz)
+
+    @test QuantumDots.khatri_rao(m, m, bz) ≈
+          QuantumDots.khatri_rao(bd, bd, bz) ≈
+          QuantumDots.khatri_rao(m, bd, bz) ≈
+          QuantumDots.khatri_rao(m, bd, bz) ≈
+          QuantumDots.khatri_rao(bd, m, bz) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(m, m, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(m, bd, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(bd, bd, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(bd, m, bz))
+end
+
 @testset "TSL" begin
-    p = (;zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
-    tsl,tsl!,m,c = QuantumDots.TSL_generator()
+    p = (; zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
+    tsl, tsl!, m, c = QuantumDots.TSL_generator()
     @test c isa FermionBasis{6}
-    m2 = tsl(;p...)
-    tsl!(m;p...)
+    m2 = tsl(; p...)
+    tsl!(m; p...)
     @test m ≈ m2
 
-    tsl,tsl!,m,c = QuantumDots.TSL_generator(QuantumDots.parity)
+    tsl, tsl!, m, c = QuantumDots.TSL_generator(QuantumDots.parity)
     @test c isa FermionBasis{6}
     @test m isa BlockDiagonal
-    m2 = tsl(;p...)
-    tsl!(m;p...)
+    m2 = tsl(; p...)
+    tsl!(m; p...)
     @test m ≈ m2
 
-    tsl,tsl!,m,c = QuantumDots.TSL_generator(;dense = true)
+    tsl, tsl!, m, c = QuantumDots.TSL_generator(; dense=true)
     @test m isa Matrix{Float64}
-    m2 = tsl(;p...)
-    tsl!(m;p...)
-    @test m ≈ reshape(m2,size(m))
+    m2 = tsl(; p...)
+    tsl!(m; p...)
+    @test m ≈ reshape(m2, size(m))
 
-    tsl,tsl!,m,c = QuantumDots.TSL_generator(;bdg = true, dense = true)
+    tsl, tsl!, m, c = QuantumDots.TSL_generator(; bdg=true, dense=true)
     @test c isa QuantumDots.FermionBdGBasis{6}
     @test m isa Matrix{Float64}
-    m2 = tsl(;p...)
-    tsl!(m;p...)
-    @test m ≈ reshape(m2,size(m))
+    m2 = tsl(; p...)
+    tsl!(m; p...)
+    @test m ≈ reshape(m2, size(m))
 end
