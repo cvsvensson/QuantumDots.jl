@@ -544,8 +544,16 @@ end
     @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m,bz))
     @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ QuantumDots.khatri_rao_dissipator(m,bz)
 
-    @test QuantumDots.khatri_rao(m,m,bz) ≈ (QuantumDots.khatri_rao(bd,bd,bz) )
-    @test QuantumDots.khatri_rao(m,bd,bz) ≈ (QuantumDots.khatri_rao(bd,m,bz) )
+    krmm = 
+    @test QuantumDots.khatri_rao(m,m,bz) ≈
+    QuantumDots.khatri_rao(bd,bd,bz) ≈
+    QuantumDots.khatri_rao(m,bd,bz) ≈
+    QuantumDots.khatri_rao(m,bd,bz) ≈
+    QuantumDots.khatri_rao(bd,m,bz) ≈
+    Matrix(QuantumDots.khatri_rao_lazy(m,m,bz)) ≈ 
+    Matrix(QuantumDots.khatri_rao_lazy(m,bd,bz)) ≈
+    Matrix(QuantumDots.khatri_rao_lazy(bd,bd,bz)) ≈
+    Matrix(QuantumDots.khatri_rao_lazy(bd,m,bz))
 end 
 
 @testset "TSL" begin
