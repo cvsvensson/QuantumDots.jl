@@ -519,17 +519,21 @@ end
         @test map(c -> c.total, rate_current) ≈ map(c -> c.total, QuantumDots.get_currents(pauli))
         @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
 
-        prob = ODEProblem(lindbladsystem, I/2^N, (0,100))
+        prob = ODEProblem(lindbladsystem, I / 2^N, (0, 100))
         sol = solve(prob)
-        @test all(diff([tr(tomatrix(sol(t), lindbladsystem)^2) for t in 0:.1:1]) .> 0)
+        @test all(diff([tr(tomatrix(sol(t), lindbladsystem)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
-        prob = ODEProblem(pauli, I/2^N, (0,100))
+        prob = ODEProblem(pauli, I / 2^N, (0, 100))
         sol = solve(prob)
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
-        @test QuantumDots.internal_rep(ρ, lindbladsystem) ≈ QuantumDots.internal_rep(ρinternal, lindbladsystem)
-        @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈ QuantumDots.internal_rep(ρ_pauli_internal, pauli)
+        @test QuantumDots.internal_rep(ρ, lindbladsystem) ≈
+              QuantumDots.internal_rep(ρinternal, lindbladsystem) ≈
+              QuantumDots.internal_rep(Matrix(ρ), lindbladsystem)
+        @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈
+              QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
+              QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
@@ -537,24 +541,23 @@ end
 end
 
 @testset "Khatri-Rao" begin
-    bd = BlockDiagonal([rand(2,2), rand(3,3), rand(5,5)])
-    bz = size.(blocks(bd),1)
+    bd = BlockDiagonal([rand(2, 2), rand(3, 3), rand(5, 5)])
+    bz = size.(blocks(bd), 1)
     m = Matrix(bd)
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bd,bz))
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m,bz))
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ QuantumDots.khatri_rao_dissipator(m,bz)
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bd, bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m, bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd, bz)) ≈ QuantumDots.khatri_rao_dissipator(m, bz)
 
-    krmm = 
-    @test QuantumDots.khatri_rao(m,m,bz) ≈
-    QuantumDots.khatri_rao(bd,bd,bz) ≈
-    QuantumDots.khatri_rao(m,bd,bz) ≈
-    QuantumDots.khatri_rao(m,bd,bz) ≈
-    QuantumDots.khatri_rao(bd,m,bz) ≈
-    Matrix(QuantumDots.khatri_rao_lazy(m,m,bz)) ≈ 
-    Matrix(QuantumDots.khatri_rao_lazy(m,bd,bz)) ≈
-    Matrix(QuantumDots.khatri_rao_lazy(bd,bd,bz)) ≈
-    Matrix(QuantumDots.khatri_rao_lazy(bd,m,bz))
-end 
+    @test QuantumDots.khatri_rao(m, m, bz) ≈
+          QuantumDots.khatri_rao(bd, bd, bz) ≈
+          QuantumDots.khatri_rao(m, bd, bz) ≈
+          QuantumDots.khatri_rao(m, bd, bz) ≈
+          QuantumDots.khatri_rao(bd, m, bz) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(m, m, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(m, bd, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(bd, bd, bz)) ≈
+          Matrix(QuantumDots.khatri_rao_lazy(bd, m, bz))
+end
 
 @testset "TSL" begin
     p = (; zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
