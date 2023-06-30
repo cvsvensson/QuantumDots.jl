@@ -1,3 +1,4 @@
+struct Lindblad <: AbstractOpenSolver end
 struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     system::O
     unitary::U
@@ -6,11 +7,117 @@ struct LindbladSystem{O,U,Ds,L,V} <: AbstractOpenSystem
     vectorizer::V
 end
 leads(ls::LindbladSystem) = leads(ls.system)
-transformed_leads(ls::LindbladSystem) = transformed_leads(ls.system)
 measurements(ls::LindbladSystem) = measurements(ls.system)
 transformed_measurements(ls::LindbladSystem) = transformed_measurements(ls.system)
-struct Lindblad <: AbstractOpenSolver end
 
+struct FermionDissipator{L,M,D,V,T,H}
+    lead::L
+    opin::M
+    opout::M
+    superopin::D
+    superopout::D
+    vectorizer::V
+    props::LArray{T,1, Vector{T}, (:T, :μ, :rate)}
+    commutator_hamiltonian::H
+    function FermionDissipator(lead::L, vectorizer::V, commutator_hamiltonian::H) where {L,V,H}
+        props = _default_dissipator_params(lead)
+        opin = ratetransform(lead.jump_in, commutator_hamiltonian, props.T, props.μ)
+        opout = ratetransform(lead.jump_out, commutator_hamiltonian, props.T, -props.μ)
+        M = typeof(opin)
+        superopin = dissipator(opin, vectorizer)
+        superopout = dissipator(opout, vectorizer)
+        new{L,M,typeof(superopin),V,eltype(props),H}(lead, opin, opout, superopin, superopout, vectorizer, props, commutator_hamiltonian)
+    end
+end
+
+chemical_potential(d::FermionDissipator) = d.props.μ
+temperature(d::FermionDissipator) = d.props.T
+rate(d::FermionDissipator) = d.props.rate
+function _default_dissipator_params(l::NormalLead)
+    T, μ = promote(temperature(l), chemical_potential(l))
+    type = eltype(T)
+    rate = one(type)
+    props = @LVector type (:T, :μ, :rate)
+    props.T = T
+    props.μ = μ
+    props.rate = rate
+    return props
+end
+
+function update_dissipator!(d::FermionDissipator, p = ())
+    if haskey(p, :μ) || haskey(p, :T)
+        μ = get(p, :μ, d.props.μ)
+        T = get(p, :T, d.props.T)
+        d.props.μ = μ
+        d.props.T = T
+        ratetransform!(d.opin, d.lead.jump_in, d.commutator_hamiltonian, T, μ) 
+        ratetransform!(d.opout, d.lead.jump_out, d.commutator_hamiltonian, T, -μ)
+    end 
+    if haskey(p,:rate)
+        d.props.rate = p.rate
+        d.superopin .= p.rate .* dissipator(d.opin, d.vectorizer)
+        d.superopout .= p.rate .* dissipator(d.opou, d.vectorizer)
+    else
+        d.superopin .= dissipator(d.opin, d.vectorizer)
+        d.superopout .= dissipator(d.opout, d.vectorizer)
+    end    
+    return nothing
+end
+
+function update_rate!(d, rate)
+    scaling = (rate/d.props.rate)
+    if !(scaling ≈ 1)
+        d.superopin .*= scaling
+        d.superopout .*= scaling
+    end
+    return nothing
+end
+
+
+struct LindbladOperator{H,U,D,V,T}
+    hamiltonian::H
+    unitary::U
+    dissipators::D
+    total::T
+    vectorizer::V
+end
+function LindbladOperator(hamiltonian::DiagonalizedHamiltonian, leads, vectorizer = default_vectorizer(hamiltonian))
+    commutator_hamiltonian = commutator(eigenvalues(hamiltonian), vectorizer)
+    unitary = -1im * commutator_hamiltonian
+    dissipators = map(lead -> FermionDissipator(lead, vectorizer, commutator_hamiltonian), leads)
+    total = similar(unitary, size(unitary)) #Probably only works for dense matrices now
+    total .= unitary
+    for d in dissipators
+        total .+= d.superopin .+ d.superopout
+    end
+    LindbladOperator(hamiltonian, unitary, dissipators,total, vectorizer)
+end
+LindbladOperator(sys::OpenSystem, vectorizer = default_vectorizer(sys)) = LindbladOperator(sys.hamiltonian, sys.leads, vectorizer)
+update_dissipator!(L::LindbladOperator, label, props; kwargs...) = update_dissipator!(L.dissipators[label], props)
+# LinearAlgebra.mul!(out, L::LindbladOperator, in) = mul!(out, L.total, in)
+MatrixOperator(::Lindblad, sys::OpenSystem)
+function MatrixOperator(_L::LindbladOperator)
+    L = deepcopy(_L)
+    function update_func!(A, u, p, t)
+        updated = false
+        for (label, props) in pairs(p)
+            update_dissipator!(L, label, props)
+            updated = true
+        end
+        if updated
+            update_total_operator!(L)
+            A .= L.total
+        end
+        return nothing
+    end
+    MatrixOperator(L.total; update_func!)
+end
+function update_total_operator!(L::LindbladOperator)
+    L.total .= L.unitary
+    for d in L.dissipators
+        L.total .+= d.superopin .+ d.superopout
+    end
+end
 function LinearProblem(::Lindblad, system::OpenSystem; kwargs...)
     ls = prepare_lindblad(system; kwargs...)
     LinearProblem(ls; kwargs...)
@@ -112,8 +219,8 @@ function prepare_lindblad(diagonalsystem::OpenSystem{<:DiagonalizedHamiltonian};
     return lindbladsystem
 end
 
-function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer)
-    opin = dissipator(lead.jump_in, vectorizer)
-    opout = dissipator(lead.jump_out, vectorizer)
-    (; in=opin, out=opout, label=lead.label)
-end
+# function dissipator_from_transformed_lead(lead::NormalLead, vectorizer::AbstractVectorizer, props)
+#     opin = dissipator(lead.jump_in, vectorizer)
+#     opout = dissipator(lead.jump_out, vectorizer)
+#     (; in=opin, out=opout, label=lead.label)
+# end

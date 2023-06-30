@@ -475,12 +475,15 @@ end
         hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
-        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL, label=:left)
-        rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR, label=:right)
+        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
+        rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+        leads = (;left = leftlead, right = rightlead)
         particle_number = bd(numberoperator(a))
         measurements = [particle_number]
-        system = QuantumDots.OpenSystem(hamiltonian(μH), [leftlead, rightlead], measurements)
+        system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
         diagonalsystem = QuantumDots.diagonalize(system)
+        QuantumDots.LindbladOperator(diagonalsystem)
+
         lindbladsystem = QuantumDots.prepare_lindblad(diagonalsystem)
         @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         lindbladsystem2 = QuantumDots.prepare_lindblad(system; dE=μH / 2)

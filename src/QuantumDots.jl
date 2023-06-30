@@ -6,9 +6,10 @@ using Dictionaries
 using Symbolics
 using StaticArrays
 using UnicodePlots
+using LabelledArrays
 
 using SciMLBase
-import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem
+import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex
