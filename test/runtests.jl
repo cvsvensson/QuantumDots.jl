@@ -482,7 +482,7 @@ end
         measurements = [particle_number]
         system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
         diagonalsystem = QuantumDots.diagonalize(system)
-        QuantumDots.LindbladOperator(diagonalsystem)
+        lo = QuantumDots.LindbladOperator(diagonalsystem)
 
         lindbladsystem = QuantumDots.prepare_lindblad(diagonalsystem)
         @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
