@@ -82,7 +82,7 @@ function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, blocksizes) where {T1,T2
 end
 
 khatri_rao(L1::Diagonal, L2::Diagonal) = kron(L1, L2)
-khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal) = cat([khatri_rao(B1, B2) for (B1, B2) in zip(blocks(L1), blocks(L2))]...; dims=(1, 2))
+khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal) = cat([kron(B1, B2) for (B1, B2) in zip(blocks(L1), blocks(L2))]...; dims=(1, 2))
 function khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal, bz)
     if bz == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
         return khatri_rao(L1, L2)

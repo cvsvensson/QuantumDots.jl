@@ -536,6 +536,18 @@ end
     test_qd_transport(QuantumDots.fermionnumber)
 end
 
+@testset "Khatri-Rao" begin
+    bd = BlockDiagonal([rand(2,2), rand(3,3), rand(5,5)])
+    bz = size.(blocks(bd),1)
+    m = Matrix(bd)
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bd,bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m,bz))
+    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bd,bz)) ≈ QuantumDots.khatri_rao_dissipator(m,bz)
+
+    @test QuantumDots.khatri_rao(m,m,bz) ≈ (QuantumDots.khatri_rao(bd,bd,bz) )
+    @test QuantumDots.khatri_rao(m,bd,bz) ≈ (QuantumDots.khatri_rao(bd,m,bz) )
+end 
+
 @testset "TSL" begin
     p = (; zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
     tsl, tsl!, m, c = QuantumDots.TSL_generator()
