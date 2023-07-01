@@ -482,19 +482,21 @@ end
         measurements = [particle_number]
         system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
         diagonalsystem = QuantumDots.diagonalize(system)
-        lo = QuantumDots.LindbladOperator(diagonalsystem)
+        diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
+        @test diag(diagonalsystem.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
+        @test diag(diagonalsystem2.hamiltonian.eigenvalues) ≈ [0]
 
-        lindbladsystem = QuantumDots.prepare_lindblad(diagonalsystem)
-        @test diag(lindbladsystem.system.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
-        lindbladsystem2 = QuantumDots.prepare_lindblad(system; dE=μH / 2)
-        @test diag(lindbladsystem2.system.hamiltonian.eigenvalues) ≈ [0]
+        lo = LindbladOperator(diagonalsystem)
+        mo = QuantumDots.LinearOperator(lo)
+        @test mo isa MatrixOperator
+        @test size(mo) == (4,4)
+        @test size(QuantumDots.LinearOperator(lo; normalizer = true)) == (5,4)
 
-        prob = LinearProblem(lindbladsystem)
+        prob = StationaryStateProblem(lo)
         ρinternal = solve(prob)
-        ρ = tomatrix(ρinternal, lindbladsystem)
+        ρ = tomatrix(ρinternal, lo)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
-        @test ρinternal ≈ QuantumDots.stationary_state(lindbladsystem)
         rhod = diag(ρ)
         @test ρ ≈ ρ'
         @test tr(ρ) ≈ 1
@@ -503,23 +505,23 @@ end
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
-        numeric_current = QuantumDots.measure(ρ, lindbladsystem)[1]#real.(QuantumDots.conductance(system,[particle_number])[1])
-        @test numeric_current[1].total ≈ QuantumDots.measure(ρinternal, lindbladsystem)[1][1].total#real.(QuantumDots.conductance(system,[particle_number])[1])
-        @test abs(sum(I -> I.total, numeric_current)) < 1e-10
-        @test map(I -> I.total, numeric_current) ≈ analytic_current .* [-1, 1] #Why not flip the signs?
-        @test first(numeric_current).label == :left
+        numeric_current = QuantumDots.measure(ρ, diagonalsystem, lo)[1]
+        @test sum(numeric_current.left) ≈ sum(QuantumDots.measure(ρinternal,diagonalsystem, lo)[1].left)
+        @test abs(sum(I -> sum(I), numeric_current)) < 1e-10
+        @test all(map(≈ , map(I -> sum(I), numeric_current), (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
 
-        pauli = QuantumDots.prepare_rate_equations(diagonalsystem)
-        @test pauli.total_master_matrix ≈ 0.5(pauli + pauli).total_master_matrix
-        @test (pauli + pauli.rate_equations[1]).total_master_matrix ≈ (pauli.rate_equations[1] + pauli).total_master_matrix
-        ρ_pauli_internal = QuantumDots.stationary_state(pauli)
+        pauli = QuantumDots.pauli_system(diagonalsystem)
+        pauli_prob = StationaryStateProblem(pauli)
+        ρ_pauli_internal = solve(pauli_prob)
         ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
-        @test ρ_pauli_internal ≈ QuantumDots.stationary_state(QuantumDots.Pauli(), diagonalsystem)
+        linsolve_pauli = init(pauli_prob)
+        @test solve!(linsolve_pauli) ≈ ρ_pauli_internal
+
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test rate_current[1].total ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)[1].total
-        @test map(c -> c.total, rate_current) ≈ map(c -> c.total, QuantumDots.get_currents(pauli))
+        @test rate_current.left.in ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left.in
+        @test map(sum, rate_current) ≈ map(sum, QuantumDots.get_currents(pauli))
         @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
 
         prob = ODEProblem(lindbladsystem, I / 2^N, (0, 100))

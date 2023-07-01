@@ -59,14 +59,12 @@ function normalized_steady_state_rhs(A)
     return b
 end
 
-function LinearProblem(system::AbstractOpenSystem; kwargs...)
-    prob = _LinearProblem(system; kwargs...)
-end
-function _LinearProblem(system::AbstractOpenSystem, args...; kwargs...)
-    A = LinearOperatorWithNormalizer(system; kwargs...)
+
+function StationaryStateProblem(system::AbstractOpenSystem, args...; kwargs...)
+    A = LinearOperator(system; normalizer = true, kwargs...)
     b = normalized_steady_state_rhs(A)
     u0 = identity_density_matrix(system)
-    lp = LinearProblem(A, b; u0, kwargs...)
+    LinearProblem(A, b; u0, kwargs...)
 end
 function ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
     internalu0 = internal_rep(u0, system)
@@ -136,12 +134,12 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-stationary_state(system::AbstractOpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
-stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
+# stationary_state(system::AbstractOpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
+# stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
 
-function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements=nothing; kwargs...)
-    LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
-end
+# function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements=nothing; kwargs...)
+#     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
+# end
 
 
 # function ratetransform(system::OpenSystem{<:DiagonalizedHamiltonian})
