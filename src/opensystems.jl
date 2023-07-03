@@ -156,8 +156,18 @@ end
 #     newjumpout = ratetransform(lead.jump_out, commutator_hamiltonian, T, -μ)
 #     return NormalLead(T, μ, newjumpin, newjumpout, lead.label)
 # end
-ratetransform(op, commutator_hamiltonian::Diagonal, T, μ) = ratetransform!(zero(op),op, commutator_hamiltonian,T,μ)
-function ratetransform!(op2,op, commutator_hamiltonian::Diagonal, T, μ) 
-    mul!(vec(op2), sqrt(fermidirac(commutator_hamiltonian, T, μ)), vec(op))
+ratetransform(op, energies::AbstractVector, T, μ) = ratetransform!(zero(op),op, energies,T,μ)
+# function ratetransform2!(op2,op, commutator_hamiltonian::Diagonal, T, μ) 
+#     mul!(vec(op2), sqrt(fermidirac(commutator_hamiltonian, T, μ)), vec(op))
+#     return op2
+# end
+
+function ratetransform!(op2,op, energies::AbstractVector, T, μ)
+    for I in CartesianIndices(op)
+        n1, n2 = Tuple(I)
+        δE = energies[n1] - energies[n2]
+        op2[n1,n2] = sqrt(fermidirac(δE, T, μ)) * op[n1,n2]
+    # mul!(vec(op2), sqrt(fermidirac(commutator_hamiltonian, T, μ)), vec(op))
+    end
     return op2
 end

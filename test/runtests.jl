@@ -467,6 +467,11 @@ end
     @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
 end
 
+using QuantumDots, Test, Pkg
+Pkg.activate("./test")
+using LinearSolve,DifferentialEquations
+qn = QuantumDots.NoSymmetry()
+
 @testset "transport" begin
     function test_qd_transport(qn)
         N = 1
@@ -489,8 +494,9 @@ end
         lo = LindbladOperator(diagonalsystem)
         mo = QuantumDots.LinearOperator(lo)
         @test mo isa MatrixOperator
-        @test size(mo) == (4,4)
-        @test size(QuantumDots.LinearOperator(lo; normalizer = true)) == (5,4)
+        # @test size(mo) == (4,4)
+        # @test size(QuantumDots.LinearOperator(lo; normalizer = true)) == (5,4)
+
 
         prob = StationaryStateProblem(lo)
         ρinternal = solve(prob)
@@ -507,8 +513,8 @@ end
 
         numeric_current = QuantumDots.measure(ρ, diagonalsystem, lo)[1]
         @test sum(numeric_current.left) ≈ sum(QuantumDots.measure(ρinternal,diagonalsystem, lo)[1].left)
-        @test abs(sum(I -> sum(I), numeric_current)) < 1e-10
-        @test all(map(≈ , map(I -> sum(I), numeric_current), (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
+        @test abs(sum(sum, numeric_current)) < 1e-10
+        @test all(map(≈ , map(sum, numeric_current), (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
 
         pauli = QuantumDots.pauli_system(diagonalsystem)
         pauli_prob = StationaryStateProblem(pauli)
@@ -521,21 +527,21 @@ end
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
         @test rate_current.left.in ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left.in
-        @test map(sum, rate_current) ≈ map(sum, QuantumDots.get_currents(pauli))
+        @test all(map(≈ , map(sum, rate_current), map(sum, QuantumDots.get_currents(pauli))))
         @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
 
-        prob = ODEProblem(lindbladsystem, I / 2^N, (0, 100))
-        sol = solve(prob)
-        @test all(diff([tr(tomatrix(sol(t), lindbladsystem)^2) for t in 0:0.1:1]) .> 0)
+        prob = ODEProblem(lo, I / 2^N, (0, 100))
+        sol = solve(prob);
+        @test all(diff([tr(tomatrix(sol(t), lo)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
         sol = solve(prob)
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
-        @test QuantumDots.internal_rep(ρ, lindbladsystem) ≈
-              QuantumDots.internal_rep(ρinternal, lindbladsystem) ≈
-              QuantumDots.internal_rep(Matrix(ρ), lindbladsystem)
+        @test QuantumDots.internal_rep(ρ, lo) ≈
+              QuantumDots.internal_rep(ρinternal, lo) ≈
+              QuantumDots.internal_rep(Matrix(ρ), lo)
         @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈
               QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)

@@ -10,7 +10,7 @@ struct Lindblad <: AbstractOpenSolver end
 # measurements(ls::LindbladSystem) = measurements(ls.system)
 # transformed_measurements(ls::LindbladSystem) = transformed_measurements(ls.system)
 
-struct FermionDissipator{L,M,D,V,T,H}
+struct FermionDissipator{L,M,D,V,T,E,H}
     lead::L
     opin::M
     opout::M
@@ -18,15 +18,22 @@ struct FermionDissipator{L,M,D,V,T,H}
     superopout::D
     vectorizer::V
     props::LArray{T,1, Vector{T}, (:T, :μ, :rate)}
+    energies::E
     commutator_hamiltonian::H
-    function FermionDissipator(lead::L, vectorizer::V, commutator_hamiltonian::H) where {L,V,H}
+    kroncache::D
+    mulcache::M
+    function FermionDissipator(lead::L, vectorizer::V, energies::E) where {L,V,E}
         props = _default_lindblad_dissipator_params(lead)
-        opin = ratetransform(lead.jump_in, commutator_hamiltonian, props.T, props.μ)
-        opout = ratetransform(lead.jump_out, commutator_hamiltonian, props.T, -props.μ)
+        commutator_hamiltonian = commutator(Diagonal(energies), vectorizer)
+        opin = ratetransform(lead.jump_in, energies, props.T, props.μ)
+        opout = ratetransform(lead.jump_out, energies, props.T, -props.μ)
         M = typeof(opin)
         superopin = dissipator(opin, vectorizer)
         superopout = dissipator(opout, vectorizer)
-        new{L,M,typeof(superopin),V,eltype(props),H}(lead, opin, opout, superopin, superopout, vectorizer, props, commutator_hamiltonian)
+        kroncache = deepcopy(superopin)
+        mulcache = deepcopy(opin)
+        H = typeof(commutator_hamiltonian)
+        new{L,M,typeof(superopin),V,eltype(props),E,H}(lead, opin, opout, superopin, superopout, vectorizer, props, energies, commutator_hamiltonian, kroncache, mulcache)
     end
 end
 
@@ -50,26 +57,17 @@ function update_dissipator!(d::FermionDissipator, p = ())
         T = get(p, :T, d.props.T)
         d.props.μ = μ
         d.props.T = T
-        ratetransform!(d.opin, d.lead.jump_in, d.commutator_hamiltonian, T, μ) 
-        ratetransform!(d.opout, d.lead.jump_out, d.commutator_hamiltonian, T, -μ)
+        ratetransform!(d.opin, d.lead.jump_in, d.energies, T, μ) 
+        ratetransform!(d.opout, d.lead.jump_out, d.energies, T, -μ)
     end 
+    dissipator!(d.superopin, d.opin, d.vectorizer, d.kroncache, d.mulcache)
+    dissipator!(d.superopout, d.opout, d.vectorizer, d.kroncache, d.mulcache)
     if haskey(p,:rate)
-        d.props.rate = p.rate
-        d.superopin .= p.rate .* dissipator(d.opin, d.vectorizer)
-        d.superopout .= p.rate .* dissipator(d.opout, d.vectorizer)
-    else
-        d.superopin .= dissipator(d.opin, d.vectorizer)
-        d.superopout .= dissipator(d.opout, d.vectorizer)
-    end    
-    return nothing
-end
-
-function update_rate!(d, rate)
-    scaling = (rate/d.props.rate)
-    if !(scaling ≈ 1)
-        d.superopin .*= scaling
-        d.superopout .*= scaling
+        d.props.rate = p.rate     
     end
+    rate = d.props.rate
+    d.superopin .*= rate
+    d.superopout .*= rate
     return nothing
 end
 
@@ -84,7 +82,7 @@ end
 function LindbladOperator(hamiltonian::DiagonalizedHamiltonian, leads, vectorizer = default_vectorizer(hamiltonian))
     commutator_hamiltonian = commutator(eigenvalues(hamiltonian), vectorizer)
     unitary = -1im * commutator_hamiltonian
-    dissipators = map(lead -> FermionDissipator(lead, vectorizer, commutator_hamiltonian), leads)
+    dissipators = map(lead -> FermionDissipator(lead, vectorizer, diag(hamiltonian.eigenvalues)), leads)
     total = similar(unitary, size(unitary)) #Probably only works for dense matrices now
     total .= unitary
     for d in dissipators
@@ -107,11 +105,13 @@ function MatrixOperator(_L::LindbladOperator; normalizer)
     MatrixOperator(A; update_func!)
 end
 
+_pairs(p) = pairs(p)
+_pairs(::SciMLBase.NullParameters) = pairs(())
+
 function lindblad_updater!(L; normalizer)
-    normalizer || return 
-    function update_func!(A, u, p, t)
+    normalizer || return function update_func!(A, u, p, t)
         updated = false
-        for (label, props) in pairs(p)
+        for (label, props) in _pairs(p)
             update_dissipator!(L, label, props)
             updated = true
         end
@@ -124,7 +124,7 @@ function lindblad_updater!(L; normalizer)
 
     return function update_func_normalizer!(A, u, p, t)
         updated = false
-        for (label, props) in pairs(p)
+        for (label, props) in _pairs(p)
             update_dissipator!(L, label, props)
             updated = true
         end
@@ -193,6 +193,20 @@ commutator(A, krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khat
 function dissipator(L, kv::KronVectorizer)
     D = (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
     return kv.size > DENSE_CUTOFF ? D : Matrix(D)
+    # return Matrix(D)
+end
+function dissipator!(out, L::AbstractMatrix{T}, kv::KronVectorizer, kroncache, mulcache) where T
+    kron!(kroncache, conj(L), L)
+    out .= kroncache
+    i = Diagonal{T}(I, kv.size)
+    mul!(mulcache, L',L,1/2*one(T),zero(T))
+    kron!(kroncache, mulcache, i)
+    out .-= kroncache
+    kron!(kroncache, i, mulcache)
+    out .-= kroncache
+    #D = (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
+    #return kv.size > DENSE_CUTOFF ? D : Matrix(D)
+    return out
 end
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
