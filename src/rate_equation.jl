@@ -48,7 +48,7 @@ internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
 tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
 tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
-LinearOperator(L::PauliSystem{<:AbstractMatrix}; normalizer = false) = MatrixOperator(L; normalizer)
+LinearOperator(L::PauliSystem{<:AbstractMatrix}, args...; normalizer = false) = MatrixOperator(L; normalizer)
 # LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
 # LinearOperatorWithNormalizer(system::PauliSystem; kwargs...) = LinearOperator(add_normalizer(system.total_master_matrix); kwargs...)
 

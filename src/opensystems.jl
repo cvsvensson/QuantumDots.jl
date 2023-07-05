@@ -1,19 +1,19 @@
 fermidirac(E, T, μ) = (I + exp(E / T)exp(-μ / T))^(-1)
 abstract type AbstractLead end
-struct NormalLead{W,Opin,Opout,L} <: AbstractLead
-    T::W
-    μ::W
+struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
+    T::W1
+    μ::W2
     jump_in::Opin
     jump_out::Opout
-    label::L
 end
-NormalLead(T, μ, in, out, label) = NormalLead(promote(T, μ)..., in, out, label)
-NormalLead(jin, jout; T, μ, label=missing) = NormalLead(T, μ, jin, jout, label)
-NormalLead(jin; T, μ, label=missing) = NormalLead(T, μ, jin, jin', label)
-NormalLead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), label=l.label, in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out, label)
+# NormalLead = NormalLead1
+# NormalLead(T, μ, in, out) = NormalLead(promote(T, μ)..., in, out)
+NormalLead(jin, jout; T, μ) = NormalLead(T, μ, jin, jout)
+NormalLead(jin; T, μ) = NormalLead(T, μ, jin, jin')
+NormalLead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out)
 
-Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(Label=", lead.label, ", T=", temperature(lead), ", μ=", chemical_potential(lead), ")")
-Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(", lead.label, ", T=", round(temperature(lead), digits=4), ", μ=", round(chemical_potential(lead), digits=4), ")")
+Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(T=", temperature(lead), ", μ=", chemical_potential(lead), ")")
+Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(, T=", round(temperature(lead), digits=4), ", μ=", round(chemical_potential(lead), digits=4), ")")
 
 chemical_potential(lead::NormalLead) = lead.μ
 temperature(lead::NormalLead) = lead.T
@@ -35,7 +35,8 @@ end
 OpenSystem(H) = OpenSystem(H, nothing, nothing, nothing)
 OpenSystem(H, l) = OpenSystem(H, l, nothing, nothing)
 OpenSystem(H, l, m) = OpenSystem(H, l, m, nothing)
-eigenvaluevector(H::OpenSystem{<:DiagonalizedHamiltonian}) = diag(eigenvalues(H))
+eigenvaluevector(H::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvaluevector(hamiltonian(H))
+eigenvaluevector(H::DiagonalizedHamiltonian) = diag(eigenvalues(H))
 hamiltonian(system::OpenSystem) = system.hamiltonian
 eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
 eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
@@ -60,18 +61,17 @@ function normalized_steady_state_rhs(A)
 end
 
 
-function StationaryStateProblem(system::AbstractOpenSystem, args...; kwargs...)
-    A = LinearOperator(system; normalizer = true, kwargs...)
+function StationaryStateProblem(system::AbstractOpenSystem, u0 = identity_density_matrix(system), p = SciMLBase.NullParameters(); kwargs...)
+    A = LinearOperator(system, p; normalizer = true, kwargs...)
     b = normalized_steady_state_rhs(A)
-    u0 = identity_density_matrix(system)
     LinearProblem(A, b; u0, kwargs...)
 end
-function ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
+function ODEProblem(system::AbstractOpenSystem, u0, tspan, p = SciMLBase.NullParameters(), args...; kwargs...)
     internalu0 = internal_rep(u0, system)
-    prob = _ODEProblem(system, internalu0, args...; kwargs...)
+    prob = _ODEProblem(system, internalu0, tspan, p, args...; kwargs...)
 end
-function _ODEProblem(system::AbstractOpenSystem, u0, args...; kwargs...)
-    op = ODEProblem(LinearOperator(system; kwargs...), u0, args...; kwargs...)
+function _ODEProblem(system::AbstractOpenSystem, u0, tspan,p,args...; kwargs...)
+    op = ODEProblem(LinearOperator(system, p; kwargs...), u0,tspan,p,args...; kwargs...)
 end
 
 # function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
@@ -82,7 +82,7 @@ end
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
 
-diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), S' * lead.jump_in * S, S' * lead.jump_out * S, lead.label)
+diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), S' * lead.jump_in * S, S' * lead.jump_out * S)
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
 
 function diagonalize(m::AbstractMatrix)
@@ -162,7 +162,7 @@ ratetransform(op, energies::AbstractVector, T, μ) = ratetransform!(zero(op),op,
 #     return op2
 # end
 
-function ratetransform!(op2,op, energies::AbstractVector, T, μ)
+function ratetransform!(op2, op, energies::AbstractVector, T, μ)
     for I in CartesianIndices(op)
         n1, n2 = Tuple(I)
         δE = energies[n1] - energies[n2]

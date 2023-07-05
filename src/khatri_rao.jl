@@ -1,6 +1,6 @@
-function khatri_rao_lazy_dissipator(L, blocksizes)
+function khatri_rao_lazy_dissipator(L, kv::KhatriRaoVectorizer)
     L2 = L' * L
-    inds = sizestoinds(blocksizes)
+    inds = kv.inds
     T = eltype(L)
     prodmaps = LinearMap{T}[]
     summaps = LinearMap{T}[]
@@ -18,33 +18,45 @@ function khatri_rao_lazy_dissipator(L, blocksizes)
     end
     hvcat(length(inds), prodmaps...) - 1 / 2 * cat(summaps...; dims=(1, 2))
 end
-function khatri_rao_dissipator(L, blocksizes)
-    L2 = L' * L
-    inds = sizestoinds(blocksizes)
-    T = eltype(L)
-    newinds = sizestoinds(blocksizes .^ 2)
-    N = sum(abs2, blocksizes)
-    D = zeros(T, N, N)
+function khatri_rao_dissipator(L::AbstractMatrix{T}, kv::KhatriRaoVectorizer; rate = one(T)) where T
+    N = kv.cumsumsquared[end]
+    out = zeros(T, N, N)
+    kroncache = zeros(T, N, N)
+    mulcache = zero(L)
+    khatri_rao_dissipator!(out,L,rate,kv,kroncache, mulcache)
+    return out
+end
+
+function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, _kroncache, mulcache)
+    mul!(mulcache, L',L,1/2,0)
+    inds = kv.inds
+    blocksizes = kv.sizes
+    newinds = kv.vectorinds
     for k1 in eachindex(inds), k2 in eachindex(inds)
         ind1 = inds[k1]
         ind2 = inds[k2]
-        Lblock = L[ind1, ind2]
+        Lblock = @view(L[ind1, ind2])
         leftprodmap = Lblock
         rightprodmap = conj(Lblock)
-        kron!(@view(D[newinds[k1], newinds[k2]]), rightprodmap, leftprodmap)
+        kron!(@view(out[newinds[k1], newinds[k2]]), rightprodmap, leftprodmap)
         if k1 == k2
-            L2block = L2[ind1, ind2]
+            L2block = @view(mulcache[ind1, ind2])
             leftsummap = L2block
             rightsummap = transpose(L2block)
             id = I(blocksizes[k2])
-            D[newinds[k1], newinds[k2]] .+= -1 / 2 .* (kron(rightsummap, id) .+ kron(id, leftsummap))
+            kroncache = @view(_kroncache[newinds[k1], newinds[k2]])
+            kron!(kroncache, rightsummap, id)
+            out[newinds[k1], newinds[k2]] .-= kroncache
+            kron!(kroncache, id, leftsummap)
+            out[newinds[k1], newinds[k2]] .-= kroncache
         end
     end
-    return D
+    return out .*= rate
 end
 
-function khatri_rao_lazy(L1, L2, blocksizes)
-    inds = sizestoinds(blocksizes)
+function khatri_rao_lazy(L1, L2, kv::KhatriRaoVectorizer)
+    blocksizes = kv.sizes
+    inds = kv.inds
     T = promote_type(eltype(L1), eltype(L2))
     maps = LinearMap{T}[]
     for i in eachindex(blocksizes), j in eachindex(blocksizes)
@@ -56,16 +68,23 @@ function khatri_rao_lazy(L1, L2, blocksizes)
     end
     hvcat(length(inds), maps...)
 end
-function khatri_rao(L1, L2, blocksizes)
-    inds = sizestoinds(blocksizes)
-    T = promote_type(eltype(L1), eltype(L2))
-    maps = Matrix{T}[]
-    for i in eachindex(blocksizes), j in eachindex(blocksizes)
-        l1 = L1[inds[i], inds[j]]
-        l2 = L2[inds[i], inds[j]]
-        push!(maps, kron(l1, l2))
+
+function khatri_rao(L1::AbstractMatrix{T1},L2::AbstractMatrix{T2}, kv::KhatriRaoVectorizer) where {T1,T2}
+    T = promote_type(T1,T2)
+    KR = zeros(T,kv.cumsumsquared[end],kv.cumsumsquared[end])
+    khatri_rao!(KR,L1,L2,kv)
+end
+function khatri_rao!(KR, L1,L2, kv::KhatriRaoVectorizer)
+    khatri_rao!(KR,L1,L2,kv.inds,kv.vectorinds)
+end
+function khatri_rao!(KR, L1,L2, inds, finalinds)
+    #TODO: Put in checks
+    for i in eachindex(inds), j in eachindex(inds)
+        l1 = @view(L1[inds[i], inds[j]])
+        l2 = @view(L2[inds[i], inds[j]])
+        kron!(@view(KR[finalinds[i],finalinds[j]]),l1, l2)
     end
-    hvcat(length(inds), maps...)
+    return KR
 end
 
 function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, blocksizes) where {T1,T2}
@@ -83,11 +102,11 @@ end
 
 khatri_rao(L1::Diagonal, L2::Diagonal) = kron(L1, L2)
 khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal) = cat([kron(B1, B2) for (B1, B2) in zip(blocks(L1), blocks(L2))]...; dims=(1, 2))
-function khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal, bz)
-    if bz == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
+function khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal, kv::KhatriRaoVectorizer)
+    if kv.sizes == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
         return khatri_rao(L1, L2)
     else
-        return khatri_rao(cat(L1.blocks...; dims=(1, 2)), cat(L2.blocks...; dims=(1, 2)), bz)
+        return khatri_rao(cat(L1.blocks...; dims=(1, 2)), cat(L2.blocks...; dims=(1, 2)), kv)
     end
 end
 
