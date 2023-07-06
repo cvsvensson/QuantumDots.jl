@@ -92,9 +92,6 @@ function update_total_operators!(P::PauliSystem)
     end
 end
 
-function PauliDissipator(system::AbstractOpenSystem, lead::NormalLead)
-    PauliDissipator(eigenvaluevector(system), lead)
-end
 function get_rates(E::AbstractVector, lead::NormalLead)
     dos = density_of_states(lead)
     T = promote_type(eltype(E), eltype(lead.μ), eltype(lead.T), eltype(lead.jump_in))
