@@ -467,13 +467,13 @@ end
     @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
 end
 
-using QuantumDots, Test, Pkg
-Pkg.activate("./test")
-using LinearSolve,DifferentialEquations,PreallocationTools
-qn = QuantumDots.NoSymmetry()
 
 @testset "transport" begin
     function test_qd_transport(qn)
+        # using QuantumDots, Test, Pkg
+        # Pkg.activate("./test")
+        # using LinearSolve,DifferentialEquations,PreallocationTools
+        # qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
