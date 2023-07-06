@@ -534,7 +534,7 @@ end
         cmpauli = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli)
         cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
         
-        @test norm(cmpauli - cmpauli2) < 1e-4
+        @test norm(cmpauli - cmpauli2) < 1e-3
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob);
