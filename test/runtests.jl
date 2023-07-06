@@ -551,6 +551,9 @@ end
         @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈
               QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
+
+        @test islinear(pauli) 
+        @test islinear(ls) 
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)

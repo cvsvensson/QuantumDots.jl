@@ -22,6 +22,10 @@ abstract type AbstractDissipator end
 Base.:*(d::AbstractDissipator, v) = Matrix(d)*v 
 LinearAlgebra.mul!(v,d::AbstractDissipator, u) = mul!(v,Matrix(d),u)
 LinearAlgebra.mul!(v,d::AbstractDissipator, u,a,b) = mul!(v,Matrix(d),u,a,b)
+Base.size(d::AbstractDissipator,i) = size(Matrix(d),i)
+Base.size(d::AbstractDissipator) = size(Matrix(d))
+Base.eltype(d::AbstractDissipator) = eltype(Matrix(d))
+SciMLBase.islinear(d::AbstractDissipator) = true
 
 ##
 struct DiagonalizedHamiltonian{Vals,Vecs}
@@ -37,6 +41,7 @@ struct OpenSystem{H,L,M1,M2} <: AbstractOpenSystem
     measurements::M1
     transformed_measurements::M2
 end
+Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
 OpenSystem(H) = OpenSystem(H, nothing, nothing, nothing)
 OpenSystem(H, l) = OpenSystem(H, l, nothing, nothing)
 OpenSystem(H, l, m) = OpenSystem(H, l, m, nothing)
@@ -55,6 +60,11 @@ changebasis(::Nothing, os::OpenSystem{<:DiagonalizedHamiltonian}) = nothing
 
 Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
 Base.show(io::IO, system::OpenSystem{H,L,M1,M2}) where {H,L,M1,M2} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads),  "\nmeasurements: ", repr(measurements(system)), "\ntransformed_measurements: ", repr(transformed_measurements(system)))
+
+
+LinearAlgebra.mul!(du, L::AbstractOpenSystem, u) = LinearAlgebra.mul!(du, Matrix(L), u)
+LinearAlgebra.mul!(du, L::AbstractOpenSystem, u, α, β) = LinearAlgebra.mul!(du, Matrix(L), u, α, β)
+Base.:*(L::AbstractOpenSystem, u) = Matrix(L) * u
 
 abstract type AbstractOpenSolver end
 
@@ -140,40 +150,32 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-# stationary_state(system::AbstractOpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(system), alg; kwargs...)
-# stationary_state(method::AbstractOpenSolver, system::OpenSystem, alg=nothing; kwargs...) = solve(LinearProblem(method, system), alg; kwargs...)
-
-# function LinearProblem(method::AbstractOpenSolver, H::AbstractMatrix, leads, measurements=nothing; kwargs...)
-#     LinearProblem(method, OpenSystem(H, leads, nothing, measurements, nothing); kwargs...)
-# end
-
-
-# function ratetransform(system::OpenSystem{<:DiagonalizedHamiltonian})
-#     comm = commutator(Diagonal(eigenvalues(system)))
-#     newleads = [ratetransform(lead, comm) for lead in leads(system)]
-#     return OpenSystem(hamiltonian(system), leads(system), newleads, measurements(system), transformed_measurements(system))
-# end
-
-
-# function ratetransform(lead::NormalLead, commutator_hamiltonian)
-#     μ = chemical_potential(lead)
-#     T = temperature(lead)
-#     newjumpin = ratetransform(lead.jump_in, commutator_hamiltonian, T, μ) 
-#     newjumpout = ratetransform(lead.jump_out, commutator_hamiltonian, T, -μ)
-#     return NormalLead(T, μ, newjumpin, newjumpout, lead.label)
-# end
 ratetransform(op, energies::AbstractVector, T, μ) = ratetransform!(zero(op),op, energies,T,μ)
-# function ratetransform2!(op2,op, commutator_hamiltonian::Diagonal, T, μ) 
-#     mul!(vec(op2), sqrt(fermidirac(commutator_hamiltonian, T, μ)), vec(op))
-#     return op2
-# end
 
 function ratetransform!(op2, op, energies::AbstractVector, T, μ)
     for I in CartesianIndices(op)
         n1, n2 = Tuple(I)
         δE = energies[n1] - energies[n2]
         op2[n1,n2] = sqrt(fermidirac(δE, T, μ)) * op[n1,n2]
-    # mul!(vec(op2), sqrt(fermidirac(commutator_hamiltonian, T, μ)), vec(op))
     end
     return op2
+end
+
+
+function conductance_matrix(rho, current_op, ls::AbstractOpenSystem)
+    dDs = [chem_derivative(d) for d in ls.dissipators]
+    linsolve = init(StationaryStateProblem(ls))
+    rhodiff = stack([collect(measure(solveDiffProblem!(linsolve,rho, dD), current_op, ls)) for dD in dDs])
+    dissdiff = Diagonal([dot(current_op, tomatrix(dD*rho,ls)) for dD in dDs])
+    return dissdiff + rhodiff
+end
+function conductance_matrix(rho, current_op, ls::AbstractOpenSystem,dμ)
+    perturbations = map(d -> (;μ = d.lead.μ + dμ), ls.dissipators)
+    function get_current(pert)
+        newls = update(ls,pert)
+        sol = solve(StationaryStateProblem(newls))
+        collect(measure(sol, current_op, newls))
+    end
+    I0 = get_current(SciMLBase.NullParameters())
+    stack(map(key -> (get_current(perturbations[[key]]) .- I0)/dμ, keys(perturbations)))
 end

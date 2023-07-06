@@ -30,7 +30,7 @@ function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorize
     lindblad_matrix!(total, unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
 end
-Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
+SciMLBase.islinear(L::LindbladSystem) = true
 
 struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
     superop::S
@@ -46,13 +46,11 @@ _dissipator_params(d::LindbladDissipator) = (;μ = d.lead.μ, T = d.lead.T, rate
 _dissipator_params(d::LindbladDissipator,p) = (;μ = get(p,:μ, d.lead.μ), T = get(p,:T,d.lead.T), rate = get(p,:rate,d.rate))
 function chem_derivative(d)
     func = μ -> Matrix(update(d,(;μ)))
-    # func = μ -> d((;μ)).superop.total
     ForwardDiff.derivative(func, d.lead.μ)
 end
 function chem_derivative(d, _p)
     p = _dissipator_params(d,_p)
     func = μ -> Matrix(update(d,(;μ,T = p.T, rate=p.rate)))
-    # func = μ -> d().superop.total
     ForwardDiff.derivative(func, p.μ)
 end
 
@@ -101,8 +99,7 @@ function update_lindblad_system(L::LindbladSystem, p)
     LindbladSystem(total,L.unitary,newdissipators, L.vectorizer, L.hamiltonian, L.cache)
 end 
 
-LindbladOperator(sys::OpenSystem, vectorizer=default_vectorizer(sys)) = LindbladOperator(sys.hamiltonian, sys.leads, vectorizer)
-
+LindbladOperator(sys::OpenSystem, vectorizer=default_vectorizer(sys)) = LindbladSystem(sys, vectorizer)
 LinearOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer=false) = MatrixOperator(L, p; normalizer)
 function MatrixOperator(L::LindbladSystem, p::SciMLBase.NullParameters; normalizer)
     A = normalizer ? lindblad_with_normalizer(L.total, L.vectorizer) : L.total
@@ -114,30 +111,8 @@ function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normali
     MatrixOperator(A)
 end
 
-_pairs(p) = pairs(p)
-_pairs(::SciMLBase.NullParameters) = pairs(())
-
-LinearAlgebra.mul!(du, L::LindbladSystem, u) = LinearAlgebra.mul!(du, L.total, u)
-LinearAlgebra.mul!(du, L::LindbladSystem, u, α, β) = LinearAlgebra.mul!(du, L.total, u, α, β)
-Base.:*(L::LindbladSystem, u) = L.total * u
-
-update(L::LindbladSystem,p) = update_lindblad_system(L,p)
-# function (L::LindbladSystem)(p)
-    # tmp_type = get_tmp_type(p)
-    # println(tmp_type)
-    # println(complex(tmp_type))
-    # A = zero(complex(get_tmp(L.total, tmp_type)))
-    # return update_lindblad_system(L, p)
-    # update_lindblad_matrix!(A, nothing, (p,L), nothing) #Make sure dissipators are not updated
-    # return A
-# end
 (L::LindbladSystem)(u, p, t; kwargs...) = update_lindblad_system(L, p; kwargs...) * u
-# (L::LindbladSystem)(du, u, p, t; kwargs...) = (update_lindblad_matrix!(L, u, p, t; kwargs...); mul!(du, get_tmp(L.total, mapreduce(collect, vcat, p, init=eltype(L.total.du)[])), u))
-# (L::LindbladSystem)(du, u, p, t, α, β; kwargs...) = (update_lindblad_matrix!(L, u, p, t; kwargs...); mul!(du, get_tmp(L.total, mapreduce(collect, vcat, p, init=eltype(L.total.du)[])), u, α, β))
-SciMLBase.islinear(L::LindbladSystem) = true
-
-# update_lindblad_matrix!(L::LindbladOperator, u, p, t) = update_lindblad_matrix!(L.total,u,(p,L),t)
-
+update(L::LindbladSystem,p) = update_lindblad_system(L,p)
 
 tomatrix(rho::AbstractVector, system::LindbladSystem) = tomatrix(rho, system.vectorizer)
 tomatrix(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
@@ -201,7 +176,6 @@ measure(rho, sys::OpenSystem, ls::AbstractOpenSystem) = map(op -> measure(rho, o
 measure(rho, op, ls::AbstractOpenSystem) = map(d -> measure_dissipator(rho, op, d, ls), ls.dissipators)
 
 function measure_dissipator(rho, op, dissipator, system)
-    # map(superop -> measure(rho, op, superop, system), dissipator.superop)
     measure(rho, op, Matrix(dissipator), system)
 end
 Base.Matrix(d::LindbladDissipator) = d.superop.total
@@ -227,24 +201,3 @@ end
 lindblad_with_normalizer(lindblad::AbstractMatrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
 identity_density_matrix(system::LindbladSystem) = one(eltype(system.total)) * (system.vectorizer.idvec ./ sqrt(size(system.total, 2)))
-
-Base.size(d::LindbladDissipator,i) = size(d.superop.total,i)
-Base.size(d::LindbladDissipator) = size(d.superop.total)
-Base.eltype(d::LindbladDissipator) = eltype(d.superop.total)
-function conductance_matrix(rho, current_op, ls::AbstractOpenSystem)
-    dDs = [chem_derivative(d) for d in ls.dissipators]
-    linsolve = init(StationaryStateProblem(ls))
-    rhodiff = stack([collect(measure(solveDiffProblem!(linsolve,rho, dD), current_op, ls)) for dD in dDs])
-    dissdiff = Diagonal([dot(current_op, tomatrix(dD*rho,ls)) for dD in dDs])
-    return dissdiff + rhodiff
-end
-function conductance_matrix(rho, current_op, ls::AbstractOpenSystem,dμ)
-    perturbations = map(d -> (;μ = d.lead.μ + dμ), ls.dissipators)
-    function get_current(pert)
-        newls = update(ls,pert)
-        sol = solve(StationaryStateProblem(newls))
-        collect(measure(sol, current_op, newls))
-    end
-    I0 = get_current(SciMLBase.NullParameters())
-    stack(map(key -> (get_current(perturbations[[key]]) .- I0)/dμ, keys(perturbations)))
-end
