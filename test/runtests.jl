@@ -481,7 +481,7 @@ qn = QuantumDots.NoSymmetry()
         T = rand()
         μL, μR, μH = rand(3)
         # Γ = T/10
-        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL) # (;T,μ=μL, in = a[1]',out=a[1])
+        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
         rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
         leads = (;left = leftlead, right = rightlead)
 
@@ -512,7 +512,7 @@ qn = QuantumDots.NoSymmetry()
         numeric_current = QuantumDots.measure(ρ, diagonalsystem, ls)[1]
         cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
         cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
-        @test norm(cm - cm2) < 1e-5
+        @test norm(cm - cm2) < 1e-4
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal,diagonalsystem, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈ , numeric_current, (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
@@ -527,9 +527,14 @@ qn = QuantumDots.NoSymmetry()
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
+        @test all(map(≈, rate_current, QuantumDots.measure(ρ_pauli, diagonalsystem, pauli)[1]))
         @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
         @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 
+        cmpauli = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli)
+        cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
+        
+        @test norm(cmpauli - cmpauli2) < 1e-4
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob);

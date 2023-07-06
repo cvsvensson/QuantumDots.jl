@@ -14,7 +14,7 @@ struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     dissipators::D
 end
 
-struct PauliDissipator{L,W,I,D,E}
+struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
     lead::L
     Win::W
     Wout::W
@@ -23,6 +23,8 @@ struct PauliDissipator{L,W,I,D,E}
     total_master_matrix::D
     energies::E
 end
+Base.Matrix(d::PauliDissipator) = d.total_master_matrix
+
 function PauliDissipator(energies::E, lead::L) where {L,E}
     Win, Wout = get_rates(energies, lead)
     # D = zero(Win)
@@ -32,14 +34,6 @@ function PauliDissipator(energies::E, lead::L) where {L,E}
     D = get_master_matrix(Win,Wout,Iin,Iout)
     PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),E}(lead, Win, Wout, Iin, Iout, D, energies)
 end
-function _default_pauli_dissipator_params(l::NormalLead)
-    T, μ = promote(temperature(l), chemical_potential(l))
-    type = eltype(T)
-    props = @LVector type (:T, :μ)
-    props.T = T
-    props.μ = μ
-    return props
-end
 
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
 internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
@@ -47,8 +41,6 @@ internal_rep(u::AbstractVector, ::PauliSystem) = u
 tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
 tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
 LinearOperator(L::PauliSystem{<:AbstractMatrix}, args...; normalizer = false) = MatrixOperator(L; normalizer)
-# LinearOperator(system::PauliSystem; kwargs...) = LinearOperator(system.total_master_matrix; kwargs...)
-# LinearOperatorWithNormalizer(system::PauliSystem; kwargs...) = LinearOperator(add_normalizer(system.total_master_matrix); kwargs...)
 
 function identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
@@ -64,8 +56,19 @@ function PauliSystem(ds)
     update_total_operators!(P)
     return P
 end
+update(L::PauliSystem,p) = update_pauli_system(L,p)
+function update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters)
+    L
+end
+function update_pauli_system(L::PauliSystem, p)
+    _newdissipators = map(lp-> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+    newdissipators = merge(L.dissipators, _newdissipators)
+    PauliSystem(newdissipators)
+end 
+function update(d::PauliDissipator, p)
+    PauliDissipator(d.energies, update_lead(d.lead,p))
+end
 
-# LinearOperator(P::PauliSystem{<:AbstractMatrix}; normalizer = false) = MatrixOperator(P; normalizer)
 function MatrixOperator(P::PauliSystem; normalizer)
     A = normalizer ? add_normalizer(P.total_master_matrix) : P.total_master_matrix
     MatrixOperator(A)
@@ -106,12 +109,9 @@ function update_rates!(W, op, T, μ, E::AbstractVector; dos)
         n1, n2 = Tuple(I)
         δE = E[n1] - E[n2]
         W[n1, n2] = 2π * dos * abs2(op[n1, n2]) * fermidirac(δE, T, μ)
-        # Wout[n1, n2] = 2π * dos * abs2(Tout[n1, n2]) * (1 - fermidirac(-δE, T, μ))#*QuantumDots.fermidirac(E[n1]-E[n2],T,-μ)
     end
     return W
 end
-
-update_master_matrix!(d::PauliDissipator) = update_master_matrix!(d.total_master_matrix, d.Win, d.Wout, d.Iin, d.Iout)
 
 function get_master_matrix(Win, Wout, Iin, Iout)
     D = deepcopy(Win)
@@ -121,7 +121,6 @@ function get_master_matrix(Win, Wout, Iin, Iout)
     end
     return D
 end
-update_currents!(d::PauliDissipator) = update_currents!(d.Iin,d.Iout,d.Win,d.Wout)
 function update_currents!(Iin,Iout,Win,Wout)
     for j in eachindex(Iin)
         Iin[j] = sum(@view Win[:,j])
@@ -130,12 +129,9 @@ function update_currents!(Iin,Iout,Win,Wout)
     return nothing
 end
 
-function new_dissipator(d::PauliDissipator, p)
-    PauliDissipator(energies, update_lead(d.lead,p))
-end
 
 function add_normalizer(m::AbstractMatrix{T}) where {T}
-    [m; fill(one(T), size(m, 2))']
+    [m; fill(one(T), 1, size(m, 2))]
 end
 
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)

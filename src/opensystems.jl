@@ -18,6 +18,11 @@ Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = pri
 chemical_potential(lead::NormalLead) = lead.μ
 temperature(lead::NormalLead) = lead.T
 
+abstract type AbstractDissipator end
+Base.:*(d::AbstractDissipator, v) = Matrix(d)*v 
+LinearAlgebra.mul!(v,d::AbstractDissipator, u) = mul!(v,Matrix(d),u)
+LinearAlgebra.mul!(v,d::AbstractDissipator, u,a,b) = mul!(v,Matrix(d),u,a,b)
+
 ##
 struct DiagonalizedHamiltonian{Vals,Vecs}
     eigenvalues::Vals
@@ -75,11 +80,9 @@ function _ODEProblem(system::AbstractOpenSystem, u0, tspan,p,args...; kwargs...)
 end
 
 function solveDiffProblem!(linsolve, x0, dA)
-    # fill!(@view(linsolve.A.A[end,:]), zero(eltype(linsolve.A))) 
     linsolve.b[1:end-1] .= -dA * x0
     linsolve.b[end] = zero(eltype(linsolve.b))
     return solve!(linsolve)
-    # solve!(linsolve)
 end
 
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
