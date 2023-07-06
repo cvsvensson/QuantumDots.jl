@@ -553,7 +553,17 @@ end
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
 
         @test islinear(pauli) 
+        @test all(map(islinear,(pauli.dissipators)))
         @test islinear(ls) 
+        @test all(map(islinear,(ls.dissipators))) 
+        @test eltype(ls) == eltype(ls.total)
+        @test eltype(pauli) == eltype(pauli.total_master_matrix)
+        @test Matrix(ls) == ls.total
+        @test Matrix(pauli) == pauli.total_master_matrix
+        @test eltype(first(pauli.dissipators)) == eltype(Matrix(first(pauli.dissipators)))
+        @test size(pauli) == size(Matrix(pauli)) == size(first(pauli.dissipators)) 
+        @test size(ls) ==  size(Matrix(ls)) == size(first(ls.dissipators))
+
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)

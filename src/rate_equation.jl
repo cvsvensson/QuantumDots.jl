@@ -13,7 +13,7 @@ struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     total_current_operator::I
     dissipators::D
 end
-SciMLBase.islinear(L::PauliSystem) = true
+Base.Matrix(P::PauliSystem) = P.total_master_matrix
 
 struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
     lead::L

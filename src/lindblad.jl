@@ -30,7 +30,6 @@ function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorize
     lindblad_matrix!(total, unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
 end
-SciMLBase.islinear(L::LindbladSystem) = true
 
 struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
     superop::S
@@ -179,6 +178,8 @@ function measure_dissipator(rho, op, dissipator, system)
     measure(rho, op, Matrix(dissipator), system)
 end
 Base.Matrix(d::LindbladDissipator) = d.superop.total
+Base.Matrix(L::LindbladSystem) = L.total
+
 measure(rho, op, dissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 
 lindblad_with_normalizer_dense(lindblad::AbstractMatrix, kv::AbstractVectorizer) = vcat(lindblad, transpose(kv.idvec))

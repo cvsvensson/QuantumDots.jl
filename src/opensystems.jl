@@ -35,6 +35,15 @@ end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 
 abstract type AbstractOpenSystem end
+Base.:*(d::AbstractOpenSystem, v) = Matrix(d)*v 
+LinearAlgebra.mul!(v,d::AbstractOpenSystem, u) = mul!(v,Matrix(d),u)
+LinearAlgebra.mul!(v,d::AbstractOpenSystem, u,a,b) = mul!(v,Matrix(d),u,a,b)
+Base.eltype(system::AbstractOpenSystem) = eltype(Matrix(system))
+Base.size(d::AbstractOpenSystem,i) = size(Matrix(d),i)
+Base.size(d::AbstractOpenSystem) = size(Matrix(d))
+SciMLBase.islinear(d::AbstractOpenSystem) = true
+
+
 struct OpenSystem{H,L,M1,M2} <: AbstractOpenSystem
     hamiltonian::H
     leads::L
@@ -60,11 +69,6 @@ changebasis(::Nothing, os::OpenSystem{<:DiagonalizedHamiltonian}) = nothing
 
 Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
 Base.show(io::IO, system::OpenSystem{H,L,M1,M2}) where {H,L,M1,M2} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads),  "\nmeasurements: ", repr(measurements(system)), "\ntransformed_measurements: ", repr(transformed_measurements(system)))
-
-
-LinearAlgebra.mul!(du, L::AbstractOpenSystem, u) = LinearAlgebra.mul!(du, Matrix(L), u)
-LinearAlgebra.mul!(du, L::AbstractOpenSystem, u, α, β) = LinearAlgebra.mul!(du, Matrix(L), u, α, β)
-Base.:*(L::AbstractOpenSystem, u) = Matrix(L) * u
 
 abstract type AbstractOpenSolver end
 
