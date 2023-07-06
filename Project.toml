@@ -1,7 +1,7 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
 authors = ["Viktor Svensson, William Samuelson"]
-version = "0.4.0"
+version = "0.5.0"
 
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
