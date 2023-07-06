@@ -6,7 +6,6 @@ using Dictionaries
 using Symbolics
 using StaticArrays
 using UnicodePlots
-using LabelledArrays
 using PreallocationTools
 
 using SciMLBase
