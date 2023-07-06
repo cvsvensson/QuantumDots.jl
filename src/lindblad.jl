@@ -70,22 +70,11 @@ function dissipator(lead, energies, rate,vectorizer, _cache::LindbladCache)
     LindbladDissipator(superop, rate,lead, energies, vectorizer, _cache)
 end
 
-# _get_tmp(L, u) = _get_tmp(L.cache,u)
 
 function get_cache(L::LindbladCache, u)
     t = promote(Iterators.flatten(u)...)[1]
     LindbladCache(map(field->get_tmp(getproperty(L, field), t), fieldnames(LindbladCache))...)
 end
-# function get_cache(L, ::SciMLBase.NullParameters)
-#     p2 = L.total
-#     _get_tmp(L, p2)
-# end
-
-# function get_cache(L, p)
-#     p2 = promote(Iterators.flatten(p)...)[1]
-#     _get_tmp(L, p2)
-# end
-
 new_dissipator(L, label, ::SciMLBase.NullParameters) = L.dissipators[label]
 function new_dissipator(d::LindbladDissipator, p)
     rate = get(p, :rate, d.rate)
@@ -106,54 +95,13 @@ end
 
 update_lindblad_system(L::LindbladSystem, ::SciMLBase.NullParameters) = L
 function update_lindblad_system(L::LindbladSystem, p)
-    # cache = get_cache(L, p)
     _newdissipators = map(lp-> first(lp) => new_dissipator(L,lp), collect(pairs(p)))
-    # println(merge(p, map(lp->lp,collect(pairs(p)))))
-    # println(typeof(_newdissipators))
     newdissipators = merge(L.dissipators, _newdissipators)
     T = promote_type(eltype(L.unitary), map(d->eltype(d.superop.total), newdissipators)...)
     total = zeros(T,size(L.cache.superopcache.du)...)
-    # total = deepcopy(cache.superopcache)
     lindblad_matrix!(total,L.unitary,newdissipators)
     LindbladSystem(total,L.unitary,newdissipators, L.vectorizer, L.hamiltonian, L.cache)
 end 
-
-# function update_lindblad_matrix!(A, u, (p,L), t)
-#     tmp_type = get_tmp_type(p)
-#     for (label, props) in _pairs(p)
-#         # tmp_type = promote(props...)[1]
-#         # get_tmp(A, tmp_type) .-= get_tmp(L.dissipators[label].in, tmp_type) .+ get_tmp(L.dissipators[label].out, tmp_type)
-#         update_dissipator!(L, label, props, L.cache, tmp_type)
-#     end
-#     get_tmp(A, tmp_type) .= L.unitary
-#     for d in L.dissipators
-#         get_tmp(A, tmp_type) .+= get_tmp(d.in, tmp_type) .+ get_tmp(d.out, tmp_type)
-#     end
-#     return nothing
-# end
-
-# dissipator_from_cache(cache) = deepcopy(cache.superop)
-
-
-# _lead_prop(l) = (; μ=l.μ, T=l.T, rate=one(l.T))
-
-# function LindbladOperator(hamiltonian::DiagonalizedHamiltonian, leads, vectorizer=default_vectorizer(hamiltonian))
-#     commutator_hamiltonian = commutator(eigenvalues(hamiltonian), vectorizer)
-#     unitary = -1im * commutator_hamiltonian
-#     total = DiffCache(deepcopy(Matrix(unitary)))
-#     kroncache = deepcopy(total)
-#     mulcache = DiffCache(complex(Matrix(eigenvalues(hamiltonian))))
-#     opcache = DiffCache(complex(Matrix(eigenvalues(hamiltonian))))
-#     dissipators = map(lead -> (; in=deepcopy(total), out=deepcopy(total)), leads)
-#     cache = (; kroncache, mulcache, opcache)
-#     props = map(_lead_prop, leads)
-#     lead_ops = map(lead -> (; in=lead.jump_in, out=lead.jump_out), leads)
-#     energies = eigenvaluevector(hamiltonian)
-#     map(label -> update_dissipator!(dissipators[label], lead_ops[label], energies, props[label].μ, props[label].T, props[label].rate, vectorizer, cache, 1.0), keys(leads))
-#     update_total_operator!(total, unitary, dissipators, props)
-#     LindbladOperator(hamiltonian, unitary, dissipators, lead_ops, props, total, vectorizer, cache)
-# end
-
 
 LindbladOperator(sys::OpenSystem, vectorizer=default_vectorizer(sys)) = LindbladOperator(sys.hamiltonian, sys.leads, vectorizer)
 
@@ -291,19 +239,8 @@ function conductance_matrix(rho, current_op, ls::LindbladSystem)
     ls = ls(SciMLBase.NullParameters())
     dDs = [chem_derivative(d) for d in ls.dissipators]
     linsolve = init(StationaryStateProblem(ls))
-    #bad dρs0 = [solve(LinearProblem(ls(SciMLBase.NullParameters()).total, -dD * rho)) for dD in dDs]
-    # dρs2 = [solve(LinearProblem(add_normalizer(ls.total), push!(-dD * rho, zero(eltype(dD))))) for dD in dDs]
-    # dρs2 = [solve(LinearProblem(add_normalizer(ls(SciMLBase.NullParameters()).total), push!(-dD * rho,0))) for dD in dDs]
-    # dρs3 = [(linsolve.b .= -dD * rho -solve!(LinearProblem(add_normalizer(ls(SciMLBase.NullParameters()).total), )) for dD in dDs]
-    dρs = stack([collect(measure(solveDiffProblem!(linsolve,rho, dD), current_op, ls)) for dD in dDs])
     rhodiff = stack([collect(measure(solveDiffProblem!(linsolve,rho, dD), current_op, ls)) for dD in dDs])
     dissdiff = Diagonal([dot(current_op, tomatrix(dD*rho,ls)) for dD in dDs])
-    # rhodiff = [dot(current_op, d*dρ) for  d in ls.dissipators, dρ in dρs]
-    # rhodiff = stack([collect(map(sum,measure(dρ, current_op, ls))) for dρ in dρs2])
-    # rhodiff2 = stack([collect(map(sum,measure(dρ, current_op, ls))) for dρ in dρs])
-    # dρs0 #Is bad
-    # dρs # Looks ok, but is wrong
-    # dρs2 # Also Looks ok. And matches the finite diff
     return dissdiff + rhodiff
 end
 function conductance_matrix(rho, current_op, ls::LindbladSystem,dμ)
@@ -315,8 +252,6 @@ function conductance_matrix(rho, current_op, ls::LindbladSystem,dμ)
     end
     I0 = get_current(SciMLBase.NullParameters())
     stack(map(key -> (get_current(perturbations[[key]]) .- I0)/dμ, keys(perturbations)))
-    # stack([sum.(collect((measure(dρ, current_op, ls)))) for dρ in dρs])'
-    # ([((measure(dρ, current_op, ls))) for dρ in dρs])
 end
 Base.:*(d::LindbladDissipator, v) = d.superop.total*v 
 LinearAlgebra.mul!(v,d::LindbladDissipator, u) = mul!(v,d.superop.total,u)

@@ -493,12 +493,8 @@ qn = QuantumDots.NoSymmetry()
         @test diag(diagonalsystem.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diag(diagonalsystem2.hamiltonian.eigenvalues) ≈ [0]
         ls = QuantumDots.LindbladSystem(diagonalsystem)
-        # ls = LindbladOperator(diagonalsystem)
-        # lo2 = LindbladOperator(diagonalsystem)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
-        # @test size(mo) == (4,4)
-        # @test size(QuantumDots.LinearOperator(lo; normalizer = true)) == (5,4)
 
         prob = StationaryStateProblem(ls)
         ρinternal = solve(prob; abstol = 1e-12)
@@ -517,31 +513,6 @@ qn = QuantumDots.NoSymmetry()
         cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
         cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
         @test norm(cm - cm2) < 1e-5
-        # function autodiff_conductance(μL)
-        #     ls = lindsys(μL)
-        #     prob = StationaryStateProblem(ls)
-        #     linsolve = init(prob)
-        #     sol = solve!(linsolve)
-        #     func = μ -> lindsys(μ).total
-        #     dL1 = ForwardDiff.derivative(func, μL)
-        #     dL2 = [dL1; fill(zero(eltype(dL1)), size(dL1, 2))']
-        #     QuantumDots.DiffProblem!(linsolve,sol,dL2)
-        #     dsol = solve!(linsolve)
-        #     c1 = (QuantumDots.measure(dsol, diagonalsystem, ls)[1])
-        #     c2 = (;left = QuantumDots.measure(sol, diagonalsystem.transformed_measurements[1], dL1, ls), right=0)
-        #     println(c1)
-        #     println(c2)
-        #     sum.(collect(c2)) .+ sum.(collect(c1))
-        # end
-        # function finite_diff_conductance(μL,dμ)
-        #      ls = lindsys(μL+dμ)
-        #      ls0 = lindsys(μL)
-        #      c1 = QuantumDots.measure(solve(StationaryStateProblem(ls)), diagonalsystem, ls)[1]
-        #      c2 = QuantumDots.measure(solve(StationaryStateProblem(ls0)), diagonalsystem, ls0)[1]
-        #      println(c1)
-        #      println(c2)
-        #      (sum.(collect(c1)) .- sum.(collect(c2))) / dμ
-        # end
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal,diagonalsystem, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈ , numeric_current, (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?

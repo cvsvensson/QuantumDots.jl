@@ -138,7 +138,6 @@ function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), size(m, 2))']
 end
 
-# get_currents(eq::PauliSystem, alg=nothing; kwargs...) = get_currents(solve(StationaryStateProblem(eq), alg), eq; kwargs...)
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
     map(d-> dot(d.Iin, rho) + dot(d.Iout,rho), P.dissipators)
