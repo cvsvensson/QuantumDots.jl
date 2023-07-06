@@ -6,6 +6,7 @@ version = "0.4.0"
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LabelledArrays = "2ee39098-c373-598a-b85f-a56591580800"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"

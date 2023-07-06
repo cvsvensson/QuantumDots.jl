@@ -480,8 +480,8 @@ qn = QuantumDots.NoSymmetry()
         hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
+        # Γ = T/10
         leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL) # (;T,μ=μL, in = a[1]',out=a[1])
-        # rightlead = (;T,μ=μR, in = a[N]',out=a[N]) #QuantumDots.NormalLead(a[1]'; T, μ=μL)
         rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
         leads = (;left = leftlead, right = rightlead)
 
@@ -492,16 +492,17 @@ qn = QuantumDots.NoSymmetry()
         diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
         @test diag(diagonalsystem.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diag(diagonalsystem2.hamiltonian.eigenvalues) ≈ [0]
-
-        lo = LindbladOperator(diagonalsystem)
-        mo = QuantumDots.LinearOperator(lo)
+        ls = QuantumDots.LindbladSystem(diagonalsystem)
+        # ls = LindbladOperator(diagonalsystem)
+        # lo2 = LindbladOperator(diagonalsystem)
+        mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
         # @test size(mo) == (4,4)
         # @test size(QuantumDots.LinearOperator(lo; normalizer = true)) == (5,4)
 
-        prob = StationaryStateProblem(lo)
-        ρinternal = solve(prob)
-        ρ = tomatrix(ρinternal, lo)
+        prob = StationaryStateProblem(ls)
+        ρinternal = solve(prob; abstol = 1e-12)
+        ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
         rhod = diag(ρ)
@@ -512,10 +513,38 @@ qn = QuantumDots.NoSymmetry()
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
-        numeric_current = QuantumDots.measure(ρ, diagonalsystem, lo)[1]
-        @test sum(numeric_current.left) ≈ sum(QuantumDots.measure(ρinternal,diagonalsystem, lo)[1].left)
-        @test abs(sum(sum, numeric_current)) < 1e-10
-        @test all(map(≈ , map(sum, numeric_current), (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
+        numeric_current = QuantumDots.measure(ρ, diagonalsystem, ls)[1]
+        cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
+        cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
+        @test norm(cm - cm2) < 1e-5
+        # function autodiff_conductance(μL)
+        #     ls = lindsys(μL)
+        #     prob = StationaryStateProblem(ls)
+        #     linsolve = init(prob)
+        #     sol = solve!(linsolve)
+        #     func = μ -> lindsys(μ).total
+        #     dL1 = ForwardDiff.derivative(func, μL)
+        #     dL2 = [dL1; fill(zero(eltype(dL1)), size(dL1, 2))']
+        #     QuantumDots.DiffProblem!(linsolve,sol,dL2)
+        #     dsol = solve!(linsolve)
+        #     c1 = (QuantumDots.measure(dsol, diagonalsystem, ls)[1])
+        #     c2 = (;left = QuantumDots.measure(sol, diagonalsystem.transformed_measurements[1], dL1, ls), right=0)
+        #     println(c1)
+        #     println(c2)
+        #     sum.(collect(c2)) .+ sum.(collect(c1))
+        # end
+        # function finite_diff_conductance(μL,dμ)
+        #      ls = lindsys(μL+dμ)
+        #      ls0 = lindsys(μL)
+        #      c1 = QuantumDots.measure(solve(StationaryStateProblem(ls)), diagonalsystem, ls)[1]
+        #      c2 = QuantumDots.measure(solve(StationaryStateProblem(ls0)), diagonalsystem, ls0)[1]
+        #      println(c1)
+        #      println(c2)
+        #      (sum.(collect(c1)) .- sum.(collect(c2))) / dμ
+        # end
+        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal,diagonalsystem, ls)[1]))
+        @test abs(sum(numeric_current)) < 1e-10
+        @test all(map(≈ , numeric_current, (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
 
         pauli = QuantumDots.pauli_system(diagonalsystem)
         pauli_prob = StationaryStateProblem(pauli)
@@ -527,22 +556,22 @@ qn = QuantumDots.NoSymmetry()
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test rate_current.left.in ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left.in
-        @test all(map(≈ , map(sum, rate_current), map(sum, QuantumDots.get_currents(pauli))))
-        @test all(c1.in / c1.out ≈ c2.in / c2.out for (c1, c2) in zip(numeric_current, rate_current))
+        @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
+        @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 
-        prob = ODEProblem(lo, I / 2^N, (0, 100))
+
+        prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob);
-        @test all(diff([tr(tomatrix(sol(t), lo)^2) for t in 0:0.1:1]) .> 0)
+        @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
         sol = solve(prob)
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
-        @test QuantumDots.internal_rep(ρ, lo) ≈
-              QuantumDots.internal_rep(ρinternal, lo) ≈
-              QuantumDots.internal_rep(Matrix(ρ), lo)
+        @test QuantumDots.internal_rep(ρ, ls) ≈
+              QuantumDots.internal_rep(ρinternal, ls) ≈
+              QuantumDots.internal_rep(Matrix(ρ), ls)
         @test QuantumDots.internal_rep(ρ_pauli, pauli) ≈
               QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)

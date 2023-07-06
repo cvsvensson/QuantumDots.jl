@@ -61,7 +61,7 @@ function normalized_steady_state_rhs(A)
 end
 
 
-function StationaryStateProblem(system::AbstractOpenSystem, u0 = identity_density_matrix(system), p = SciMLBase.NullParameters(); kwargs...)
+function StationaryStateProblem(system::AbstractOpenSystem, p = SciMLBase.NullParameters(); u0 = identity_density_matrix(system), kwargs...)
     A = LinearOperator(system, p; normalizer = true, kwargs...)
     b = normalized_steady_state_rhs(A)
     LinearProblem(A, b; u0, kwargs...)
@@ -74,10 +74,13 @@ function _ODEProblem(system::AbstractOpenSystem, u0, tspan,p,args...; kwargs...)
     op = ODEProblem(LinearOperator(system, p; kwargs...), u0,tspan,p,args...; kwargs...)
 end
 
-# function differentiate!(linsolve::LinearSolve.LinearCache, x0, dA)
-#     linsolve.b = -dA * x0
-#     solve!(linsolve)
-# end
+function solveDiffProblem!(linsolve, x0, dA)
+    # fill!(@view(linsolve.A.A[end,:]), zero(eltype(linsolve.A))) 
+    linsolve.b[1:end-1] .= -dA * x0
+    linsolve.b[end] = zero(eltype(linsolve.b))
+    return solve!(linsolve)
+    # solve!(linsolve)
+end
 
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
