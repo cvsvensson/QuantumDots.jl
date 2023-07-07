@@ -99,12 +99,8 @@ function update_lindblad_system(L::LindbladSystem, p)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.cache)
 end
 
-LindbladOperator(sys::OpenSystem, vectorizer=default_vectorizer(sys)) = LindbladSystem(sys, vectorizer)
 LinearOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer=false) = MatrixOperator(L, p; normalizer)
-# function MatrixOperator(L::LindbladSystem, ::SciMLBase.NullParameters; normalizer)
-#     A = normalizer ? lindblad_with_normalizer(L.total, L.vectorizer) : L.total
-#     MatrixOperator(A)
-# end
+
 function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer)
     A0 = Matrix(update(L,p))
     A = normalizer ? lindblad_with_normalizer(A0, L.vectorizer) : A0
