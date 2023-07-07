@@ -55,7 +55,7 @@ end
 
 function dissipator(lead, energies, rate, vectorizer, _cache::LindbladCache)
     cache = get_cache(_cache, (lead.T, lead.μ, rate))
-    superop = deepcopy(cache.superopcache)
+    superop = zero(cache.superopcache)
     for op in lead.jump_in
         superop .+= (superoperator!(op, energies, lead.T, lead.μ, rate, vectorizer, cache))
     end
@@ -64,6 +64,7 @@ function dissipator(lead, energies, rate, vectorizer, _cache::LindbladCache)
     end
     LindbladDissipator(superop, rate, lead, energies, vectorizer, _cache)
 end
+# reset_cache!(cache) = (cache.opcache .*= 0; cache.superopcache .*= 0;cache.mulcache .*= 0;cache.kroncache .*= 0;)
 function superoperator!(lead_op, energies, T, μ, rate, vectorizer, cache)
     ratetransform!(cache.opcache, lead_op, energies, T, μ)
     return dissipator!(cache.superopcache, cache.opcache, rate, vectorizer, cache.kroncache, cache.mulcache)
@@ -155,7 +156,6 @@ end
 dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, kroncache, mulcache) = khatri_rao_dissipator!(out, L, rate, kv, kroncache, mulcache)
 
 function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kroncache, mulcache) where {T}
-    out .*= 0
     kron!(kroncache, transpose(L'), L)
     out .= kroncache
     i = I(kv.size)
