@@ -481,7 +481,8 @@ end
         T = rand()
         μL, μR, μH = rand(3)
         # Γ = T/10
-        leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
+        # leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
+        leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
         rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
         leads = (;left = leftlead, right = rightlead)
 
