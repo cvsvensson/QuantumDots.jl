@@ -94,19 +94,22 @@ end
 
 function get_rates(E::AbstractVector, lead::NormalLead)
     dos = density_of_states(lead)
-    T = promote_type(eltype(E), eltype(lead.μ), eltype(lead.T), eltype(lead.jump_in))
-    Win = zeros(T,size(lead.jump_in)...)
-    Wout= zeros(T,size(lead.jump_in)...)
+    T = promote_type(eltype(E), eltype(lead.μ), eltype(lead.T), eltype(first(lead.jump_in)))
+    Win = zeros(T,size(first(lead.jump_in))...)
+    Wout= zeros(T,size(first(lead.jump_in))...)
     update_rates!(Win, lead.jump_in, lead.T, lead.μ, E; dos)
     update_rates!(Wout, lead.jump_out, lead.T, -lead.μ, E; dos)
     return Win, Wout
 end
 
-function update_rates!(W, op, T, μ, E::AbstractVector; dos)
+function update_rates!(W, ops, T, μ, E::AbstractVector; dos)
     for I in CartesianIndices(W)
         n1, n2 = Tuple(I)
         δE = E[n1] - E[n2]
-        W[n1, n2] = 2π * dos * abs2(op[n1, n2]) * fermidirac(δE, T, μ)
+        pf = 2π * dos * fermidirac(δE, T, μ)
+        for op in ops
+            W[n1, n2] += pf*abs2(op[n1, n2])
+        end
     end
     return W
 end
