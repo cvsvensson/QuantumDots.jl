@@ -72,6 +72,9 @@ end
 
 function get_cache(L::LindbladCache, u)
     t = promote(Iterators.flatten(u)...)[1]
+    println("-")
+    println(u)
+    println(t)
     LindbladCache(map(field -> get_tmp(getproperty(L, field), t), fieldnames(LindbladCache))...)
 end
 function update(d::LindbladDissipator, p)
