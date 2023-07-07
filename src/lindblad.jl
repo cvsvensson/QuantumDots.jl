@@ -55,7 +55,9 @@ end
 
 function dissipator(lead, energies, rate, vectorizer, _cache::LindbladCache)
     cache = get_cache(_cache, (lead.T, lead.μ, rate))
-    superop = zero(cache.superopcache)
+    # superop = zero(cache.superopcache)
+    superop = deepcopy(cache.superopcache)
+    superop .*= 0
     for op in lead.jump_in
         superop .+= (superoperator!(op, energies, lead.T, lead.μ, rate, vectorizer, cache))
     end
