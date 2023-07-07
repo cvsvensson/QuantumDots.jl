@@ -6,14 +6,15 @@ using Dictionaries
 using Symbolics
 using StaticArrays
 using UnicodePlots
+using PreallocationTools
 
 using SciMLBase
-import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem
+import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter
 export qns, Z2, QArray, Z2Symmetry, QNIndex
 export one_particle_density_matrix
-export tomatrix
+export tomatrix, StationaryStateProblem, Lindbladsystem, conductance_matrix
 
 include("structs.jl")
 include("fock.jl")
