@@ -28,6 +28,7 @@ function khatri_rao_dissipator(L::AbstractMatrix{T}, kv::KhatriRaoVectorizer; ra
 end
 
 function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, _kroncache, mulcache)
+    out *= 0
     mul!(mulcache, L',L,1/2,0)
     inds = kv.inds
     blocksizes = kv.sizes
