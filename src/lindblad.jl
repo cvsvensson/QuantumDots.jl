@@ -15,7 +15,7 @@ struct LindbladCache{KC,MC,SC,OC}
     superopcache::SC
     opcache::OC
 end
-function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorizer=default_vectorizer(system); rates=map(l -> one(eltype(system)), system.leads))
+function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorizer=default_vectorizer(system); rates = map(l -> 1, system.leads))
     commutator_hamiltonian = commutator(eigenvalues(system), vectorizer)
     unitary = -1im * commutator_hamiltonian
     energies = eigenvaluevector(system)
@@ -55,10 +55,10 @@ end
 
 function dissipator(lead, energies, rate, vectorizer, _cache::LindbladCache)
     cache = get_cache(_cache, (lead.T, lead.μ, rate))
-    # superop = zero(cache.superopcache)
-    superop = deepcopy(cache.superopcache)
-    println(superop)
-    superop .*= 0
+    superop = zero(cache.superopcache)
+    # superop = deepcopy(cache.superopcache)
+    # println(superop)
+    # superop .*= 0
     for op in lead.jump_in
         superop .+= (superoperator!(op, energies, lead.T, lead.μ, rate, vectorizer, cache))
     end
@@ -75,12 +75,12 @@ end
 
 function get_cache(L::LindbladCache, u)
     t = promote(Iterators.flatten(u)...)[1]
-    println("-")
-    println(u)
-    println(t)
-    println("--")
-    println(typeof(u))
-    println(typeof(t))
+    # println("-")
+    # println(u)
+    # println(t)
+    # println("--")
+    # println(typeof(u))
+    # println(typeof(t))
     LindbladCache(map(field -> get_tmp(getproperty(L, field), t), fieldnames(LindbladCache))...)
 end
 function update(d::LindbladDissipator, p)
