@@ -155,7 +155,7 @@ end
 dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, kroncache, mulcache) = khatri_rao_dissipator!(out, L, rate, kv, kroncache, mulcache)
 
 function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kroncache, mulcache) where {T}
-    out *= 0
+    out .*= 0
     kron!(kroncache, transpose(L'), L)
     out .= kroncache
     i = I(kv.size)
