@@ -472,7 +472,7 @@ end
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
-        # using LinearSolve,DifferentialEquations,PreallocationTools
+        # using LinearSolve,DifferentialEquations
         # qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
@@ -537,6 +537,8 @@ end
         
         @test norm(cmpauli - cmpauli2) < 1e-3
 
+        @test vec(sum(diagonalsystem.transformed_measurements[1]*pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
+              
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob);
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)

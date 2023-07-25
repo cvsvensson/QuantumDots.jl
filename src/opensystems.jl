@@ -159,7 +159,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-ratetransform(op, energies::AbstractVector, T, μ) = ratetransform!(zero(op), op, energies, T, μ)
+ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)),T,μ))*vec(op),size(op))
 
 function ratetransform!(op2, op, energies::AbstractVector, T, μ)
     for I in CartesianIndices(op)
