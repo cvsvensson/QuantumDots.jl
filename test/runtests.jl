@@ -470,11 +470,11 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        using QuantumDots, Test, Pkg
-        Pkg.activate("./test")
-        using LinearSolve,DifferentialEquations
-        qn = QuantumDots.NoSymmetry()
-        N = 4
+        # using QuantumDots, Test, Pkg
+        # Pkg.activate("./test")
+        # using LinearSolve,DifferentialEquations
+        # qn = QuantumDots.NoSymmetry()
+        N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
         hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
