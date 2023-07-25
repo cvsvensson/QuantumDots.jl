@@ -470,11 +470,11 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        # using QuantumDots, Test, Pkg
-        # Pkg.activate("./test")
-        # using LinearSolve,DifferentialEquations
-        # qn = QuantumDots.NoSymmetry()
-        N = 1
+        using QuantumDots, Test, Pkg
+        Pkg.activate("./test")
+        using LinearSolve,DifferentialEquations
+        qn = QuantumDots.NoSymmetry()
+        N = 4
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
         hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
@@ -497,8 +497,12 @@ end
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
+        lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+        
+        prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
-        ρinternal = solve(prob; abstol = 1e-12)
+        @time ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
+        @time ρinternal = solve(prob; abstol = 1e-12)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal

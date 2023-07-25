@@ -131,9 +131,9 @@ version = "0.3.0"
 
 [[deps.Compat]]
 deps = ["UUIDs"]
-git-tree-sha1 = "4e88377ae7ebeaf29a047aa1ee40826e0b708a5d"
+git-tree-sha1 = "5ce999a19f4ca23ea484e92a1774a61b8ca4cf8e"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.7.0"
+version = "4.8.0"
 weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
@@ -446,9 +446,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearMaps]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "62f9b2762cc107667b137af621e951f52e020a0f"
+git-tree-sha1 = "6698ab5e662b47ffc63a82b2f43c1cee015cf80d"
 uuid = "7a12625a-238d-50fd-b39a-03d52299707e"
-version = "3.10.2"
+version = "3.11.0"
 weakdeps = ["ChainRulesCore", "SparseArrays", "Statistics"]
 
     [deps.LinearMaps.extensions]
@@ -677,9 +677,9 @@ version = "0.7.0"
 
 [[deps.SciMLBase]]
 deps = ["ADTypes", "ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "EnumX", "FunctionWrappersWrappers", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "PrecompileTools", "Preferences", "RecipesBase", "RecursiveArrayTools", "Reexport", "RuntimeGeneratedFunctions", "SciMLOperators", "StaticArraysCore", "Statistics", "SymbolicIndexingInterface", "Tables", "TruncatedStacktraces"]
-git-tree-sha1 = "92f8e23b4a5eb7e45bffe09027fcdda44a949a51"
+git-tree-sha1 = "04370090604cd399db5bebddb636d80ab9d338e9"
 uuid = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-version = "1.93.4"
+version = "1.94.0"
 
 [[deps.SciMLOperators]]
 deps = ["ArrayInterface", "DocStringExtensions", "Lazy", "LinearAlgebra", "Setfield", "SparseArrays", "StaticArraysCore", "Tricks"]
