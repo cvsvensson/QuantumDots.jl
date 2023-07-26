@@ -26,13 +26,12 @@ struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
-function PauliDissipator(energies::E, lead::L) where {L,E}
+function PauliDissipator(energies::E, lead::L) where {L,E} 
     Win, Wout = get_rates(energies, lead)
-    # D = zero(Win)
-    Iin = zeros(eltype(Win), size(Win,1))
-    Iout = zero(Iin)
-    update_currents!(Iin,Iout,Win,Wout)
-    D = get_master_matrix(Win,Wout,Iin,Iout)
+    D = Win + Wout
+    Iin = vec(sum(Win, dims=1))
+    Iout = -vec(sum(Wout, dims=1))
+    D .-= Diagonal(Iin) .- Diagonal(Iout)
     PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),E}(lead, Win, Wout, Iin, Iout, D, energies)
 end
 
@@ -57,7 +56,7 @@ function PauliSystem(ds)
     update_total_operators!(P)
     return P
 end
-update(L::PauliSystem,p) = update_pauli_system(L,p)
+update(L::PauliSystem,p,tmp = nothing) = update_pauli_system(L,p)
 function update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters)
     L
 end
@@ -66,7 +65,7 @@ function update_pauli_system(L::PauliSystem, p)
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end 
-function update(d::PauliDissipator, p)
+function update(d::PauliDissipator, p, tmp = nothing)
     PauliDissipator(d.energies, update_lead(d.lead,p))
 end
 
@@ -114,23 +113,6 @@ function update_rates!(W, ops, T, μ, E::AbstractVector; dos)
     return W
 end
 
-function get_master_matrix(Win, Wout, Iin, Iout)
-    D = deepcopy(Win)
-    D .+= Wout
-    for (i,di) in enumerate(diagind(D))
-        D[di] -= Iin[i] - Iout[i]
-    end
-    return D
-end
-function update_currents!(Iin,Iout,Win,Wout)
-    for j in eachindex(Iin)
-        Iin[j] = sum(@view Win[:,j])
-        Iout[j] = -sum(@view Wout[:,j])
-    end
-    return nothing
-end
-
-
 function add_normalizer(m::AbstractMatrix{T}) where {T}
     [m; fill(one(T), 1, size(m, 2))]
 end
@@ -138,4 +120,28 @@ end
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
     map(d-> dot(d.Iin, rho) + dot(d.Iout,rho), P.dissipators)
+end
+
+
+
+function conductance_matrix(sys::PauliSystem, args...)
+    rho = solve(StationaryStateProblem(sys))
+    conductance_matrix(rho, sys::PauliSystem, args...)
+end
+function conductance_matrix(rho, sys::PauliSystem)
+    dDs = [chem_derivative(d-> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
+    linsolve = init(StationaryStateProblem(sys))
+    rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
+    dissdiff = Diagonal([dot(dD[2],rho) for dD in dDs])
+    return dissdiff + rhodiff
+end
+function conductance_matrix(rho, sys::PauliSystem, dμ)
+    perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
+    function get_current(pert)
+        newsys = update(sys, pert)
+        sol = solve(StationaryStateProblem(newsys))
+        collect(get_currents(sol, newsys))
+    end
+    I0 = get_current(SciMLBase.NullParameters())
+    stack(map(key -> (get_current(perturbations[[key]]) .- I0) / dμ, keys(perturbations)))
 end

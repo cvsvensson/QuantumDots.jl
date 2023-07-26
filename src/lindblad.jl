@@ -15,19 +15,19 @@ struct LindbladCache{KC,MC,SC,OC}
     superopcache::SC
     opcache::OC
 end
-function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorizer=default_vectorizer(system); rates=map(l -> one(eltype(system)), system.leads))
+function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorizer=default_vectorizer(system); rates = map(l -> 1, system.leads))
     commutator_hamiltonian = commutator(eigenvalues(system), vectorizer)
     unitary = -1im * commutator_hamiltonian
     energies = eigenvaluevector(system)
-    kroncache = DiffCache(Matrix(unitary))
+    kroncache = (Matrix(unitary))
     superopcache = deepcopy(kroncache)
-    mulcache = DiffCache(complex(Matrix(eigenvalues(system))))
-    opcache = DiffCache(complex(Matrix(eigenvalues(system))))
+    mulcache = (complex(Matrix(eigenvalues(system))))
+    opcache = (complex(Matrix(eigenvalues(system))))
     cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
-    _cache = get_cache(cache, map((l, rate) -> (l.μ, l.T, rate), system.leads, rates))
-    dissipators = map((lead, rate) -> dissipator(lead, energies, rate, vectorizer, cache), system.leads, rates)
-    total = deepcopy(_cache.superopcache)
-    lindblad_matrix!(total, unitary, dissipators)
+    # _cache = get_cache(cache, map((l, rate) -> (l.μ, l.T, rate), system.leads, rates))
+    dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, energies, rate, vectorizer, cache), rate, lead, energies,vectorizer,cache), system.leads, rates)
+    # total = deepcopy(_cache.superopcache)
+    total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
 end
 
@@ -40,49 +40,52 @@ struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
     cache::C
 end
 
-using ForwardDiff
 _dissipator_params(d::LindbladDissipator) = (; μ=d.lead.μ, T=d.lead.T, rate=d.rate)
 _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=get(p, :T, d.lead.T), rate=get(p, :rate, d.rate))
-function chem_derivative(d)
-    func = μ -> Matrix(update(d, (; μ)))
+chem_derivative(args...) = chem_derivative(d->Matrix(d), args...)
+function chem_derivative(f::Function, d)
+    func = μ -> f(update(d, (; μ), nothing))
     ForwardDiff.derivative(func, d.lead.μ)
 end
-function chem_derivative(d, _p)
+function chem_derivative(f::Function,d, _p)
     p = _dissipator_params(d, _p)
-    func = μ -> Matrix(update(d, (; μ, T=p.T, rate=p.rate)))
+    func = μ -> f(update(d, (; μ, T=p.T, rate=p.rate), nothing))
     ForwardDiff.derivative(func, p.μ)
 end
 
-function dissipator(lead, energies, rate, vectorizer, _cache::LindbladCache)
-    cache = get_cache(_cache, (lead.T, lead.μ, rate))
+function superoperator(lead, energies, rate, vectorizer, cache::LindbladCache)
     superop = zero(cache.superopcache)
     for op in lead.jump_in
-        superop .+= (superoperator!(op, energies, lead.T, lead.μ, rate, vectorizer, cache))
+        superop .+= superoperator!(op, energies, lead.T, lead.μ, rate, vectorizer, cache)
     end
     for op in lead.jump_out
-        superop .+= (superoperator!(op, energies, lead.T, -lead.μ, rate, vectorizer, cache))
+        superop .+= superoperator!(op, energies, lead.T, -lead.μ, rate, vectorizer, cache)
     end
-    LindbladDissipator(superop, rate, lead, energies, vectorizer, _cache)
+    return superop
+end
+function superoperator(lead, energies, rate, vectorizer, tmp::Nothing)
+    sum(superoperator(op, energies, lead.T, lead.μ, rate, vectorizer) for op in lead.jump_in) .+ sum(superoperator(op, energies, lead.T, -lead.μ, rate, vectorizer) for op in lead.jump_out) 
 end
 # reset_cache!(cache) = (cache.opcache .*= 0; cache.superopcache .*= 0;cache.mulcache .*= 0;cache.kroncache .*= 0;)
-function superoperator!(lead_op, energies, T, μ, rate, vectorizer, cache)
+function superoperator!(lead_op, energies, T, μ, rate, vectorizer, cache::LindbladCache)
     ratetransform!(cache.opcache, lead_op, energies, T, μ)
     return dissipator!(cache.superopcache, cache.opcache, rate, vectorizer, cache.kroncache, cache.mulcache)
 end
-
-function get_cache(L::LindbladCache, u)
-    t = promote(Iterators.flatten(u)...)[1]
-    LindbladCache(map(field -> get_tmp(getproperty(L, field), t), fieldnames(LindbladCache))...)
+function superoperator(lead_op, energies, T, μ, rate, vectorizer)
+    op = ratetransform(lead_op, energies, T, μ)
+    return dissipator(op, rate, vectorizer)
 end
-function update(d::LindbladDissipator, p)
+
+function update(d::LindbladDissipator, p, tmp = d.cache)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
-    return dissipator(newlead, d.energies, rate, d.vectorizer, d.cache)
+    newsuperop = superoperator(newlead, d.energies, rate, d.vectorizer, tmp)
+    LindbladDissipator(newsuperop, rate, newlead, d.energies, d.vectorizer, d.cache)
 end
 
-
-function lindblad_matrix!(total, unitary, dissipators)
-    total .= unitary
+function lindblad_matrix(unitary, dissipators)
+    total = zeros(promote(eltype(unitary), map(eltype, dissipators)...)[1], size(unitary)...)
+    total .+= (unitary)
     for d in dissipators
         total .+= d.superop
     end
@@ -90,12 +93,10 @@ function lindblad_matrix!(total, unitary, dissipators)
 end
 
 update_lindblad_system(L::LindbladSystem, ::SciMLBase.NullParameters) = L
-function update_lindblad_system(L::LindbladSystem, p)
-    _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+function update_lindblad_system(L::LindbladSystem, p, tmp = L.cache)
+    _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp), tmp), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
-    T = promote_type(eltype(L.unitary), map(eltype, newdissipators)...)
-    total = zeros(T, size(L.cache.superopcache.du)...)
-    lindblad_matrix!(total, L.unitary, newdissipators)
+    total = lindblad_matrix(L.unitary, newdissipators)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.cache)
 end
 
@@ -146,10 +147,11 @@ commutator(A, krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khat
 
 function dissipator(L, kv::KronVectorizer)
     D = (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
-    return kv.size > DENSE_CUTOFF ? D : Matrix(D)
+    return Matrix(D)
 end
 
 dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, kroncache, mulcache) = khatri_rao_dissipator!(out, L, rate, kv, kroncache, mulcache)
+dissipator(L::AbstractMatrix, rate, kv::KhatriRaoVectorizer) = khatri_rao_dissipator(L,kv;rate)
 
 function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kroncache, mulcache) where {T}
     kron!(kroncache, transpose(L'), L)
@@ -161,23 +163,24 @@ function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kronca
     kron!(kroncache, i, mulcache)
     out .-= kroncache
     out .*= rate
-    #D = (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
     #return kv.size > DENSE_CUTOFF ? D : Matrix(D)
     return out
+end
+function dissipator(L,rate,kv::KronVectorizer)
+    superop = Matrix((conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L)))
+    superop .*= rate
+    return superop
 end
 
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
 measure(rho, sys::OpenSystem, ls::AbstractOpenSystem) = map(op -> measure(rho, op, ls), transformed_measurements(sys))
-measure(rho, op, ls::AbstractOpenSystem) = map(d -> measure_dissipator(rho, op, d, ls), ls.dissipators)
+measure(rho, op, ls::AbstractOpenSystem) = map(d -> measure(rho, op, d, ls), ls.dissipators)
 
-function measure_dissipator(rho, op, dissipator, system)
-    measure(rho, op, Matrix(dissipator), system)
-end
 Base.Matrix(d::LindbladDissipator) = d.superop
 Base.Matrix(L::LindbladSystem) = L.total
 
-measure(rho, op, dissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
+measure(rho, op, dissipator::AbstractDissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 
 lindblad_with_normalizer_dense(lindblad::AbstractMatrix, kv::AbstractVectorizer) = vcat(lindblad, transpose(kv.idvec))
 
