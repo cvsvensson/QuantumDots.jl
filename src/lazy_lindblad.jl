@@ -82,7 +82,7 @@ update(L::LazyLindbladSystem, p) = update_lazy_lindblad_system(L, p)
 update(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
 LinearAlgebra.mul!(v, d::LazyLindbladSystem, u) = d(v, u, nothing, nothing)
-LinearAlgebra.mul(d::LazyLindbladSystem, u) = d(u, nothing, nothing)
+Base.:*(d::LazyLindbladSystem) = d(u, nothing, nothing)
 
 function vec_action(d::LazyLindbladSystem)
     sz = size(d.hamiltonian)
