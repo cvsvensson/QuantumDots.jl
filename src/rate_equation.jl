@@ -132,7 +132,7 @@ function conductance_matrix(rho, sys::PauliSystem)
     dDs = [chem_derivative(d-> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
     linsolve = init(StationaryStateProblem(sys))
     rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
-    dissdiff = Diagonal([dot(dD[2], dD[1] * rho) for dD in dDs])
+    dissdiff = Diagonal([dot(dD[2],rho) for dD in dDs])
     return dissdiff + rhodiff
 end
 function conductance_matrix(rho, sys::PauliSystem, dμ)
