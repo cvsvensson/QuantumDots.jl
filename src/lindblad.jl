@@ -40,7 +40,6 @@ struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
     cache::C
 end
 
-using ForwardDiff
 _dissipator_params(d::LindbladDissipator) = (; μ=d.lead.μ, T=d.lead.T, rate=d.rate)
 _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=get(p, :T, d.lead.T), rate=get(p, :rate, d.rate))
 chem_derivative(args...) = chem_derivative(d->Matrix(d), args...)
