@@ -536,7 +536,8 @@ end
         cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
         cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
         cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
-
+        
+        @test conductance_matrix(ρ_pauli_internal, pauli) ≈ conductance_matrix(pauli)
         @test norm(cmpauli - cmpauli2) < 1e-3
         @test cmpauli ≈ cmpauli3
         @test norm(cmpauli3 - cmpauli4) < 1e-3
