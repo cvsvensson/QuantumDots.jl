@@ -7,6 +7,7 @@ using Symbolics
 using StaticArrays
 using UnicodePlots
 using PreallocationTools
+using ForwardDiff
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
