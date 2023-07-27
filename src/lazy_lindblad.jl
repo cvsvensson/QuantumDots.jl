@@ -100,7 +100,7 @@ function vec_action(d::LazyLindbladSystem)
     _vec_action(v, u, p, t) = vec(d(reshape(v, sz...), reshape(u, sz...), p, t))
     return _vec_action
 end
-function _FunctionOperator(d::LazyLindbladSystem, p)
+function _FunctionOperator(d::LazmyLindbladSystem, p)
     T = eltype(d)
     v = Vector{T}(undef, prod(size(d.hamiltonian)))
     FunctionOperator(vec_action(d), v, v; islinear=true, op_adjoint=vec_action(d'))
