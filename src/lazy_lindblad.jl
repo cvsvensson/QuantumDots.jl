@@ -29,21 +29,19 @@ function (d::LazyLindbladDissipator)(rho, p, t)
 end
 function (d::LazyLindbladDissipator)(out, rho, p, t)
     d = update(d, p)
-    cache = similar(out)
+    cache = zero(out)
     foreach((op, opsquare) -> dissipator_action!(out, rho, op, opsquare, d.rate, cache), d.op.in, d.opsquare.in)
     foreach((op, opsquare) -> dissipator_action!(out, rho, op, opsquare, d.rate, cache), d.op.out, d.opsquare.out)
     return out
 end
-
+using Tullio
 function dissipator_action!(out, rho, L, L2, rate, cache)
-    mul!(cache, L, rho)
-    mul!(out, cache, L', rate, 1)
-    mul!(out, L2, rho, -rate / 2, 1)
-    mul!(out, rho, transpose(L2), -rate / 2, 1)
+    @tullio cache[i,j] = L[i,a]*rho[a,j]
+    @tullio out[i,j] += rate*cache[i,a]*L'[a,j] - rate/2*(L2[i,a]*rho[a,j] + rho[i,a]*L2[a,j])
+
 end
 function commutator_action!(out, rho, H)
-    mul!(out, H, rho, -1im, 1)
-    mul!(out, rho, H, 1im, 1)
+    @tullio out[i,j] = -1im*H[i,a]*rho[a,j] + 1im*rho[i,a]*H[a,j]
 end
 
 
@@ -98,14 +96,18 @@ end
 function FunctionOperatorWithNormalizer(d::LazyLindbladSystem, p)
     sz = size(d.hamiltonian)
     function vec_action(u, p, t)
-        vm = (d(reshape(u, sz...), p, t))
-        push!(vec(vm), tr(vm))
+        um = reshape(u, sz...)
+        vm = d(um, p, t)
+        v = vec(vm)
+        push!(v, tr(um))
+        return v
     end
     function vec_action(v, u, p, t)
         vm = reshape(@view(v[1:end-1]), sz...)
         um = reshape(u, sz...)
         d(vm, um, p, t)
-        v[end] = tr(vm)
+        v[end] = tr(um)
+        return v
     end
     dadj = d'
     function vec_action_adj(u, p, t)

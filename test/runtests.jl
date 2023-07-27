@@ -579,6 +579,48 @@ end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
     test_qd_transport(QuantumDots.fermionnumber)
+
+
+    N = 2
+    qn = QuantumDots.NoSymmetry()
+    a = FermionBasis(1:N; qn)
+    bd(m) = QuantumDots.blockdiagonal(m, a)
+    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + .2*(sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
+    T = .1
+    μL = .5
+    μR = 0.0
+    leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
+    rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+    leads = (;left = leftlead, right = rightlead)
+
+    particle_number = bd(numberoperator(a))
+    measurements = [particle_number]
+    system = QuantumDots.OpenSystem(hamiltonian, leads, measurements)
+    diagonalsystem = QuantumDots.diagonalize(system)
+    ls = QuantumDots.LindbladSystem(diagonalsystem)
+    mo = QuantumDots.LinearOperator(ls)
+    mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
+    
+    lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+    fo = QuantumDots.LinearOperator(lazyls)
+    fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
+    v1 = rand(2^(2N))
+    v2 = rand(2^(2N))
+    v2n = rand(2^(2N)+1)
+    vc1 = deepcopy(complex(v1))
+    vc2 = deepcopy(complex(v1))
+    @test fo*v1 ≈ mo*v1
+    @test mul!(vc2,fo,v1) ≈ mul!(vc1,mo,v1)
+    @test dot(fo'*v2, v1) ≈ dot(v2,fo*v1)
+    @test fo2*v1 ≈ mo2*v1
+    @test dot(fo2'*v2n, v1) ≈ dot(v2n,fo2*v1)
+    
+    prob1 = StationaryStateProblem(ls)
+    prob2 = StationaryStateProblem(lazyls)
+    @time ρinternal1 = solve(prob1; abstol = 1e-12);
+    @time ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
+    @test ρinternal1 ≈ ρinternal2
+
 end
 
 @testset "Khatri-Rao" begin
