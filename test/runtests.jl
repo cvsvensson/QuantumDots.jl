@@ -617,8 +617,8 @@ end
     
     prob1 = StationaryStateProblem(ls)
     prob2 = StationaryStateProblem(lazyls)
-    @time ρinternal1 = solve(prob1; abstol = 1e-12);
-    @time ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
+    ρinternal1 = solve(prob1; abstol = 1e-12);
+    ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
     @test ρinternal1 ≈ ρinternal2
 
 end

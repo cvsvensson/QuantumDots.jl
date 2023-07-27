@@ -34,7 +34,6 @@ function (d::LazyLindbladDissipator)(out, rho, p, t)
     foreach((op, opsquare) -> dissipator_action!(out, rho, op, opsquare, d.rate, cache), d.op.out, d.opsquare.out)
     return out
 end
-using Tullio
 function dissipator_action!(out, rho, L, L2, rate, cache)
     @tullio cache[i,j] = L[i,a]*rho[a,j]
     @tullio out[i,j] += rate*cache[i,a]*L'[a,j] - rate/2*(L2[i,a]*rho[a,j] + rho[i,a]*L2[a,j])
