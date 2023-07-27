@@ -6,13 +6,14 @@ struct LazyLindbladDissipator{J,J2,T,L,E} <: AbstractDissipator
     lead::L
     energies::E
 end
+Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
 function LazyLindbladDissipator(lead, energies, rate)
-    op = (; in=map(op -> ratetransform(op, energies, lead.T, lead.μ), lead.jump_in),
-        out=map(op -> ratetransform(op, energies, lead.T, -lead.μ), lead.jump_out))
+    op = (; in=map(op -> complex(ratetransform(op, energies, lead.T, lead.μ)), lead.jump_in),
+        out=map(op -> complex(ratetransform(op, energies, lead.T, -lead.μ)), lead.jump_out))
     opsquare = map(leadops -> map(x -> Hermitian(x' * x), leadops), op)
     LazyLindbladDissipator(op, opsquare, rate, lead, energies)
 end
-Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map,adjoint),d.op), d.opsquare, d.rate, adjoint(d.lead), d.energies)
+Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), d.energies)
 
 update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters) = d
 function update(d::LazyLindbladDissipator, p)
@@ -22,51 +23,36 @@ function update(d::LazyLindbladDissipator, p)
 end
 
 function (d::LazyLindbladDissipator)(rho, p, t)
-    T = promote_type(eltype(L), eltype(rho))
-    out = similar(L, T)
-    fill!(out, zero(T))
+    T = promote_type(eltype(d), eltype(rho))
+    out = similar(rho, T)
     d(out, rho, p, t)
 end
 function (d::LazyLindbladDissipator)(out, rho, p, t)
     d = update(d, p)
-    cache = zero(out)
-    foreach((op, opsquare) -> dissipator_action!(out, rho, op, opsquare, d.rate, cache), d.op.in, d.opsquare.in)
-    foreach((op, opsquare) -> dissipator_action!(out, rho, op, opsquare, d.rate, cache), d.op.out, d.opsquare.out)
+    mul!(out, d, rho)
     return out
 end
-function dissipator_action!(out, rho, L, L2, rate, cache)
-    @tullio cache[i,j] = L[i,a]*rho[a,j]
-    @tullio out[i,j] += rate*cache[i,a]*L'[a,j] - rate/2*(L2[i,a]*rho[a,j] + rho[i,a]*L2[a,j])
 
-end
-function commutator_action!(out, rho, H)
-    @tullio out[i,j] = -1im*H[i,a]*rho[a,j] + 1im*rho[i,a]*H[a,j]
-end
-
-
-struct LazyLindbladSystem{DS,H} <: AbstractOpenSystem
+struct LazyLindbladSystem{DS,H,C} <: AbstractOpenSystem
     dissipators::DS
     hamiltonian::H
+    cache::C
 end
 
 function LazyLindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}; rates=map(l -> 1, system.leads))
     energies = eigenvaluevector(system)
     dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, energies, rate), system.leads, rates)
-    LazyLindbladSystem(dissipators, system.hamiltonian)
+    LazyLindbladSystem(dissipators, system.hamiltonian, Matrix(1im * eigenvalues(system.hamiltonian)))
 end
-Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint,d.dissipators), -d.hamiltonian)
+Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint, d.dissipators), -d.hamiltonian, d.cache)
 
 function (d::LazyLindbladSystem)(rho, p, t)
-    L = eigenvectors(d.hamiltonian)
-    T = promote_type(typeof(1im), eltype(L), eltype(rho))
-    out = similar(L, T)
-    fill!(out, zero(T))
-    d(out, rho, p, t)
+    d = update(d, p)
+    d * rho
 end
 function (d::LazyLindbladSystem)(out, rho, p, t)
     d = update(d, p)
-    commutator_action!(out, rho, eigenvalues(d.hamiltonian))
-    map(d -> d(out, rho, SciMLBase.NullParameters(), t), d.dissipators)
+    mul!(out, d, rho)
     return out
 end
 
@@ -77,10 +63,37 @@ function update_lazy_lindblad_system(L::LazyLindbladSystem, p)
 end
 update(L::LazyLindbladSystem, p) = update_lazy_lindblad_system(L, p)
 update(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+update(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
-LinearAlgebra.mul!(v, d::LazyLindbladSystem, u) = d(v, u, nothing, nothing)
-Base.:*(d::LazyLindbladSystem) = d(u, nothing, nothing)
-
+function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
+    H = eigenvalues(d.hamiltonian)
+    dissipator_ops = dissipator_op_list(d)
+    rho = isreal(_rho) ? complex(_rho) : _rho #Need to have complex matrices for the mul! to be non-allocating
+    mul!(out, H, rho, -1im, 0)
+    mul!(out, rho, H, 1im, 1)
+    cache = d.cache
+    for (L, L2, rate) in dissipator_ops
+        mul!(cache, L, rho)
+        mul!(out, cache, L', rate, 1)
+        mul!(out, L2, rho, -rate / 2, 1)
+        mul!(out, rho, L2, -rate / 2, 1)
+    end
+    return out
+end
+function Base.:*(d::LazyLindbladSystem, rho)
+    H = eigenvalues(d.hamiltonian)
+    dissipator_ops = dissipator_op_list(d)
+    out = -1im .* (H * rho .- rho * H)
+    for (L, L2, rate) in dissipator_ops
+        out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    end
+    return out
+end
+dissipator_op_list(d::LazyLindbladSystem) = mapreduce(dissipator_op_list, vcat, d.dissipators)
+function dissipator_op_list(d::LazyLindbladDissipator)
+    ops = vcat(collect(zip(d.op.in, d.opsquare.in)), collect(zip(d.op.out, d.opsquare.out)))
+    ops_rate = map(o -> (o..., d.rate), ops)
+end
 function vec_action(d::LazyLindbladSystem)
     sz = size(d.hamiltonian)
     _vec_action(u, p, t) = vec(d(reshape(u, sz...), p, t))
@@ -89,8 +102,8 @@ function vec_action(d::LazyLindbladSystem)
 end
 function _FunctionOperator(d::LazyLindbladSystem, p)
     T = eltype(d)
-    v = Vector{T}(undef,prod(size(d.hamiltonian)))
-    FunctionOperator(vec_action(d), v, v; islinear=true, op_adjoint = vec_action(d'))
+    v = Vector{T}(undef, prod(size(d.hamiltonian)))
+    FunctionOperator(vec_action(d), v, v; islinear=true, op_adjoint=vec_action(d'))
 end
 function FunctionOperatorWithNormalizer(d::LazyLindbladSystem, p)
     sz = size(d.hamiltonian)
@@ -122,11 +135,11 @@ function FunctionOperatorWithNormalizer(d::LazyLindbladSystem, p)
         vec(vm)
     end
     T = eltype(d)
-    v = Vector{T}(undef,prod(size(d.hamiltonian)))
-    FunctionOperator(vec_action, v, similar(v, length(v) + 1); islinear=true, op_adjoint = vec_action_adj)
+    v = Vector{T}(undef, prod(size(d.hamiltonian)))
+    FunctionOperator(vec_action, v, similar(v, length(v) + 1); islinear=true, op_adjoint=vec_action_adj)
 end
 
-function add_diagonal!(m,x)
+function add_diagonal!(m, x)
     for n in diagind(m)
         @inbounds m[n] += x
     end
