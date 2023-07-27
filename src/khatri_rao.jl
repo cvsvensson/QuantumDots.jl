@@ -29,6 +29,7 @@ end
 
 function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, _kroncache, mulcache)
     mul!(mulcache, L',L,1/2,0)
+    L2 = mulcache
     inds = kv.inds
     blocksizes = kv.sizes
     newinds = kv.vectorinds
@@ -36,18 +37,14 @@ function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVecto
         ind1 = inds[k1]
         ind2 = inds[k2]
         Lblock = @view(L[ind1, ind2])
-        leftprodmap = Lblock
-        rightprodmap = conj(Lblock)
-        kron!(@view(out[newinds[k1], newinds[k2]]), rightprodmap, leftprodmap)
+        kron!(@view(out[newinds[k1], newinds[k2]]), transpose(Lblock'), Lblock)
         if k1 == k2
-            L2block = @view(mulcache[ind1, ind2])
-            leftsummap = L2block
-            rightsummap = transpose(L2block)
+            L2block = @view(L2[ind1, ind2])
             id = I(blocksizes[k2])
             kroncache = @view(_kroncache[newinds[k1], newinds[k2]])
-            kron!(kroncache, rightsummap, id)
+            kron!(kroncache, transpose(L2block), id)
             out[newinds[k1], newinds[k2]] .-= kroncache
-            kron!(kroncache, id, leftsummap)
+            kron!(kroncache, id, L2block)
             out[newinds[k1], newinds[k2]] .-= kroncache
         end
     end
