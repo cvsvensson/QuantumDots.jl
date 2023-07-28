@@ -625,8 +625,10 @@ end
     mout = deepcopy(m)
     @test lazyls*m ≈ reshape(mo*vec(m), size(m)...)
     @test mul!(mout,lazyls,m) ≈ reshape(mo*vec(m), size(m)...)
-    @test first(lazyls.dissipators)*m ≈ reshape(first(ls.dissipators)*v1,size(m)...)
-    @test mul!(mout, first(lazyls.dissipators), m) ≈ reshape(mul!(vc1, first(ls.dissipators),v1), size(m)...)
+    @test first(lazyls.dissipators)*m ≈ reshape(first(ls.dissipators)*vec(m),size(m)...)
+    mul!(mout, first(lazyls.dissipators), m)
+    @test mout ≈ first(lazyls.dissipators)*m
+    @test mout ≈ reshape(mul!(vc1, first(ls.dissipators),vec(m)), size(m)...)
 
     prob1 = StationaryStateProblem(ls)
     prob2 = StationaryStateProblem(lazyls)

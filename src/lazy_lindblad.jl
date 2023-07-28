@@ -66,6 +66,7 @@ update(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 update(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
 function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
+    fill!(out, zero(eltype(out)))
     for (L, L2, rate) in dissipator_op_list(d)
         out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
     end
