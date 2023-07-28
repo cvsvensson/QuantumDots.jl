@@ -146,7 +146,7 @@ function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kronca
     out .= kroncache
     i = I(kv.size)
     mul!(mulcache, L', L, 1 / 2, 0)
-    kron!(kroncache, mulcache, i)
+    kron!(kroncache, transpose(mulcache), i)
     out .-= kroncache
     kron!(kroncache, i, mulcache)
     out .-= kroncache
@@ -155,9 +155,7 @@ function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kronca
     return out
 end
 function dissipator(L,rate,kv::KronVectorizer)
-    superop = Matrix((conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L)))
-    superop .*= rate
-    return superop
+    return Matrix(rate*(conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L)))
 end
 
 commutator(A, ::KronVectorizer) = commutator(A)
