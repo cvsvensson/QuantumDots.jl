@@ -24,9 +24,7 @@ function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorize
     mulcache = (complex(Matrix(eigenvalues(system))))
     opcache = (complex(Matrix(eigenvalues(system))))
     cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
-    # _cache = get_cache(cache, map((l, rate) -> (l.μ, l.T, rate), system.leads, rates))
     dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, energies, rate, vectorizer, cache), rate, lead, energies,vectorizer,cache), system.leads, rates)
-    # total = deepcopy(_cache.superopcache)
     total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
 end

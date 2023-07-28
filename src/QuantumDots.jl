@@ -6,7 +6,6 @@ using Dictionaries
 using Symbolics
 using StaticArrays
 using UnicodePlots
-using PreallocationTools
 using ForwardDiff
 
 using SciMLBase
