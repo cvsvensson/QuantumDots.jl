@@ -178,13 +178,7 @@ function conductance_matrix(current_op, ls::AbstractOpenSystem, args...)
     rho = solve(StationaryStateProblem(ls))
     conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
 end
-function conductance_matrix(rho, current_op, ls::AbstractOpenSystem)
-    dDs = [chem_derivative(d) for d in ls.dissipators]
-    linsolve = init(StationaryStateProblem(ls))
-    rhodiff = stack([collect(measure(solveDiffProblem!(linsolve, rho, dD), current_op, ls)) for dD in dDs])
-    dissdiff = Diagonal([dot(current_op, tomatrix(dD * rho, ls)) for dD in dDs])
-    return dissdiff + rhodiff
-end
+
 function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, dμ)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)
     function get_current(pert)

@@ -1,7 +1,9 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
+using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
+using ForwardDiff
 Random.seed!(1234)
 
 
@@ -498,7 +500,9 @@ end
         @test mo isa MatrixOperator
 
         lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
-        
+        @test eltype(lazyls) == ComplexF64
+        @test eltype(first(lazyls.dissipators)) == ComplexF64
+
         prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
         ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
@@ -615,7 +619,12 @@ end
     @test dot(fo'*v2, v1) ≈ dot(v2,fo*v1)
     @test fo2*v1 ≈ mo2*v1
     @test dot(fo2'*v2n, v1) ≈ dot(v2n,fo2*v1)
-    
+
+    m = rand(ComplexF64,2^N,2^N)
+    mout = deepcopy(m)
+    @test lazyls*m ≈ reshape(mo*vec(m), size(m)...)
+    @test mul!(mout,lazyls,m) ≈ reshape(mo*vec(m), size(m)...)
+
     prob1 = StationaryStateProblem(ls)
     prob2 = StationaryStateProblem(lazyls)
     ρinternal1 = solve(prob1, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
