@@ -65,6 +65,22 @@ update(L::LazyLindbladSystem, p) = update_lazy_lindblad_system(L, p)
 update(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 update(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
+function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
+    for (L, L2, rate) in dissipator_op_list(d)
+        out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    end
+    return out
+end
+function Base.:*(d::LazyLindbladDissipator, rho)
+    ops = dissipator_op_list(d)
+    (L, L2, rate) = first(ops)
+    out = rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    for (L, L2, rate) in ops[2:end]
+        out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    end
+    return out
+end
+
 function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
     H = eigenvalues(d.hamiltonian)
     dissipator_ops = dissipator_op_list(d)
