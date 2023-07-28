@@ -4,6 +4,7 @@ using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
 using ForwardDiff
+using UnicodePlots
 Random.seed!(1234)
 
 
