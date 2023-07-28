@@ -4,7 +4,6 @@ using Reexport
 using SplitApplyCombine: group
 using Dictionaries
 using StaticArrays
-using UnicodePlots
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
@@ -18,6 +17,8 @@ function fastgenerator end
 function fastblockdiagonal end
 function TSL_generator end
 function chem_derivative end
+function visualize end
+function majvisualize end
 
 include("structs.jl")
 include("fock.jl")
