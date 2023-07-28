@@ -132,24 +132,3 @@ function TSL_hamiltonian((dLup, dLdn), (dCup, dCdn), (dRup, dRdn); μL, μC, μR
     μR * (numberop(dRup) + numberop(dRdn)) +
     +h * (numberop(dLdn) + numberop(dRdn))
 end
-
-
-function TSL_generator(qn=NoSymmetry(); blocks=qn !== NoSymmetry(), dense=false, bdg=false)
-    @variables μL, μC, μR, h, t, Δ, tsoc, U
-    c = if !bdg
-        FermionBasis((:L, :C, :R), (:↑, :↓); qn)
-    elseif bdg && qn == NoSymmetry()
-        FermionBdGBasis(Tuple(collect(Base.product((:L, :C, :R), (:↑, :↓)))))
-    end
-    fdense = dense ? Matrix : identity
-    fblock = blocks ? m -> blockdiagonal(m, c) : identity
-    f = fblock ∘ fdense
-    H = TSL_hamiltonian(c; μL, μC, μR, h, t, Δ, tsoc, U) |> f
-    _tsl, _tsl! = build_function(H, μL, μC, μR, h, t, Δ, tsoc, U, expression=Val{false})
-    tsl(; μL, μC, μR, h, t, Δ, tsoc, U) = _tsl(μL, μC, μR, h, t, Δ, tsoc, U)
-    tsl!(m; μL, μC, μR, h, t, Δ, tsoc, U) = (_tsl!(m, μL, μC, μR, h, t, Δ, tsoc, U);
-    m)
-    randparams = (; zip((:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U), rand(8))...)
-    m = TSL_hamiltonian(c; randparams...) |> f
-    return tsl, tsl!, m, c
-end

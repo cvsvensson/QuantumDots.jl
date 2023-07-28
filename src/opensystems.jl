@@ -11,11 +11,13 @@ NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
 update_lead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out)
 function update_lead(lead, props)
     μ = get(props, :μ, lead.μ)
-    T = get(props, :T, lead.T)  
+    T = get(props, :T, lead.T)
     update_lead(lead; μ, T)
 end
 CombinedLead(jins; T, μ) = CombinedLead(jins, map(adjoint, jins); T, μ)
 CombinedLead(jins, jouts; T, μ) = NormalLead(T, μ, jins, jouts)
+
+Base.adjoint(lead::NormalLead) = NormalLead(lead.T, lead.μ, map(adjoint, lead.jump_in), map(adjoint, lead.jump_out))
 
 Base.show(io::IO, ::MIME"text/plain", lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "NormalLead{$T,$Opin,$Opout,$N}(T=", temperature(lead), ", μ=", chemical_potential(lead), ")")
 Base.show(io::IO, lead::NormalLead{T,Opin,Opout,N}) where {T,Opin,Opout,N} = print(io, "Lead(, T=", round(temperature(lead), digits=4), ", μ=", round(chemical_potential(lead), digits=4), ")")
@@ -38,6 +40,8 @@ struct DiagonalizedHamiltonian{Vals,Vecs}
     eigenvectors::Vecs
 end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
+Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
+Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.eigenvalues,-h.eigenvectors)
 
 abstract type AbstractOpenSystem end
 Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
@@ -107,7 +111,7 @@ end
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 # LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
 
-diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op-> S' * op * S,lead.jump_in), map(op->S' * op * S,lead.jump_out))
+diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
 
 function diagonalize(m::AbstractMatrix)
@@ -159,7 +163,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
-ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)),T,μ))*vec(op),size(op))
+ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
 
 function ratetransform!(op2, op, energies::AbstractVector, T, μ)
     for I in CartesianIndices(op)
@@ -174,13 +178,7 @@ function conductance_matrix(current_op, ls::AbstractOpenSystem, args...)
     rho = solve(StationaryStateProblem(ls))
     conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
 end
-function conductance_matrix(rho, current_op, ls::AbstractOpenSystem)
-    dDs = [chem_derivative(d) for d in ls.dissipators]
-    linsolve = init(StationaryStateProblem(ls))
-    rhodiff = stack([collect(measure(solveDiffProblem!(linsolve, rho, dD), current_op, ls)) for dD in dDs])
-    dissdiff = Diagonal([dot(current_op, tomatrix(dD * rho, ls)) for dD in dDs])
-    return dissdiff + rhodiff
-end
+
 function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, dμ)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)
     function get_current(pert)

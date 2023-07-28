@@ -24,9 +24,7 @@ function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorize
     mulcache = (complex(Matrix(eigenvalues(system))))
     opcache = (complex(Matrix(eigenvalues(system))))
     cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
-    # _cache = get_cache(cache, map((l, rate) -> (l.μ, l.T, rate), system.leads, rates))
     dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, energies, rate, vectorizer, cache), rate, lead, energies,vectorizer,cache), system.leads, rates)
-    # total = deepcopy(_cache.superopcache)
     total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
 end
@@ -42,16 +40,6 @@ end
 
 _dissipator_params(d::LindbladDissipator) = (; μ=d.lead.μ, T=d.lead.T, rate=d.rate)
 _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=get(p, :T, d.lead.T), rate=get(p, :rate, d.rate))
-chem_derivative(args...) = chem_derivative(d->Matrix(d), args...)
-function chem_derivative(f::Function, d)
-    func = μ -> f(update(d, (; μ), nothing))
-    ForwardDiff.derivative(func, d.lead.μ)
-end
-function chem_derivative(f::Function,d, _p)
-    p = _dissipator_params(d, _p)
-    func = μ -> f(update(d, (; μ, T=p.T, rate=p.rate), nothing))
-    ForwardDiff.derivative(func, p.μ)
-end
 
 function superoperator(lead, energies, rate, vectorizer, cache::LindbladCache)
     superop = zero(cache.superopcache)

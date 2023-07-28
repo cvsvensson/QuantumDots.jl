@@ -1,7 +1,9 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
-using DifferentialEquations
+using Symbolics
+using OrdinaryDiffEq
 using LinearSolve
+using ForwardDiff
 Random.seed!(1234)
 
 
@@ -497,8 +499,15 @@ end
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
+        lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+        @test eltype(lazyls) == ComplexF64
+        @test eltype(first(lazyls.dissipators)) == ComplexF64
+
+        prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
+        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
         ρinternal = solve(prob; abstol = 1e-12)
+        @test tomatrix(ρinternal,ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal,ls))...)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
@@ -536,7 +545,7 @@ end
         cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
         cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
         cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
-        
+
         @test conductance_matrix(ρ_pauli_internal, pauli) ≈ conductance_matrix(pauli)
         @test norm(cmpauli - cmpauli2) < 1e-3
         @test cmpauli ≈ cmpauli3
@@ -545,12 +554,12 @@ end
         @test vec(sum(diagonalsystem.transformed_measurements[1]*pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
               
         prob = ODEProblem(ls, I / 2^N, (0, 100))
-        sol = solve(prob);
+        sol = solve(prob, Tsit5());
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
-        sol = solve(prob)
+        sol = solve(prob, Tsit5())
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
         @test QuantumDots.internal_rep(ρ, ls) ≈
@@ -576,6 +585,57 @@ end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
     test_qd_transport(QuantumDots.fermionnumber)
+
+
+    N = 2
+    qn = QuantumDots.NoSymmetry()
+    a = FermionBasis(1:N; qn)
+    bd(m) = QuantumDots.blockdiagonal(m, a)
+    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + .2*(sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
+    T = .1
+    μL = .5
+    μR = 0.0
+    leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
+    rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+    leads = (;left = leftlead, right = rightlead)
+
+    particle_number = bd(numberoperator(a))
+    measurements = [particle_number]
+    system = QuantumDots.OpenSystem(hamiltonian, leads, measurements)
+    diagonalsystem = QuantumDots.diagonalize(system)
+    ls = QuantumDots.LindbladSystem(diagonalsystem)
+    mo = QuantumDots.LinearOperator(ls)
+    mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
+    
+    lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+    fo = QuantumDots.LinearOperator(lazyls)
+    fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
+    v1 = rand(2^(2N))
+    v2 = rand(2^(2N))
+    v2n = rand(2^(2N)+1)
+    vc1 = deepcopy(complex(v1))
+    vc2 = deepcopy(complex(v1))
+    @test fo*v1 ≈ mo*v1
+    @test mul!(vc2,fo,v1) ≈ mul!(vc1,mo,v1)
+    @test dot(fo'*v2, v1) ≈ dot(v2,fo*v1)
+    @test fo2*v1 ≈ mo2*v1
+    @test dot(fo2'*v2n, v1) ≈ dot(v2n,fo2*v1)
+
+    m = rand(ComplexF64,2^N,2^N)
+    mout = deepcopy(m)
+    @test lazyls*m ≈ reshape(mo*vec(m), size(m)...)
+    @test mul!(mout,lazyls,m) ≈ reshape(mo*vec(m), size(m)...)
+    @test first(lazyls.dissipators)*m ≈ reshape(first(ls.dissipators)*vec(m),size(m)...)
+    mul!(mout, first(lazyls.dissipators), m)
+    @test mout ≈ first(lazyls.dissipators)*m
+    @test mout ≈ reshape(mul!(vc1, first(ls.dissipators),vec(m)), size(m)...)
+
+    prob1 = StationaryStateProblem(ls)
+    prob2 = StationaryStateProblem(lazyls)
+    ρinternal1 = solve(prob1, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
+    ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
+    @test ρinternal1 ≈ ρinternal2
+
 end
 
 @testset "Khatri-Rao" begin
