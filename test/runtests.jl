@@ -503,7 +503,7 @@ end
         prob = StationaryStateProblem(ls)
         ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
         ρinternal = solve(prob; abstol = 1e-12)
-        @test ρinternal ≈ ρinternal2
+        @test tomatrix(ρinternal,ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal,ls))...)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
