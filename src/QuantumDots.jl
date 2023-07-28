@@ -8,7 +8,6 @@ using StaticArrays
 using UnicodePlots
 using PreallocationTools
 using ForwardDiff
-using Tullio
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator

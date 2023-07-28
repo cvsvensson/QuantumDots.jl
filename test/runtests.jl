@@ -1,6 +1,6 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
-using DifferentialEquations
+using OrdinaryDiffEq
 using LinearSolve
 Random.seed!(1234)
 
@@ -501,8 +501,9 @@ end
         
         prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
-        @time ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
-        @time ρinternal = solve(prob; abstol = 1e-12)
+        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
+        ρinternal = solve(prob; abstol = 1e-12)
+        @test ρinternal ≈ ρinternal2
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
@@ -548,12 +549,12 @@ end
         @test vec(sum(diagonalsystem.transformed_measurements[1]*pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
               
         prob = ODEProblem(ls, I / 2^N, (0, 100))
-        sol = solve(prob);
+        sol = solve(prob, Tsit5());
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
-        sol = solve(prob)
+        sol = solve(prob, Tsit5())
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
         @test QuantumDots.internal_rep(ρ, ls) ≈
