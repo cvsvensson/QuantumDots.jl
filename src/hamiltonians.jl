@@ -26,15 +26,14 @@ function pairing_rotated(Δ, (c1up, c1dn), (c2up, c2dn), angles1, angles2)
     Δ * (Ω[1, 1] * c1up * c2up + Ω[2, 1] * c1dn * c2up + Ω[1, 2] * c1up * c2dn + Ω[2, 2] * c1dn * c2dn) + hc
 end
 
-_kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + 4V * coulomb(f1, f2) + pairing(Δ, f1, f2)
+_kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pairing(Δ, f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
     N = nbr_of_fermions(c)
     h1s = (_kitaev_1site(c[j]; μ=getvalue(μ, j, N)) for j in 1:N)
     h2s = (_kitaev_2site(c[j], c[mod1(j + 1, N)]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
-    hs = Iterators.flatten((h1s, h2s))
-    sum(hs)
+    sum(h1s) + sum(h2s)
 end
 
 
