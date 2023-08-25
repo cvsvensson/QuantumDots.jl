@@ -35,4 +35,6 @@ include("bdg.jl")
 include("pretty_print.jl")
 include("rate_equation.jl")
 include("khatri_rao.jl")
+include("diagonalization.jl")
+include("majorana.jl")
 end

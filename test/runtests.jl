@@ -302,6 +302,9 @@ end
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
+    w, v = QuantumDots.majorana_coefficients(v1, v2, c)
+    mps = QuantumDots.majorana_polarization(w, v, 1:2)
+    @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
@@ -315,6 +318,9 @@ end
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
+    w, v = QuantumDots.majorana_coefficients(v1, v2, c)
+    mps = QuantumDots.majorana_polarization(w, v, 1:2)
+    @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
 end
 
@@ -487,15 +493,15 @@ end
         # leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
         leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
         rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
-        leads = (;left = leftlead, right = rightlead)
+        leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
         measurements = [particle_number]
         system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
         diagonalsystem = QuantumDots.diagonalize(system)
         diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
-        @test diag(diagonalsystem.hamiltonian.eigenvalues) ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
-        @test diag(diagonalsystem2.hamiltonian.eigenvalues) ≈ [0]
+        @test diagonalsystem.hamiltonian.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
+        @test diagonalsystem2.hamiltonian.values ≈ [0]
         ls = QuantumDots.LindbladSystem(diagonalsystem)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
@@ -506,9 +512,9 @@ end
 
         prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
-        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12)
-        ρinternal = solve(prob; abstol = 1e-12)
-        @test tomatrix(ρinternal,ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal,ls))...)
+        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
+        ρinternal = solve(prob; abstol=1e-12)
+        @test tomatrix(ρinternal, ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal, ls))...)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
         @test solve!(linsolve) ≈ ρinternal
@@ -524,9 +530,9 @@ end
         cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
         cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
         @test norm(cm - cm2) < 1e-4
-        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal,diagonalsystem, ls)[1]))
+        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, diagonalsystem, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
-        @test all(map(≈ , numeric_current, (;left = -analytic_current, right= analytic_current))) #Why not flip the signs?
+        @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
 
         pauli = QuantumDots.pauli_system(diagonalsystem)
         pauli_prob = StationaryStateProblem(pauli)
@@ -552,10 +558,10 @@ end
         @test cmpauli ≈ cmpauli3
         @test norm(cmpauli3 - cmpauli4) < 1e-3
 
-        @test vec(sum(diagonalsystem.transformed_measurements[1]*pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
-              
+        @test vec(sum(diagonalsystem.transformed_measurements[1] * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
+
         prob = ODEProblem(ls, I / 2^N, (0, 100))
-        sol = solve(prob, Tsit5());
+        sol = solve(prob, Tsit5())
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
@@ -570,17 +576,17 @@ end
               QuantumDots.internal_rep(ρ_pauli_internal, pauli) ≈
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
 
-        @test islinear(pauli) 
-        @test all(map(islinear,(pauli.dissipators)))
-        @test islinear(ls) 
-        @test all(map(islinear,(ls.dissipators))) 
+        @test islinear(pauli)
+        @test all(map(islinear, (pauli.dissipators)))
+        @test islinear(ls)
+        @test all(map(islinear, (ls.dissipators)))
         @test eltype(ls) == eltype(ls.total)
         @test eltype(pauli) == eltype(pauli.total_master_matrix)
         @test Matrix(ls) == ls.total
         @test Matrix(pauli) == pauli.total_master_matrix
         @test eltype(first(pauli.dissipators)) == eltype(Matrix(first(pauli.dissipators)))
-        @test size(pauli) == size(Matrix(pauli)) == size(first(pauli.dissipators)) 
-        @test size(ls) ==  size(Matrix(ls)) == size(first(ls.dissipators))
+        @test size(pauli) == size(Matrix(pauli)) == size(first(pauli.dissipators))
+        @test size(ls) == size(Matrix(ls)) == size(first(ls.dissipators))
 
     end
     test_qd_transport(QuantumDots.NoSymmetry())
@@ -592,13 +598,13 @@ end
     qn = QuantumDots.NoSymmetry()
     a = FermionBasis(1:N; qn)
     bd(m) = QuantumDots.blockdiagonal(m, a)
-    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + .2*(sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
-    T = .1
-    μL = .5
+    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
+    T = 0.1
+    μL = 0.5
     μR = 0.0
     leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
     rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
-    leads = (;left = leftlead, right = rightlead)
+    leads = (; left=leftlead, right=rightlead)
 
     particle_number = bd(numberoperator(a))
     measurements = [particle_number]
@@ -607,34 +613,34 @@ end
     ls = QuantumDots.LindbladSystem(diagonalsystem)
     mo = QuantumDots.LinearOperator(ls)
     mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
-    
+
     lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
     fo = QuantumDots.LinearOperator(lazyls)
     fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
     v1 = rand(2^(2N))
     v2 = rand(2^(2N))
-    v2n = rand(2^(2N)+1)
+    v2n = rand(2^(2N) + 1)
     vc1 = deepcopy(complex(v1))
     vc2 = deepcopy(complex(v1))
-    @test fo*v1 ≈ mo*v1
-    @test mul!(vc2,fo,v1) ≈ mul!(vc1,mo,v1)
-    @test dot(fo'*v2, v1) ≈ dot(v2,fo*v1)
-    @test fo2*v1 ≈ mo2*v1
-    @test dot(fo2'*v2n, v1) ≈ dot(v2n,fo2*v1)
+    @test fo * v1 ≈ mo * v1
+    @test mul!(vc2, fo, v1) ≈ mul!(vc1, mo, v1)
+    @test dot(fo' * v2, v1) ≈ dot(v2, fo * v1)
+    @test fo2 * v1 ≈ mo2 * v1
+    @test dot(fo2' * v2n, v1) ≈ dot(v2n, fo2 * v1)
 
-    m = rand(ComplexF64,2^N,2^N)
+    m = rand(ComplexF64, 2^N, 2^N)
     mout = deepcopy(m)
-    @test lazyls*m ≈ reshape(mo*vec(m), size(m)...)
-    @test mul!(mout,lazyls,m) ≈ reshape(mo*vec(m), size(m)...)
-    @test first(lazyls.dissipators)*m ≈ reshape(first(ls.dissipators)*vec(m),size(m)...)
+    @test lazyls * m ≈ reshape(mo * vec(m), size(m)...)
+    @test mul!(mout, lazyls, m) ≈ reshape(mo * vec(m), size(m)...)
+    @test first(lazyls.dissipators) * m ≈ reshape(first(ls.dissipators) * vec(m), size(m)...)
     mul!(mout, first(lazyls.dissipators), m)
-    @test mout ≈ first(lazyls.dissipators)*m
-    @test mout ≈ reshape(mul!(vc1, first(ls.dissipators),vec(m)), size(m)...)
+    @test mout ≈ first(lazyls.dissipators) * m
+    @test mout ≈ reshape(mul!(vc1, first(ls.dissipators), vec(m)), size(m)...)
 
     prob1 = StationaryStateProblem(ls)
     prob2 = StationaryStateProblem(lazyls)
-    ρinternal1 = solve(prob1, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
-    ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol = 1e-12);
+    ρinternal1 = solve(prob1, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
+    ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
     @test ρinternal1 ≈ ρinternal2
 
 end
@@ -647,8 +653,8 @@ end
     @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bdm, kv))
     @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m, kv))
     @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ QuantumDots.khatri_rao_dissipator(m, kv)
-    @test QuantumDots.khatri_rao_dissipator(m,kv) isa Matrix
-    @test QuantumDots.khatri_rao(m, m, kv) ≈ cat(map(kron, bdm.blocks, bdm.blocks)...;dims=(1,2))
+    @test QuantumDots.khatri_rao_dissipator(m, kv) isa Matrix
+    @test QuantumDots.khatri_rao(m, m, kv) ≈ cat(map(kron, bdm.blocks, bdm.blocks)...; dims=(1, 2))
     @test QuantumDots.khatri_rao(m, m, kv) ≈
           QuantumDots.khatri_rao(bdm, bdm, kv) ≈
           QuantumDots.khatri_rao(m, bdm, kv) ≈

@@ -40,9 +40,9 @@ struct LazyLindbladSystem{DS,H,C} <: AbstractOpenSystem
 end
 
 function LazyLindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}; rates=map(l -> 1, system.leads))
-    energies = eigenvaluevector(system)
+    energies = eigenvalues(system)
     dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, energies, rate), system.leads, rates)
-    LazyLindbladSystem(dissipators, system.hamiltonian, Matrix(1im * eigenvalues(system.hamiltonian)))
+    LazyLindbladSystem(dissipators, system.hamiltonian, Matrix(1im * Diagonal(eigenvalues(system.hamiltonian))))
 end
 Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint, d.dissipators), -d.hamiltonian, d.cache)
 
@@ -83,7 +83,7 @@ function Base.:*(d::LazyLindbladDissipator, rho)
 end
 
 function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
-    H = eigenvalues(d.hamiltonian)
+    H = Diagonal(eigenvalues(d.hamiltonian))
     dissipator_ops = dissipator_op_list(d)
     rho = isreal(_rho) ? complex(_rho) : _rho #Need to have complex matrices for the mul! to be non-allocating
     mul!(out, H, rho, -1im, 0)
@@ -98,7 +98,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
     return out
 end
 function Base.:*(d::LazyLindbladSystem, rho)
-    H = eigenvalues(d.hamiltonian)
+    H = Diagonal(eigenvalues(d.hamiltonian))
     dissipator_ops = dissipator_op_list(d)
     out = -1im .* (H * rho .- rho * H)
     for (L, L2, rate) in dissipator_ops

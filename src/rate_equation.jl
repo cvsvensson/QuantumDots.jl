@@ -3,7 +3,7 @@ struct Pauli <: AbstractOpenSolver end
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
 pauli_system(H::OpenSystem) = pauli_system(diagonalize(H))
 function pauli_system(H::OpenSystem{<:DiagonalizedHamiltonian})
-    ds = map(l->PauliDissipator(eigenvaluevector(H),l), H.leads)
+    ds = map(l->PauliDissipator(eigenvalues(H),l), H.leads)
     PauliSystem(ds)
 end
 

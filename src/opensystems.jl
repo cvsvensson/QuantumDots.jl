@@ -36,12 +36,12 @@ SciMLBase.islinear(d::AbstractDissipator) = true
 
 ##
 struct DiagonalizedHamiltonian{Vals,Vecs}
-    eigenvalues::Vals
-    eigenvectors::Vecs
+    values::Vals
+    vectors::Vecs
 end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
-Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.eigenvalues,-h.eigenvectors)
+Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values,-h.vectors)
 
 abstract type AbstractOpenSystem end
 Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
@@ -63,13 +63,7 @@ Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
 OpenSystem(H) = OpenSystem(H, nothing, nothing, nothing)
 OpenSystem(H, l) = OpenSystem(H, l, nothing, nothing)
 OpenSystem(H, l, m) = OpenSystem(H, l, m, nothing)
-eigenvaluevector(H::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvaluevector(hamiltonian(H))
-eigenvaluevector(H::DiagonalizedHamiltonian) = diag(eigenvalues(H))
-hamiltonian(system::OpenSystem) = system.hamiltonian
-eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
-eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
-eigenvalues(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvalues
-eigenvectors(hamiltonian::DiagonalizedHamiltonian) = hamiltonian.eigenvectors
+
 leads(system::OpenSystem) = system.leads
 measurements(system::OpenSystem) = system.measurements
 transformed_measurements(system::OpenSystem) = system.transformed_measurements
@@ -114,20 +108,6 @@ LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
 diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
 
-function diagonalize(m::AbstractMatrix)
-    vals, vecs = eigen(m)
-    DiagonalizedHamiltonian(Diagonal(vals), vecs)
-end
-diagonalize(m::SparseMatrixCSC) = diagonalize(Matrix(m))
-function diagonalize(m::BlockDiagonal)
-    vals, vecs = BlockDiagonals.eigen_blockwise(m)
-    blockinds = sizestoinds(map(first, blocksizes(vecs)))
-    bdvals = BlockDiagonal(map(inds -> Diagonal(vals[inds]), blockinds))
-    DiagonalizedHamiltonian(bdvals, vecs)
-end
-diagonalize(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize(BlockDiagonal(Matrix.(m.blocks)))
-diagonalize(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize(BlockDiagonal(Hermitian.(Matrix.(m.blocks))))
-
 diagonalize_leads(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), map(lead -> diagonalize(eigenvectors(system), lead), leads(system)), measurements(system), transformed_measurements(system))
 transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), leads(system), measurements(system), map(op -> changebasis(op, system), measurements(system)))
 transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian,<:Any,Nothing}) = system
@@ -147,19 +127,19 @@ remove_high_energy_states(dE, system::OpenSystem) = OpenSystem(remove_high_energ
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal})
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
-    E0 = minimum(diag(vals))
-    Is = map(vals -> findall(<(ΔE + E0), diag(vals)), blocks(vals))
+    E0 = minimum(vals)
+    Is = map(vals -> findall(<(ΔE + E0), vals), blocks(vals))
     newblocks = map((block, I) -> block[:, I], blocks(vecs), Is)
-    newvals = map((vals, I) -> Diagonal(diag(vals)[I]), blocks(vals), Is)
+    newvals = map((vals, I) -> Diagonal(vals[I]), blocks(vals), Is)
     DiagonalizedHamiltonian(BlockDiagonal(newvals), BlockDiagonal(newblocks))
 end
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
-    E0 = minimum(diag(vals))
-    I = findall(<(ΔE + E0), diag(vals))
+    E0 = minimum(vals)
+    I = findall(<(ΔE + E0), vals)
     newvecs = vecs[:, I]
-    newvals = Diagonal(diag(vals)[I])
+    newvals = Diagonal(vals[I])
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
