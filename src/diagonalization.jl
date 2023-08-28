@@ -13,6 +13,11 @@ function diagonalize(m::BlockDiagonal)
     vals, vecs = BlockDiagonals.eigen_blockwise(m)
     DiagonalizedHamiltonian(vals, vecs)
 end
+function diagonalize!(m::AbstractMatrix)
+    vals, vecs = eigen!(m)
+    DiagonalizedHamiltonian(vals, vecs)
+end
+diagonalize!(m::SparseMatrixCSC) = diagonalize!(Matrix(m))
 function diagonalize!(m::BlockDiagonal)
     vals, vecs = eigen!_blockwise(m)
     DiagonalizedHamiltonian(vals, vecs)
