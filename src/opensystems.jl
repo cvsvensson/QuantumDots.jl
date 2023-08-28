@@ -125,13 +125,12 @@ vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
 remove_high_energy_states(dE, system::OpenSystem) = OpenSystem(remove_high_energy_states(dE, hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal})
-    vals = eigenvalues(ham)
-    vecs = eigenvectors(ham)
-    E0 = minimum(vals)
-    Is = map(vals -> findall(<(ΔE + E0), vals), blocks(vals))
-    newblocks = map((block, I) -> block[:, I], blocks(vecs), Is)
-    newvals = map((vals, I) -> Diagonal(vals[I]), blocks(vals), Is)
-    DiagonalizedHamiltonian(BlockDiagonal(newvals), BlockDiagonal(newblocks))
+    E0 = minimum(eigenvalues(ham))
+    sectors = blocks(ham)
+    Is = map(eig -> findall(<(ΔE + E0), eig.values), sectors)
+    newblocks = map((eig, I) -> eig.vectors[:, I], sectors, Is)
+    newvals = map((eig, I) -> eig.vals[I], sectors, Is)
+    DiagonalizedHamiltonian(reduce(vcat, newvals), BlockDiagonal(newblocks))
 end
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     vals = eigenvalues(ham)
@@ -139,7 +138,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     E0 = minimum(vals)
     I = findall(<(ΔE + E0), vals)
     newvecs = vecs[:, I]
-    newvals = Diagonal(vals[I])
+    newvals = vals[I]
     DiagonalizedHamiltonian(newvals, newvecs)
 end
 
