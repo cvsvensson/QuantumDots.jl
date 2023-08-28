@@ -133,7 +133,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:Blo
     newvals = map((vals, I) -> Diagonal(vals[I]), blocks(vals), Is)
     DiagonalizedHamiltonian(BlockDiagonal(newvals), BlockDiagonal(newblocks))
 end
-function _remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
+function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
     E0 = minimum(vals)
