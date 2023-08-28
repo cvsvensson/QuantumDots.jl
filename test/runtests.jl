@@ -293,7 +293,7 @@ end
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
-    ham = Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0, t=1, Δ=1))
+    ham = Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
     vals, vecs = eigen(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
@@ -317,7 +317,7 @@ end
     
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
-    ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0, t=1, Δ=1)), c)
+    ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)), c)
     vals, vecs = BlockDiagonals.eigen_blockwise(ham)
     @test abs(vals[1] - vals[1+size(vecs.blocks[1], 1)]) < 1e-12
     p = parityoperator(c)
