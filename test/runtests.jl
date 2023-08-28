@@ -306,6 +306,12 @@ end
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
+    eig = QuantumDots.diagonalize(ham)
+    @test eig.values ≈ vals
+    @test eig.vectors ≈ vecs
+    eigsectors = blocks(eig)
+    @test v1 ≈ eigsectors[1].vectors[:,1]
+
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0, t=1, Δ=1)), c)
@@ -321,7 +327,17 @@ end
     w, v = QuantumDots.majorana_coefficients(v1, v2, c)
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
+    
+    eig = QuantumDots.diagonalize(ham)
+    @test eig.values ≈ vals
+    @test eig.vectors ≈ vecs
+    eigsectors = blocks(eig; full = true)
+    @test v1 ≈ eigsectors[1].vectors[:,1]
+    @test v2 ≈ eigsectors[2].vectors[:,1]
 
+    eigsectors = blocks(eig; full = false)
+    @test v1 ≈ vcat(eigsectors[1].vectors[:,1],zero(eigsectors[1].vectors[:,1]))
+    @test v2 ≈ vcat(zero(eigsectors[1].vectors[:,1]), eigsectors[2].vectors[:,1])
 end
 
 @testset "Parity and number operator" begin

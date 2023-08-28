@@ -28,3 +28,18 @@ function eigen!_blockwise(B::BlockDiagonal, args...; kwargs...)
     vectors = [e.vectors for e in eigens]
     vcat(values...), BlockDiagonal(vectors)
 end
+BlockDiagonals.blocks(m::AbstractMatrix) = [m]
+
+function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
+    vals = eig.values
+    vecs = eig.vectors
+    bvecs = BlockDiagonals.blocks(vecs)
+    sizes = size.(bvecs, 1)
+    blockinds = map(i -> eachindex(vals)[i], sizestoinds(sizes))
+    if full
+        filteredinds = [map(i -> i in inds, eachindex(vals)) for inds in blockinds]
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds]), filteredinds, bvecs)
+    else
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block), blockinds, bvecs)
+    end
+end
