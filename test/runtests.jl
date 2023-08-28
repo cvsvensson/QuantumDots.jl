@@ -307,11 +307,14 @@ end
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
     eig = QuantumDots.diagonalize(ham)
+    eig! = QuantumDots.diagonalize!(deepcopy(ham))
+    @test eig.values ≈ eig!.values
+    @test eig.vectors ≈ eig!.vectors
     @test eig.values ≈ vals
     @test eig.vectors ≈ vecs
     eigsectors = blocks(eig)
     @test v1 ≈ eigsectors[1].vectors[:,1]
-
+    
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0, t=1, Δ=1)), c)
@@ -329,6 +332,9 @@ end
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
     
     eig = QuantumDots.diagonalize(ham)
+    eig! = QuantumDots.diagonalize!(deepcopy(ham))
+    @test eig.values ≈ eig!.values
+    @test eig.vectors ≈ eig!.vectors
     @test eig.values ≈ vals
     @test eig.vectors ≈ vecs
     eigsectors = blocks(eig; full = true)
