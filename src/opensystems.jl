@@ -124,7 +124,7 @@ trnorm(rho, n) = tr(reshape(rho, n, n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 
 remove_high_energy_states(dE, system::OpenSystem) = OpenSystem(remove_high_energy_states(dE, hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
-function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:BlockDiagonal,<:BlockDiagonal})
+function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal})
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
     E0 = minimum(vals)
@@ -133,7 +133,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:BlockDiag
     newvals = map((vals, I) -> Diagonal(vals[I]), blocks(vals), Is)
     DiagonalizedHamiltonian(BlockDiagonal(newvals), BlockDiagonal(newblocks))
 end
-function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
+function _remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
     E0 = minimum(vals)

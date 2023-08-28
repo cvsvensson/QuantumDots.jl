@@ -22,6 +22,6 @@ end
 KronVectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(size(ham.values, 1), eltype(ham))
 KhatriRaoVectorizer(ham::DiagonalizedHamiltonian) = KhatriRaoVectorizer(first.(blocksizes(ham.values)), eltype(ham))
 
-default_vectorizer(ham::DiagonalizedHamiltonian{<:BlockDiagonal}) = KhatriRaoVectorizer(ham)
+default_vectorizer(ham::DiagonalizedHamiltonian{<:Any, <:BlockDiagonal}) = KhatriRaoVectorizer(ham)
 default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
 default_vectorizer(system::OpenSystem) = default_vectorizer(system.hamiltonian)
