@@ -36,11 +36,13 @@ end
 reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasis) = reduced_density_matrix(v, Tuple(keys(bsub)), bfull, bsub.symmetry)
 
 reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v * v', args...)
-function reduced_density_matrix(m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {N,T,M}
+function reduced_density_matrix(m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+    N = length(labels)
     mout = zeros(T, 2^N, 2^N)
     reduced_density_matrix!(mout, m, labels, b, sym)
 end
-function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels::NTuple{N}, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {N,T,M}
+function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+    N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds::NTuple{N,Int} = siteindices(labels, b)
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"

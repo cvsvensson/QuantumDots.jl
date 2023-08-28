@@ -16,13 +16,14 @@ struct LindbladCache{KC,MC,SC,OC}
     opcache::OC
 end
 function LindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}, vectorizer=default_vectorizer(system); rates = map(l -> 1, system.leads))
-    commutator_hamiltonian = commutator(eigenvalues(system), vectorizer)
+    diageigvals = Diagonal(eigenvalues(system))
+    commutator_hamiltonian = commutator(diageigvals, vectorizer)
     unitary = -1im * commutator_hamiltonian
-    energies = eigenvaluevector(system)
-    kroncache = (Matrix(unitary))
+    energies = eigenvalues(system)
+    kroncache = Matrix(unitary)
     superopcache = deepcopy(kroncache)
-    mulcache = (complex(Matrix(eigenvalues(system))))
-    opcache = (complex(Matrix(eigenvalues(system))))
+    mulcache = (complex(Matrix(diageigvals)))
+    opcache = (complex(Matrix(diageigvals)))
     cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
     dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, energies, rate, vectorizer, cache), rate, lead, energies,vectorizer,cache), system.leads, rates)
     total = lindblad_matrix(unitary, dissipators)
