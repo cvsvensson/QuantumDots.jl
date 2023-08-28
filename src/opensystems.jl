@@ -129,7 +129,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:Blo
     sectors = blocks(ham)
     Is = map(eig -> findall(<(ΔE + E0), eig.values), sectors)
     newblocks = map((eig, I) -> eig.vectors[:, I], sectors, Is)
-    newvals = map((eig, I) -> eig.vals[I], sectors, Is)
+    newvals = map((eig, I) -> eig.values[I], sectors, Is)
     DiagonalizedHamiltonian(reduce(vcat, newvals), BlockDiagonal(newblocks))
 end
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
