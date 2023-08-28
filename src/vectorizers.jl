@@ -19,8 +19,8 @@ function KhatriRaoVectorizer(sizes::Vector{Int}, ::Type{T}=Float64) where {T}
     KhatriRaoVectorizer{T}(sizes, vecdp(blockid), [0, cumsum(sizes)...], [0, cumsum(sizes .^2)...], sizestoinds(sizes), sizestoinds(sizes .^2))
 end
 
-KronVectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(size(ham.values, 1), eltype(ham))
-KhatriRaoVectorizer(ham::DiagonalizedHamiltonian) = KhatriRaoVectorizer(first.(blocksizes(ham.values)), eltype(ham))
+KronVectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(length(ham.values), eltype(ham))
+KhatriRaoVectorizer(ham::DiagonalizedHamiltonian) = KhatriRaoVectorizer(first.(blocksizes(ham.vectors)), eltype(ham))
 
 default_vectorizer(ham::DiagonalizedHamiltonian{<:Any, <:BlockDiagonal}) = KhatriRaoVectorizer(ham)
 default_vectorizer(ham::DiagonalizedHamiltonian) = KronVectorizer(ham)
