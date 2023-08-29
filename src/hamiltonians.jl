@@ -48,12 +48,12 @@ function _BD1_2site((c1up, c1dn), (c2up, c2dn); t, Δ1, V, θϕ1, θϕ2)
     if iszero(V)
         return ms
     else
-        return ms + V * ((numberop(c1up) + numberop(c1dn)) * (numberop(c2up) + numberop(c2dn)))
+        return ms + V * Hermitian((numberop(c1up) + numberop(c1dn)) * (numberop(c2up) + numberop(c2dn)))
     end
 end
 function _BD1_1site((cup, cdn); μ, h, Δ, U)
     (-μ - h) * numberop(cup) + (-μ + h) * numberop(cdn) +
-    pairing(Δ, cup, cdn) + U * (numberop(cup) * numberop(cdn))
+    pairing(Δ, cup, cdn) + U * coulomb(cup,cdn)
 end
 
 
