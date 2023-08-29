@@ -1,11 +1,11 @@
 struct HC end
-Base.:+(m::AbstractArray, ::HC) = m + m'
+Base.:+(m::AbstractArray, ::HC) = Hermitian(m + m')
 const hc = HC()
 
 hopping(t, f1, f2) = t * f1'f2 + hc
 pairing(Δ, f1, f2) = Δ * f2 * f1 + hc
-numberop(f) = f'f
-coulomb(f1, f2) = numberop(f1) * numberop(f2)
+numberop(f) = Hermitian(f'f)
+coulomb(f1, f2) = Hermitian(numberop(f1) * numberop(f2))
 function coulomb(f1::BdGFermion, f2::BdGFermion)
     @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog = 1
     0 * numberop(f1)
@@ -14,16 +14,21 @@ function su2_rotation((θ, ϕ))
     pf = mod(ϕ, π) == 0 ? real(exp(1im * ϕ)) : exp(1im * ϕ)
     _su2_rotation(θ, pf)
 end
-_su2_rotation(θ, pf) = @SMatrix [cos(θ / 2) -sin(θ / 2)pf'; sin(θ / 2)pf cos(θ / 2)]
+_su2_rotation(θ, pf) = ((s, c) = sincos(θ / 2); @SMatrix [c -s*pf'; s*pf c])
 
 function hopping_rotated(t, (c1up, c1dn), (c2up, c2dn), angles1, angles2)
     Ω = su2_rotation(angles1)' * su2_rotation(angles2)
-    t * (Ω[1, 1] * c1up' * c2up + Ω[2, 1] * c1dn' * c2up + Ω[1, 2] * c1up' * c2dn + Ω[2, 2] * c1dn' * c2dn) + hc
+    c1 = @SVector [c1up, c1dn]
+    c2 = @SVector [c2up, c2dn]
+    t * c1' * Ω * c2 + hc
 end
 
 function pairing_rotated(Δ, (c1up, c1dn), (c2up, c2dn), angles1, angles2)
-    Ω = transpose(su2_rotation(angles1)) * [0 -1; 1 0] * su2_rotation(angles2)
-    Δ * (Ω[1, 1] * c1up * c2up + Ω[2, 1] * c1dn * c2up + Ω[1, 2] * c1up * c2dn + Ω[2, 2] * c1dn * c2dn) + hc
+    m = @SMatrix [0 -1; 1 0]
+    Ω = transpose(su2_rotation(angles1)) * m * su2_rotation(angles2)
+    c1 = @SVector [c1up, c1dn]
+    c2 = @SVector [c2up, c2dn]
+    (Δ * permutedims(c1) * Ω * c2)[1] + hc
 end
 
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pairing(Δ, f1, f2)
