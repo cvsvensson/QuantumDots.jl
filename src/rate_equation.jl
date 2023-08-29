@@ -1,9 +1,9 @@
 struct Pauli <: AbstractOpenSolver end
 
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-pauli_system(H::OpenSystem) = pauli_system(diagonalize(H))
-function pauli_system(H::OpenSystem{<:DiagonalizedHamiltonian})
-    ds = map(l->PauliDissipator(eigenvalues(H),l), H.leads)
+(::Pauli)(H::OpenSystem) = Pauli()(diagonalize(H))
+function (::Pauli)(H::OpenSystem{<:DiagonalizedHamiltonian})
+    ds = map(l -> PauliDissipator(eigenvalues(H), l), H.leads)
     PauliSystem(ds)
 end
 
@@ -26,7 +26,7 @@ struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
-function PauliDissipator(energies::E, lead::L) where {L,E} 
+function PauliDissipator(energies::E, lead::L) where {L,E}
     Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
@@ -35,12 +35,12 @@ function PauliDissipator(energies::E, lead::L) where {L,E}
     PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),E}(lead, Win, Wout, Iin, Iout, D, energies)
 end
 
-internal_rep(u::UniformScaling, sys::PauliSystem) = u[1,1]*ones(size(sys.total_master_matrix, 2))
+internal_rep(u::UniformScaling, sys::PauliSystem) = u[1, 1] * ones(size(sys.total_master_matrix, 2))
 internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
 tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
 tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
-LinearOperator(L::PauliSystem{<:AbstractMatrix}, args...; normalizer = false) = MatrixOperator(L; normalizer)
+LinearOperator(L::PauliSystem{<:AbstractMatrix}, args...; normalizer=false) = MatrixOperator(L; normalizer)
 
 function identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
@@ -52,21 +52,21 @@ function PauliSystem(ds)
     D = zero(first(ds).total_master_matrix)
     Iin = zero(first(ds).Iin)
     Iout = zero(first(ds).Iout)
-    P = PauliSystem(D,(;in = Win,out = Wout),(;in = Iin, out = Iout),ds)
+    P = PauliSystem(D, (; in=Win, out=Wout), (; in=Iin, out=Iout), ds)
     update_total_operators!(P)
     return P
 end
-update(L::PauliSystem,p,tmp = nothing) = update_pauli_system(L,p)
+update(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
 function update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters)
     L
 end
 function update_pauli_system(L::PauliSystem, p)
-    _newdissipators = map(lp-> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+    _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
-end 
-function update(d::PauliDissipator, p, tmp = nothing)
-    PauliDissipator(d.energies, update_lead(d.lead,p))
+end
+function update(d::PauliDissipator, p, tmp=nothing)
+    PauliDissipator(d.energies, update_lead(d.lead, p))
 end
 
 function MatrixOperator(P::PauliSystem; normalizer)
@@ -74,11 +74,11 @@ function MatrixOperator(P::PauliSystem; normalizer)
     MatrixOperator(A)
 end
 function zero_total_operators!(P::PauliSystem)
-    foreach(x->fill!(x, zero(eltype(x))), (P.total_rate_matrix.in, 
-    P.total_rate_matrix.out,
-    P.total_current_operator.in,
-    P.total_current_operator.out,
-    P.total_master_matrix))
+    foreach(x -> fill!(x, zero(eltype(x))), (P.total_rate_matrix.in,
+        P.total_rate_matrix.out,
+        P.total_current_operator.in,
+        P.total_current_operator.out,
+        P.total_master_matrix))
 end
 function update_total_operators!(P::PauliSystem)
     zero_total_operators!(P)
@@ -94,8 +94,8 @@ end
 function get_rates(E::AbstractVector, lead::NormalLead)
     dos = density_of_states(lead)
     T = promote_type(eltype(E), eltype(lead.μ), eltype(lead.T), eltype(first(lead.jump_in)))
-    Win = zeros(T,size(first(lead.jump_in))...)
-    Wout= zeros(T,size(first(lead.jump_in))...)
+    Win = zeros(T, size(first(lead.jump_in))...)
+    Wout = zeros(T, size(first(lead.jump_in))...)
     update_rates!(Win, lead.jump_in, lead.T, lead.μ, E; dos)
     update_rates!(Wout, lead.jump_out, lead.T, -lead.μ, E; dos)
     return Win, Wout
@@ -107,7 +107,7 @@ function update_rates!(W, ops, T, μ, E::AbstractVector; dos)
         δE = E[n1] - E[n2]
         pf = 2π * dos * fermidirac(δE, T, μ)
         for op in ops
-            W[n1, n2] += pf*abs2(op[n1, n2])
+            W[n1, n2] += pf * abs2(op[n1, n2])
         end
     end
     return W
@@ -119,7 +119,7 @@ end
 
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
-    map(d-> dot(d.Iin, rho) + dot(d.Iout,rho), P.dissipators)
+    map(d -> dot(d.Iin, rho) + dot(d.Iout, rho), P.dissipators)
 end
 
 

@@ -548,7 +548,7 @@ end
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
 
-        pauli = QuantumDots.pauli_system(diagonalsystem)
+        pauli = QuantumDots.Pauli()(diagonalsystem)
         pauli_prob = StationaryStateProblem(pauli)
         ρ_pauli_internal = solve(pauli_prob)
         ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
