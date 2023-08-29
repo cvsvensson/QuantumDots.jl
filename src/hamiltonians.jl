@@ -106,7 +106,7 @@ function _tovec(p::ReflectedChainParameter, N; size=1)
 end
 getvalue(p::ReflectedChainParameter, i, N; size=1) = i <= Int(ceil(N / 2)) ? p.values[i] : p.values[2Int(ceil(N / 2))-i+iseven(N)]
 Base.Vector(p::AbstractChainParameter, N; size=1) = _tovec(p, N; size)
-getvalue(v::AbstractVector, i, N; size=1) = v[i]
+getvalue(v::Union{<:AbstractVector,<:Tuple}, i, N; size=1) = v[i]
 getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
