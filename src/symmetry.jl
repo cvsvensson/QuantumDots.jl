@@ -85,6 +85,14 @@ function blockdiagonal(::Type{T}, m::AbstractMatrix,sym::AbelianFockSymmetry) wh
     blockinds = values(sym.qntoinds)
     BlockDiagonal([T(m[block,block]) for block in blockinds])
 end
+function blockdiagonal(m::Hermitian,sym::AbelianFockSymmetry)
+    blockinds = values(sym.qntoinds)
+    Hermitian(BlockDiagonal([m[block,block] for block in blockinds]))
+end
+function blockdiagonal(::Type{T}, m::Hermitian,sym::AbelianFockSymmetry) where T
+    blockinds = values(sym.qntoinds)
+    Hermitian(BlockDiagonal([T(m[block,block]) for block in blockinds]))
+end
 
 focktoind(fs,b::FermionBasis) = focktoind(fs,b.symmetry)
 indtofock(ind,b::FermionBasis) = indtofock(ind,b.symmetry)
