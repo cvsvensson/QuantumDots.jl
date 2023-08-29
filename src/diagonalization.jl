@@ -3,6 +3,8 @@ eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamilto
 eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
 eigenvalues(H::DiagonalizedHamiltonian) = H.values
 eigenvectors(H::DiagonalizedHamiltonian) = H.vectors
+diagonalize(eig::DiagonalizedHamiltonian) = eig
+diagonalize!(eig::DiagonalizedHamiltonian) = eig
 
 function diagonalize(m::AbstractMatrix)
     vals, vecs = eigen(m)
