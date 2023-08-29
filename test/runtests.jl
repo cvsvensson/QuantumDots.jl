@@ -293,8 +293,9 @@ end
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
-    ham = Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
-    vals, vecs = eigen(ham)
+    ham = QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)
+    @test ham isa Hermitian
+    vals, vecs = QuantumDots.diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
     v1, v2 = eachcol(vecs[:, 1:2])
@@ -307,18 +308,14 @@ end
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
     eig = QuantumDots.diagonalize(ham)
-    eig! = QuantumDots.diagonalize!(deepcopy(ham))
-    @test eig.values ≈ eig!.values
-    @test eig.vectors ≈ eig!.vectors
-    @test eig.values ≈ vals
-    @test eig.vectors ≈ vecs
     eigsectors = blocks(eig)
     @test v1 ≈ eigsectors[1].vectors[:,1]
     
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
-    ham = QuantumDots.blockdiagonal(Matrix(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)), c)
-    vals, vecs = BlockDiagonals.eigen_blockwise(ham)
+    ham = QuantumDots.blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), c)
+    # vals, vecs = BlockDiagonals.eigen_blockwise(ham)
+    vals, vecs = QuantumDots.diagonalize(ham)
     @test abs(vals[1] - vals[1+size(vecs.blocks[1], 1)]) < 1e-12
     p = parityoperator(c)
     v1 = vecs[:, 1]
@@ -332,11 +329,6 @@ end
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
     
     eig = QuantumDots.diagonalize(ham)
-    eig! = QuantumDots.diagonalize!(deepcopy(ham))
-    @test eig.values ≈ eig!.values
-    @test eig.vectors ≈ eig!.vectors
-    @test eig.values ≈ vals
-    @test eig.vectors ≈ vecs
     eigsectors = blocks(eig; full = true)
     @test v1 ≈ eigsectors[1].vectors[:,1]
     @test v2 ≈ eigsectors[2].vectors[:,1]

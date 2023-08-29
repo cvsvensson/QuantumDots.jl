@@ -42,6 +42,10 @@ end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
 Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values,-h.vectors)
+Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
+Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:done))
+Base.iterate(S::DiagonalizedHamiltonian, ::Val{:done}) = nothing
+
 
 abstract type AbstractOpenSystem end
 Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
