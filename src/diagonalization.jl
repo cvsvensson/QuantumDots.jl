@@ -52,3 +52,10 @@ function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
         map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block), blockinds, bvecs)
     end
 end
+
+function ground_state(eig::DiagonalizedHamiltonian)
+    vals = eig.values
+    vecs = eig.vectors
+    minind = argmin(vals)
+    (;value = vals[minind], vector = vecs[:, minind])
+end

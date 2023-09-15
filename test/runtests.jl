@@ -310,7 +310,10 @@ end
     eig = QuantumDots.diagonalize(ham)
     eigsectors = blocks(eig)
     @test v1 ≈ eigsectors[1].vectors[:,1]
-    
+    gs = QuantumDots.ground_state.(eigsectors)
+    @test gs[1].vector ≈ v1
+    @test gs[1].value ≈ eigsectors[1].values[1]
+
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), c)

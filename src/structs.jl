@@ -21,7 +21,9 @@ Base.keys(b::FermionBasis) = keys(b.dict)
 labels(b::FermionBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io,b)
 Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
-
+Base.iterate(b::FermionBasis) = Base.iterate(b.dict)
+Base.iterate(b::FermionBasis, state) = Base.iterate(b.dict, state)
+Base.length(::FermionBasis{M}) where M = M
 
 symmetry(labels,::NoSymmetry) = NoSymmetry()
 FermionBasis(iters...; qn = NoSymmetry()) = FermionBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
@@ -78,3 +80,9 @@ nbr_of_fermions(::FermionBdGBasis{M}) where M = M
 Base.getindex(b::FermionBdGBasis,i) = BdGFermion(i,b)
 Base.getindex(b::FermionBdGBasis,args...) = BdGFermion(args,b) 
 indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole*nbr_of_fermions(b)
+
+Base.iterate(b::FermionBdGBasis) = ((result, state) = Base.iterate(keys(b.position)); (b[result], state));
+Base.iterate(b::FermionBdGBasis, state) = (res = Base.iterate(keys(b.position), state); isnothing(res) ? nothing : (b[res[1]], res[2]))
+Base.length(::FermionBdGBasis{M}) where M = M
+
+
