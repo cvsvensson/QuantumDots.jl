@@ -33,8 +33,9 @@ end
 
 struct QubitOp{S} end
 qubit_operator(c, ::QubitOp{:Z}) = 2c'c - I
-qubit_operator(c, ::QubitOp{:X}) = c+c'
-qubit_operator(c, ::QubitOp{:Y}) = 1im*(c'-c)
+qubit_operator(c, ::QubitOp{:X}) = c + c'
+qubit_operator(c, ::QubitOp{:Y}) = 1im * (c' - c)
+qubit_operator(c, ::QubitOp{:I}) = 0c + I
 
 
 Base.keys(b::QubitBasis) = keys(b.dict)
@@ -67,3 +68,6 @@ function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::QubitBas
     return mout
 end
 
+function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
+    map(op->tr(ρ*basis[label, op]), (:I, :X, :Y, :Z))
+end
