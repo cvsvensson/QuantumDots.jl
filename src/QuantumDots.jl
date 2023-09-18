@@ -12,6 +12,7 @@ export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parame
 export qns, Z2, QArray, Z2Symmetry, QNIndex
 export one_particle_density_matrix, reduced_density_matrix
 export tomatrix, StationaryStateProblem, Lindbladsystem, conductance_matrix
+export QubitBasis
 
 function fastgenerator end
 function fastblockdiagonal end
@@ -37,4 +38,6 @@ include("rate_equation.jl")
 include("khatri_rao.jl")
 include("diagonalization.jl")
 include("majorana.jl")
+include("qubit.jl")
+
 end

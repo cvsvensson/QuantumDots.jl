@@ -154,6 +154,67 @@ end
     @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
 end
 
+@testset "QubitBasis" begin
+    N = 6
+    B = QubitBasis(1:N)
+    @test length(B) == N
+    Bspin = QubitBasis(1:N, (:↑, :↓))
+    @test length(Bspin) == 2N
+    @test B[1] isa SparseMatrixCSC
+    @test Bspin[1, :↑] isa SparseMatrixCSC
+    @test parityoperator(B) isa SparseMatrixCSC
+    @test parityoperator(Bspin) isa SparseMatrixCSC
+    @test B[1] + B[1]' ≈ B[1, :X]
+    @test 2B[1]'B[1] - I ≈ B[1, :Z]
+    @test 1im * (B[1]' - B[1]) ≈ B[1, :Y]
+
+    (c,) = QuantumDots.cell(1, B)
+    @test c == B[1]
+    (c1, c2) = QuantumDots.cell(1, Bspin)
+    @test c1 == Bspin[1, :↑]
+    @test c2 == Bspin[1, :↓]
+
+    a = QubitBasis(1:3)
+    v = [QuantumDots.indtofock(i, a) for i in 1:8]
+    t1 = QuantumDots.tensor(v, a)
+    t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
+    @test t1 == t2
+
+    a = QubitBasis(1:3; qn=QuantumDots.parity)
+    v = [QuantumDots.indtofock(i, a) for i in 1:8]
+    t1 = QuantumDots.tensor(v, a)
+    t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
+    @test t1 == t2
+
+    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(reduced_density_matrix(v, (1,), a))
+
+    c = QubitBasis(1:2, (:a, :b))
+    cparity = QubitBasis(1:2, (:a, :b); qn=QuantumDots.parity)
+    ρ = Matrix(Hermitian(rand(2^4, 2^4) .- 0.5))
+    ρ = ρ / tr(ρ)
+    function bilinears(c, labels)
+        ops = reduce(vcat, [[c[l], c[l]'] for l in labels])
+        return [op1 * op2 for (op1, op2) in Base.product(ops, ops)]
+    end
+    function bilinear_equality(c, csub, ρ)
+        subsystem = Tuple(keys(csub))
+        ρsub = reduced_density_matrix(ρ, csub, c)
+        @test tr(ρsub) ≈ 1
+        all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
+    end
+    function get_subsystems(c, N)
+        t = collect(Base.product(ntuple(i -> keys(c), N)...))
+        (t[I] for I in CartesianIndices(t) if issorted(Tuple(I)) && allunique(Tuple(I)))
+    end
+    for N in 1:4
+        @test all(bilinear_equality(c, QubitBasis(subsystem), ρ) for subsystem in get_subsystems(c, N))
+        @test all(bilinear_equality(c, QubitBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(c, N))
+        @test all(bilinear_equality(c, QubitBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(cparity, N))
+        @test all(bilinear_equality(c, QubitBasis(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
+    end
+    bilinear_equality(c, QubitBasis(((1, :b), (1, :a))), ρ)
+end
+
 @testset "BdG" begin
     N = 2
     labels = Tuple(1:N)
@@ -309,7 +370,7 @@ end
 
     eig = QuantumDots.diagonalize(ham)
     eigsectors = blocks(eig)
-    @test v1 ≈ eigsectors[1].vectors[:,1]
+    @test v1 ≈ eigsectors[1].vectors[:, 1]
     gs = QuantumDots.ground_state.(eigsectors)
     @test gs[1].vector ≈ v1
     @test gs[1].value ≈ eigsectors[1].values[1]
@@ -330,15 +391,15 @@ end
     w, v = QuantumDots.majorana_coefficients(v1, v2, c)
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
-    
-    eig = QuantumDots.diagonalize(ham)
-    eigsectors = blocks(eig; full = true)
-    @test v1 ≈ eigsectors[1].vectors[:,1]
-    @test v2 ≈ eigsectors[2].vectors[:,1]
 
-    eigsectors = blocks(eig; full = false)
-    @test v1 ≈ vcat(eigsectors[1].vectors[:,1],zero(eigsectors[1].vectors[:,1]))
-    @test v2 ≈ vcat(zero(eigsectors[1].vectors[:,1]), eigsectors[2].vectors[:,1])
+    eig = QuantumDots.diagonalize(ham)
+    eigsectors = blocks(eig; full=true)
+    @test v1 ≈ eigsectors[1].vectors[:, 1]
+    @test v2 ≈ eigsectors[2].vectors[:, 1]
+
+    eigsectors = blocks(eig; full=false)
+    @test v1 ≈ vcat(eigsectors[1].vectors[:, 1], zero(eigsectors[1].vectors[:, 1]))
+    @test v2 ≈ vcat(zero(eigsectors[1].vectors[:, 1]), eigsectors[2].vectors[:, 1])
 end
 
 @testset "Parity and number operator" begin

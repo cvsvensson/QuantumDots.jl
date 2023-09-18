@@ -10,7 +10,8 @@ fermionnumber(fs::Int) = count_ones(fs)
 siteindex(id, b::AbstractBasis) = findfirst(x -> x == id, labels(b))::Int
 siteindices(ids::Union{Tuple{S,Vararg{S}},AbstractVector{S}}, b::AbstractBasis) where {S} = map(id -> siteindex(id, b), ids)#::Int
 
-function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
+function tensor(v::AbstractVector{T}, b::AbstractBasis) where T
+    M = length(b)
     @assert length(v) == 2^M
     t = Array{T,M}(undef, ntuple(i -> 2, M))
     for I in CartesianIndices(t)
@@ -33,10 +34,10 @@ function phase_factor(focknbr1, focknbr2, i::Integer)
     _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
 end
 
-reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasis) = reduced_density_matrix(v, Tuple(keys(bsub)), bfull, bsub.symmetry)
+reduced_density_matrix(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = reduced_density_matrix(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
 
 reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v * v', args...)
-function reduced_density_matrix(m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+function reduced_density_matrix(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
     N = length(labels)
     mout = zeros(T, 2^N, 2^N)
     reduced_density_matrix!(mout, m, labels, b, sym)
@@ -74,7 +75,7 @@ function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rig
     reshape(tperm, lsize, rsize)
 end
 
-function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple{N}, b::FermionBasis{M}) where {N,M}
+function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
     linds = siteindices(leftlabels, b)
     t = tensor(v, b)
     svd(Matrix(t, linds))
