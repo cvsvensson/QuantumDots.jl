@@ -1,4 +1,4 @@
-function Base.print(v::AbstractVector, b::FermionBasis{N}; digits = 3) where N
+function pretty_print(v::AbstractVector, b::FermionBasis{N}; digits = 3) where N
     println("labels = |", Tuple(keys(b))...,">")
     for qn in qns(b)
         println("QN = ",qn)
