@@ -45,7 +45,7 @@ end
 function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
-    outinds::NTuple{N,Int} = siteindices(labels, b)
+    outinds = siteindices(labels, b) #::NTuple{N,Int}
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
     bitmask = 2^M - 1 - focknbr(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
