@@ -69,5 +69,5 @@ function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::QubitBas
 end
 
 function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
-    map(op->tr(ρ*basis[label, op]), (:I, :X, :Y, :Z))
+    map(op->tr(ρ*basis[label, op]), [:X, :Y, :Z])
 end
