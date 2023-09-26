@@ -1,5 +1,4 @@
 function pretty_print(v::AbstractVector, b::FermionBasis{N}; digits=3) where {N}
-    colors = qn_colors(qns(b))
     printstyled("labels = |", bold=true)
     for (n, k) in enumerate(keys(b))
         printstyled(k, bold=true)
@@ -8,12 +7,10 @@ function pretty_print(v::AbstractVector, b::FermionBasis{N}; digits=3) where {N}
     printstyled(">", bold=true)
     println()
     for (n, qn) in enumerate(qns(b))
-        # printstyled("QN = ", qn, color=colors[n], bold=false)
         print("QN = ", qn)
         println()
         for ind in qntoinds(qn, b)
             fs = indtofock(ind, b)
-            # printstyled(" |", Int.(bits(fs, N))..., ">", bold=false, color=colors[n])
             print(" |", Int.(bits(fs, N))..., ">")
             println(" : ", round(v[ind]; digits))
         end
@@ -28,9 +25,7 @@ struct ColoredString{C}
     c::C
     ColoredString(s, c::C) where {C} = new{C}(s, c)
 end
-# function Base.show(io::IO, ::MIME"text/plain", v::ColoredString)
-#     println(Crayon(foreground=v.c), v.s)
-# end
+
 AxisKeys.ShowWith(val::ColoredString; hide=false, kw...) = AxisKeys.ShowWith(val.s; hide, kw..., color=val.c)
 qn_colors(qns) = 1:length(qns)
 function pretty_print(m::AbstractMatrix, b::FermionBasis{N}) where {N}
