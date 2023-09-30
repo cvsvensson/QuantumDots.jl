@@ -34,15 +34,15 @@ function phase_factor(focknbr1, focknbr2, i::Integer)
     _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
 end
 
-reduced_density_matrix(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = reduced_density_matrix(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
+partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = partial_trace(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
 
-reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v * v', args...)
-function reduced_density_matrix(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
+partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
+function partial_trace(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
     N = length(labels)
     mout = zeros(T, 2^N, 2^N)
-    reduced_density_matrix!(mout, m, labels, b, sym)
+    partial_trace!(mout, m, labels, b, sym)
 end
-function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b) #::NTuple{N,Int}

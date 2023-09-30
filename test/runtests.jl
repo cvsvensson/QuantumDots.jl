@@ -125,7 +125,7 @@ end
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == t2
 
-    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.reduced_density_matrix(v, (1,), a))
+    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.partial_trace(v, (1,), a))
 
     c = FermionBasis(1:2, (:a, :b))
     cparity = FermionBasis(1:2, (:a, :b); qn=QuantumDots.parity)
@@ -137,7 +137,7 @@ end
     end
     function bilinear_equality(c, csub, ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = QuantumDots.reduced_density_matrix(ρ, csub, c)
+        ρsub = QuantumDots.partial_trace(ρ, csub, c)
         @test tr(ρsub) ≈ 1
         all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
     end
@@ -186,7 +186,7 @@ end
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == t2
 
-    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(reduced_density_matrix(v, (1,), a))
+    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(partial_trace(v, (1,), a))
 
     c = QubitBasis(1:2, (:a, :b))
     cparity = QubitBasis(1:2, (:a, :b); qn=QuantumDots.parity)
@@ -198,7 +198,7 @@ end
     end
     function bilinear_equality(c, csub, ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = reduced_density_matrix(ρ, csub, c)
+        ρsub = partial_trace(ρ, csub, c)
         @test tr(ρsub) ≈ 1
         all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
     end

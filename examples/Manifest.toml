@@ -1355,7 +1355,7 @@ version = "2.8.2"
 
 [[deps.QuantumDots]]
 deps = ["AxisKeys", "BlockDiagonals", "Crayons", "Dictionaries", "LinearAlgebra", "LinearMaps", "Random", "Reexport", "SciMLBase", "SparseArrays", "SplitApplyCombine", "StaticArrays", "Test"]
-path = "C:\\Users\\vi2823sv\\.julia\\dev\\QuantumDots"
+path = "C:\\Users\\svens\\.julia\\dev\\QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
 version = "0.5.0"
 

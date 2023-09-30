@@ -51,7 +51,7 @@ symmetry(basis::QubitBasis) = basis.symmetry
 
 
 
-function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds::NTuple{N,Int} = siteindices(labels, b)
