@@ -16,6 +16,7 @@ f2(x) = x^2
 f3 = x -> x^2
 
 f(2)
+2 |> f
 
 ## Linear algebra
 v = [1, 2, 3]
