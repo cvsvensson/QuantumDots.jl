@@ -74,8 +74,8 @@ function fermion_sparse_matrix(fermion_number, totalsize, sym)
 end
 
 
-blockdiagonal(m::AbstractMatrix, basis::FermionBasis) = blockdiagonal(m, basis.symmetry)
-blockdiagonal(::Type{T}, m::AbstractMatrix, basis::FermionBasis) where {T} = blockdiagonal(T, m, basis.symmetry)
+blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis) = blockdiagonal(m, basis.symmetry)
+blockdiagonal(::Type{T}, m::AbstractMatrix, basis::AbstractManyBodyBasis) where {T} = blockdiagonal(T, m, basis.symmetry)
 
 blockdiagonal(m::AbstractMatrix, ::NoSymmetry) = m
 function blockdiagonal(m::AbstractMatrix, sym::AbelianFockSymmetry)

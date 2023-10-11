@@ -11,7 +11,7 @@ function lower_qubit(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed
 end
 
-struct QubitBasis{M,S,T,Sym} <: AbstractBasis
+struct QubitBasis{M,S,T,Sym} <: AbstractManyBodyBasis
     dict::Dictionary{S,T}
     symmetry::Sym
     function QubitBasis(qubits, sym::Sym) where {Sym<:AbstractSymmetry}
@@ -36,6 +36,7 @@ qubit_operator(c, ::QubitOp{:Z}) = 2c'c - I
 qubit_operator(c, ::QubitOp{:X}) = c + c'
 qubit_operator(c, ::QubitOp{:Y}) = 1im * (c' - c)
 qubit_operator(c, ::QubitOp{:I}) = 0c + I
+qns(b::QubitBasis) = qns(b.symmetry)
 
 
 Base.keys(b::QubitBasis) = keys(b.dict)

@@ -1,4 +1,5 @@
-function pretty_print(v::AbstractVector, b::FermionBasis{N}; digits=3) where {N}
+function pretty_print(v::AbstractVector, b::AbstractBasis; digits=3)
+    N = length(b)
     printstyled("labels = |", bold=true)
     for (n, k) in enumerate(keys(b))
         printstyled(k, bold=true)

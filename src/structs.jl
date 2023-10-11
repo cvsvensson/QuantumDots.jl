@@ -1,11 +1,12 @@
 abstract type AbstractBasis end
-const BasisOrMissing = Union{AbstractBasis,Missing}
+abstract type AbstractManyBodyBasis <: AbstractBasis end
+# const BasisOrMissing = Union{AbstractBasis,Missing}
 basis(::AbstractArray) = missing
 
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
 
-struct FermionBasis{M,S,T,Sym} <: AbstractBasis
+struct FermionBasis{M,S,T,Sym} <: AbstractManyBodyBasis
     dict::Dictionary{S,T}
     symmetry::Sym
     function FermionBasis(fermions, sym::Sym) where {Sym<:AbstractSymmetry}
