@@ -168,6 +168,8 @@ end
     @test B[1] + B[1]' ≈ B[1, :X]
     @test 2B[1]'B[1] - I ≈ B[1, :Z]
     @test 1im * (B[1]' - B[1]) ≈ B[1, :Y]
+    @test I ≈ B[1, :I]
+    @test QuantumDots.bloch_vector(B[1, :X],1, B) ≈ [1, 0 ,0]
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]

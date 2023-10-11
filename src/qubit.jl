@@ -70,5 +70,5 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sy
 end
 
 function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
-    map(op->tr(ρ*basis[label, op]), [:X, :Y, :Z])
+    map(op->real(tr(ρ*basis[label, op])), [:X, :Y, :Z])/2^length(basis)
 end
