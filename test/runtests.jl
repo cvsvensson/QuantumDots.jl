@@ -224,6 +224,8 @@ end
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
 
+    @test all(f == b[n] for (n,f) in enumerate(b))
+
     @test iszero(b[1] * b[1])
     @test iszero(b[1]' * b[1]')
     @test iszero(*(b[1], b[1]; symmetrize=false))
