@@ -219,10 +219,11 @@ end
 
 @testset "BdG" begin
     N = 2
-    labels = Tuple(1:N)
+    labels = 1:N
     μ1 = rand()
     μ2 = rand()
     b = QuantumDots.FermionBdGBasis(labels)
+    length(QuantumDots.FermionBdGBasis(1:2, (:a, :b))) == 4
 
     @test all(f == b[n] for (n,f) in enumerate(b))
 

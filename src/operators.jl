@@ -25,18 +25,6 @@ function numberoperator(basis::FermionBasis)
     return mat
 end
 
-# function fermion_sparse_matrix(fermion_number, total_size, ::NoSymmetry)
-#     mat = spzeros(Int, total_size, total_size)
-#     _fill!(mat, fs -> removefermion(fermion_number, fs), NoSymmetry())
-#     return mat
-# end
-
-# function qubit_sparse_matrix(qubit_number, total_size, ::NoSymmetry)
-#     mat = spzeros(Int, total_size, total_size)
-#     _fill!(mat, fs -> lower_qubit(qubit_number, fs), NoSymmetry())
-#     return mat
-# end
-
 function _fill!(mat, op, ::NoSymmetry)
     for ind in axes(mat, 2)
         newfockstate, amp = op(ind - 1)

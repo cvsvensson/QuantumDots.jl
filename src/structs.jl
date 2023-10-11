@@ -1,7 +1,5 @@
 abstract type AbstractBasis end
 abstract type AbstractManyBodyBasis <: AbstractBasis end
-# const BasisOrMissing = Union{AbstractBasis,Missing}
-basis(::AbstractArray) = missing
 
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
