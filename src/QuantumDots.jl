@@ -33,11 +33,11 @@ include("lazy_lindblad.jl")
 include("hamiltonians.jl")
 include("QArray.jl")
 include("bdg.jl")
-include("pretty_print.jl")
 include("rate_equation.jl")
 include("khatri_rao.jl")
 include("diagonalization.jl")
 include("majorana.jl")
 include("qubit.jl")
+include("pretty_print.jl")
 
 end
