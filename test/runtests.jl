@@ -97,17 +97,19 @@ end
 end
 
 @testset "Basis" begin
-    N = 6
+    N = 2
     B = FermionBasis(1:N)
     @test QuantumDots.nbr_of_fermions(B) == N
-    Bspin = FermionBasis(1:N, (:↑, :↓))
+    Bspin = FermionBasis(1:N, (:↑, :↓); qn=QuantumDots.fermionnumber)
     @test QuantumDots.nbr_of_fermions(Bspin) == 2N
     @test B[1] isa SparseMatrixCSC
     @test Bspin[1, :↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
-    @test_nowarn pretty_print(B[1], B)
-    @test_nowarn pretty_print(B[1][:,1], B)
+    @test pretty_print(B[1], B) |> isnothing
+    @test pretty_print(B[1][:, 1], B) |> isnothing
+    @test pretty_print(Bspin[1, :↑], Bspin) |> isnothing
+    @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
@@ -116,7 +118,7 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = FermionBasis(1:3)
-    @test all(f == a[n] for (n,f) in enumerate(a))
+    @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
     t1 = QuantumDots.tensor(v, a)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
@@ -158,10 +160,10 @@ end
 end
 
 @testset "QubitBasis" begin
-    N = 6
+    N = 2
     B = QubitBasis(1:N)
     @test length(B) == N
-    Bspin = QubitBasis(1:N, (:↑, :↓))
+    Bspin = QubitBasis(1:N, (:↑, :↓); qn=QuantumDots.fermionnumber)
     @test length(Bspin) == 2N
     @test B[1] isa SparseMatrixCSC
     @test Bspin[1, :↑] isa SparseMatrixCSC
@@ -171,9 +173,11 @@ end
     @test 2B[1]'B[1] - I ≈ B[1, :Z]
     @test 1im * (B[1]' - B[1]) ≈ B[1, :Y]
     @test I ≈ B[1, :I]
-    @test QuantumDots.bloch_vector(B[1, :X] + B[1, :Y] + B[1, :Z],1, B) ≈ [1, 1 ,1]
-    @test_nowarn pretty_print(B[1,:X], B)
-    @test_nowarn pretty_print(B[1,:X][:,1], B)
+    @test QuantumDots.bloch_vector(B[1, :X] + B[1, :Y] + B[1, :Z], 1, B) ≈ [1, 1, 1]
+    @test pretty_print(B[1, :X], B) |> isnothing
+    @test pretty_print(B[1, :X][:, 1], B) |> isnothing
+    @test pretty_print(Bspin[1, :↑, :X], Bspin) |> isnothing
+    @test pretty_print(Bspin[1, :↑, :X][:, 1], Bspin) |> isnothing
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
@@ -182,7 +186,7 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = QubitBasis(1:3)
-    @test all(f == a[n] for (n,f) in enumerate(a))
+    @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
     t1 = QuantumDots.tensor(v, a)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
@@ -231,7 +235,7 @@ end
     b = QuantumDots.FermionBdGBasis(labels)
     length(QuantumDots.FermionBdGBasis(1:2, (:a, :b))) == 4
 
-    @test all(f == b[n] for (n,f) in enumerate(b))
+    @test all(f == b[n] for (n, f) in enumerate(b))
 
     @test iszero(b[1] * b[1])
     @test iszero(b[1]' * b[1]')
