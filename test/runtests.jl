@@ -106,6 +106,8 @@ end
     @test Bspin[1, :↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
+    @test_nowarn pretty_print(B[1], B)
+    @test_nowarn pretty_print(B[1][:,1], B)
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
@@ -170,6 +172,8 @@ end
     @test 1im * (B[1]' - B[1]) ≈ B[1, :Y]
     @test I ≈ B[1, :I]
     @test QuantumDots.bloch_vector(B[1, :X],1, B) ≈ [1, 0 ,0]
+    @test_nowarn pretty_print(B[1,:X], B)
+    @test_nowarn pretty_print(B[1,:X][:,1], B)
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
