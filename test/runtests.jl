@@ -171,7 +171,7 @@ end
     @test 2B[1]'B[1] - I ≈ B[1, :Z]
     @test 1im * (B[1]' - B[1]) ≈ B[1, :Y]
     @test I ≈ B[1, :I]
-    @test QuantumDots.bloch_vector(B[1, :X],1, B) ≈ [1, 0 ,0]
+    @test QuantumDots.bloch_vector(B[1, :X] + B[1, :Y] + B[1, :Z],1, B) ≈ [1, 1 ,1]
     @test_nowarn pretty_print(B[1,:X], B)
     @test_nowarn pretty_print(B[1,:X][:,1], B)
 

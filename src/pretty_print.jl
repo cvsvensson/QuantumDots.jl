@@ -29,7 +29,8 @@ end
 
 AxisKeys.ShowWith(val::ColoredString; hide=false, kw...) = AxisKeys.ShowWith(val.s; hide, kw..., color=val.c)
 qn_colors(qns) = 1:length(qns)
-function pretty_print(m::AbstractMatrix, b::FermionBasis{N}) where {N}
+function pretty_print(m::AbstractMatrix, b::AbstractManyBodyBasis)
+    N = length(b)
     printstyled("labels = |", Tuple(keys(b))..., ">", bold=true)
     println()
     colors = qn_colors(qns(b))
@@ -51,5 +52,7 @@ qns(b::FermionBasis) = qns(b.symmetry)
 qns(::NoSymmetry) = (nothing,)
 qns(sym::AbelianFockSymmetry) = Tuple(keys(sym.qntoinds))
 
+qntoinds(qn, b::Union{FermionBasis,QubitBasis}) = qntoinds(qn, symmetry(b))
+qntoinds(qn, sym::AbelianFockSymmetry) = sym.qntoinds[qn]
+qntoinds(::Nothing, ::QubitBasis{M,<:Any,<:Any,NoSymmetry}) where {M} = 1:2^M
 qntoinds(::Nothing, ::FermionBasis{M,<:Any,<:Any,NoSymmetry}) where {M} = 1:2^M
-qntoinds(qn, b::FermionBasis) = b.symmetry.qntoinds[qn]
