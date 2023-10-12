@@ -1,4 +1,4 @@
-fermidirac(E, T, μ) = (I + exp(E / T)exp(-μ / T))^(-1)
+fermidirac(E, T, μ) = (I + exp((E - μ*I) / T))^(-1)
 abstract type AbstractLead end
 struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
     T::W1
@@ -41,7 +41,7 @@ struct DiagonalizedHamiltonian{Vals,Vecs}
 end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
-Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values,-h.vectors)
+Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vectors)
 Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:done))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:done}) = nothing

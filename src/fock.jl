@@ -10,7 +10,8 @@ fermionnumber(fs::Int) = count_ones(fs)
 siteindex(id, b::AbstractBasis) = findfirst(x -> x == id, labels(b))::Int
 siteindices(ids::Union{Tuple{S,Vararg{S}},AbstractVector{S}}, b::AbstractBasis) where {S} = map(id -> siteindex(id, b), ids)#::Int
 
-function tensor(v::AbstractVector{T}, b::FermionBasis{M}) where {T,M}
+function tensor(v::AbstractVector{T}, b::AbstractBasis) where T
+    M = length(b)
     @assert length(v) == 2^M
     t = Array{T,M}(undef, ntuple(i -> 2, M))
     for I in CartesianIndices(t)
@@ -33,18 +34,18 @@ function phase_factor(focknbr1, focknbr2, i::Integer)
     _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
 end
 
-reduced_density_matrix(v::AbstractMatrix, bsub::FermionBasis, bfull::FermionBasis) = reduced_density_matrix(v, Tuple(keys(bsub)), bfull, bsub.symmetry)
+partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = partial_trace(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
 
-reduced_density_matrix(v::AbstractVector, args...) = reduced_density_matrix(v * v', args...)
-function reduced_density_matrix(m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
+function partial_trace(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
     N = length(labels)
     mout = zeros(T, 2^N, 2^N)
-    reduced_density_matrix!(mout, m, labels, b, sym)
+    partial_trace!(mout, m, labels, b, sym)
 end
-function reduced_density_matrix!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
-    outinds::NTuple{N,Int} = siteindices(labels, b)
+    outinds = siteindices(labels, b) #::NTuple{N,Int}
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
     bitmask = 2^M - 1 - focknbr(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
@@ -74,7 +75,7 @@ function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rig
     reshape(tperm, lsize, rsize)
 end
 
-function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple{N}, b::FermionBasis{M}) where {N,M}
+function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
     linds = siteindices(leftlabels, b)
     t = tensor(v, b)
     svd(Matrix(t, linds))

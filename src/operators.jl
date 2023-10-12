@@ -3,48 +3,42 @@
     
 Count the number of fermions to the right of site.
 """
-jwstring(site,focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
+jwstring(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
 
 
-function removefermion(digitposition,statefocknbr) #Currently only works for a single creation operator
+function removefermion(digitposition, statefocknbr) 
     cdag = focknbr(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
-    allowed = !iszero(cdag & statefocknbr) #&& allunique(digitpositions) 
-    fermionstatistics = jwstring(digitposition, statefocknbr) 
+    allowed = !iszero(cdag & statefocknbr) 
+    fermionstatistics = jwstring(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed * fermionstatistics
 end
 
-function parityoperator(basis::FermionBasis)
-    mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
-    _fill!(mat, fs->(fs,parity(fs)), basis.symmetry)
+function parityoperator(basis::AbstractBasis)
+    mat = spzeros(Int, 2^length(basis), 2^length(basis))
+    _fill!(mat, fs -> (fs, parity(fs)), basis.symmetry)
     return mat
 end
 function numberoperator(basis::FermionBasis)
-    mat = spzeros(Int,2^nbr_of_fermions(basis),2^nbr_of_fermions(basis))
-    _fill!(mat, fs->(fs,fermionnumber(fs)), basis.symmetry)
+    mat = spzeros(Int, 2^length(basis), 2^length(basis))
+    _fill!(mat, fs -> (fs, fermionnumber(fs)), basis.symmetry)
     return mat
 end
 
-function fermion_sparse_matrix(fermion_number, total_size ,::NoSymmetry)
-    mat = spzeros(Int, total_size, total_size)
-    _fill!(mat, fs -> removefermion(fermion_number,fs), NoSymmetry())
-    return mat
-end
-
-function _fill!(mat,op,::NoSymmetry)
-    for ind in axes(mat,2)
-        newfockstate, amp = op(ind-1)
+function _fill!(mat, op, ::NoSymmetry)
+    for ind in axes(mat, 2)
+        newfockstate, amp = op(ind - 1)
         newind = newfockstate + 1
-        mat[newind,ind] += amp
+        mat[newind, ind] += amp
     end
     return mat
 end
 
-function _fill!(mat,op,sym::AbelianFockSymmetry)
-    for ind in axes(mat,2)
-        newfockstate, amp = op(indtofock(ind,sym))
-        newind = focktoind(newfockstate,sym)
-        mat[newind,ind] += amp
+function _fill!(mat, op, sym::AbelianFockSymmetry)
+    for ind in axes(mat, 2)
+        newfockstate, amp = op(indtofock(ind, sym))
+        newind = focktoind(newfockstate, sym)
+        mat[newind, ind] += amp
     end
     return mat
 end
