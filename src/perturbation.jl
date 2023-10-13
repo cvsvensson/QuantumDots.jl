@@ -33,7 +33,7 @@ end
 """
     heff(focknbrs, H, b; E = 0)
 
-    First order effective hamiltonian at energy E in the subspace spanned by the states in focknbrs (in the given order).
+    Effective hamiltonian at energy E in the subspace spanned by the states in focknbrs (in the given order).
 """
 function heff(focknbrs, H, b; E = 0)
     P, Q = projectors(focknbrs, b)
