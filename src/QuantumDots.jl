@@ -39,5 +39,6 @@ include("diagonalization.jl")
 include("majorana.jl")
 include("qubit.jl")
 include("pretty_print.jl")
+include("perturbation.jl")
 
 end

@@ -30,9 +30,10 @@ FermionBasis(iter; qn = NoSymmetry()) = FermionBasis(iter, symmetry(iter,qn))
 nbr_of_fermions(::FermionBasis{M}) where M = M
 
 
-struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
+struct AbelianFockSymmetry{IF,FI,FSI,QN,QNfunc} <: AbstractSymmetry
     indtofockdict::IF
     focktoinddict::FI
+    focktosubinddict::FSI
     qntoblocksizes::Dictionary{QN,Int}
     qntofockstates::Dictionary{QN,Vector{Int}}
     qntoinds::Dictionary{QN,Vector{Int}}
