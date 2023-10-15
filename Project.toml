@@ -30,6 +30,7 @@ QuantumDotsUnicodePlotsExt = "UnicodePlots"
 
 [compat]
 BlockDiagonals = "0.1"
+Crayons = "4"
 Dictionaries = "0.3"
 ForwardDiff = "0.10"
 LinearMaps = "3"
