@@ -4,6 +4,7 @@ using Reexport
 using SplitApplyCombine: group
 using Dictionaries
 using StaticArrays
+using SkewLinearAlgebra
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator

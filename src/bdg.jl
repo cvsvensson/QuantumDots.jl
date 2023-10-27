@@ -174,3 +174,123 @@ function ground_state_parity(vals, vecs)
     pinds = p[[1:N; quasiparticle_adjoint_index.(1:N, N)]]
     sign(det(vecs[:, pinds]))
 end
+
+
+# function majorana_bdg_transform(N)
+#     i = Matrix(I / sqrt(2), N, N)
+#     [i i; 1im*i -1im*i]
+# end
+# function bdg_to_skew2(bdgham::AbstractMatrix; U=majorana_bdg_transform(div(size(bdgham, 1), 2)))
+#     SkewHermitian(-imag(U * bdgham * U'))
+# end
+function isantisymmetric(A::AbstractMatrix)
+    indsm, indsn = axes(A)
+    if indsm != indsn
+        return false
+    end
+    for i = first(indsn):last(indsn), j = (i):last(indsn)
+        if A[i, j] != -A[j, i]
+            return false
+        end
+    end
+    return true
+end
+function isbdgmatrix(H, Δ, Hd, Δd)
+    indsm, indsn = axes(A)
+    if indsm != indsn
+        return false
+    end
+    for i = first(indsn):last(indsn), j = (i):last(indsn)
+        if H[i, j] != conj(H[j, i])
+            return false
+        end
+        if H[i, j] != -conj(Hd[i, j])
+            return false
+        end
+        if Δ[i, j] != -conj(Δd[i, j])
+            return false
+        end
+    end
+    return true
+end
+
+struct BdGMatrix{T,S} <: AbstractMatrix{T}
+    # [H Δ; -conj(Δ) -conj(H)]
+    H::S # Hermitian
+    Δ::S # Antisymmetric
+    function BdGMatrix(H::S1, Δ::S2) where {S1,S2}
+        @assert size(H) == size(Δ)
+        ishermitian(H) || throw(ArgumentError("H must be hermitian"))
+        isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
+        H2, Δ2 = promote(H, Δ)
+        new{eltype(H2),typeof(H2)}(H2, Δ2)
+    end
+end
+Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
+function BdGMatrix(A::AbstractMatrix; view=false)
+    N = div(size(bdgham, 1), 2)
+    inds1, inds2 = axes(A)
+    if view
+        H = @views A[inds1[1:N], inds2[1:N]]
+        Δ = @views A[inds1[1:N], inds2[N+1:2N]]
+        Hd = @views A[inds1[N+1:2N], inds2[N+1:2N]]
+        Δd = @views A[inds1[N+1:2N], inds2[1:N]]
+    else
+        H = A[inds1[1:N], inds2[1:N]]
+        Δ = A[inds1[1:N], inds2[N+1:2N]]
+        Hd = A[inds1[N+1:2N], inds2[N+1:2N]]
+        Δd = A[inds1[N+1:2N], inds2[1:N]]
+    end
+    isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
+    BdGMatrix(H, Δ)
+end
+
+function bdg_to_skew(bdgham::AbstractMatrix{T}) where {T}
+    N = div(size(bdgham, 1), 2)
+    A = zeros(real(T), 2N, 2N)
+    inds1 = axes(bdgham, 1)
+    inds2 = axes(bdgham, 2)
+    a = @views bdgham[inds1[1:N], inds2[1:N]]
+    b = @views bdgham[inds1[1:N], inds2[N+1:2N]]
+    d = -a
+    c = b'
+    # c = @views bdgham[inds1[N+1:2N], inds2[1:N]]
+    # d = @views bdgham[inds1[N+1:2N], inds2[N+1:2N]]
+    @. A[1:N, 1:N] = -imag(a + b + c + d) / 2
+    # @. A[1:N, 1:N] = -imag(b + c) ./ 2
+    @. A[1:N, N+1:2N] = -imag(1im * (b + d - a - c)) / 2
+    @. A[N+1:2N, 1:N] = -imag(1im * (a - c + b - d)) / 2
+    @. A[N+1:2N, N+1:2N] = -imag(a - b - c + d) / 2
+    # @. A[N+1:2N, N+1:2N] = imag(-b - c) / 2
+    @assert norm(A + A') < 1e-12
+    skewhermitian!(A)
+    # SkewHermitian(A)
+end
+function skew_eigen_to_bdg(es, ops)#; U=majorana_bdg_transform(div(length(es), 2)))
+    T = complex(eltype(ops))
+    phases = Diagonal([iseven(k) ? one(T) * 1im : one(T) for k in 1:length(es)])
+    p = sortperm(es, by=energysort)
+
+    N = div(size(ops, 1), 2)
+    inds1 = axes(ops, 1)
+    inds2 = axes(ops, 2)
+    a = @views ops[inds1[1:N], inds2[1:N]]
+    b = @views ops[inds1[1:N], inds2[N+1:2N]]
+    c = @views ops[inds1[N+1:2N], inds2[1:N]]
+    d = @views ops[inds1[N+1:2N], inds2[N+1:2N]]
+    ops2 = similar(ops, T)
+    @. ops2[inds1[1:N], inds2[1:N]] = a - 1im * c
+    @. ops2[inds1[1:N], inds2[N+1:2N]] = b - 1im * d
+    @. ops2[inds1[N+1:2N], inds2[1:N]] = a + 1im * c
+    @. ops2[inds1[N+1:2N], inds2[N+1:2N]] = b + 1im * d
+    es[p], (ops2*phases)[:, p]
+    # es[p], (U'*ops*d)[:, p]
+end
+
+function skeweigen(bdgham)
+    N = div(size(bdgham, 1), 2)
+    # U = majorana_bdg_transform(N)
+    A = bdg_to_skew(bdgham)#; U)
+    esA, opsA = eigen(A)
+    skew_eigen_to_bdg(imag.(esA), opsA)
+end
