@@ -228,6 +228,7 @@ end
 end
 
 @testset "BdG" begin
+    using QuantumDots.SkewLinearAlgebra
     N = 2
     labels = 1:N
     μ1 = rand()
@@ -254,9 +255,17 @@ end
     @test norm(QuantumDots.rep(b[1] - b[1])) == 0
     @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
-    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])))
+    A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
+    Abdg = QuantumDots.BdGMatrix(A)
+    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(A))
+    vals2, vecs2 = diagonalize(Abdg, QuantumDots.DEFAULT_PH_CUTOFF)
     @test norm(vals - sort([-μ1, -μ2, μ1, μ2])) < 1e-14
     @test QuantumDots.ground_state_parity(vals, vecs) == 1
+    vals_skew, vecs_skew = diagonalize(A)
+    vals_skew ≈ vals
+    (vecs_skew' * vecs)^2 ≈ I
+    @test QuantumDots.ground_state_parity(vals_skew, vecs_skew) == 1
+
     vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(Matrix(μ1 * b[1]' * b[1] - μ2 * b[2]' * b[2])))
     @test QuantumDots.ground_state_parity(vals, vecs) == -1
 
@@ -277,6 +286,11 @@ end
     parity(v) = v' * P * v
     gs_odd = parity(states[:, 1]) ≈ -1 ? states[:, 1] : states[:, 2]
     gs_even = parity(states[:, 1]) ≈ 1 ? states[:, 1] : states[:, 2]
+
+    majcoeffs = QuantumDots.majorana_coefficients(gs_odd, gs_even, b_mb)
+    majcoeffsbdg = QuantumDots.majorana_coefficients(qps[2])
+    @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
+    @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
 
     gs_parity = QuantumDots.ground_state_parity(es, ops)
     ρeven, ρodd = if gs_parity == 1
@@ -312,8 +326,6 @@ end
     @test b[1] - qp isa QuantumDots.QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
-    @test_nowarn QuantumDots.visualize(qp)
-    @test_nowarn QuantumDots.majvisualize(qp)
     @test qp[(1, :h)] == qp[1, :h]
 
     us, vs = (rand(length(labels)), rand(length(labels)))
@@ -331,6 +343,34 @@ end
 
     @test all(b_mb[k] ≈ QuantumDots.many_body_fermion(b[k], b_mb) for k in 1:N)
     @test all(b_mb[k]' ≈ QuantumDots.many_body_fermion(b[k]', b_mb) for k in 1:N)
+
+
+    # Longer kitaev 
+    b = QuantumDots.FermionBdGBasis(1:5)
+    b_mb = QuantumDots.FermionBasis(1:5; qn = QuantumDots.parity)
+    ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=.1, t=1.1, Δ=1.0, V=0))
+    pmmbdgham = ham2(b)
+    pmmham = blockdiagonal(ham2(b_mb), b_mb)
+    es, ops = diagonalize(BdGMatrix(pmmbdgham))
+    es2, ops2 = diagonalize(BdGMatrix(pmmbdgham), 1e-10)
+    @test QuantumDots.check_ph_symmetry(es, ops)
+    qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
+    @test all(map(qp -> iszero(qp * qp), qps))
+
+    eig = diagonalize(pmmham)
+    fullsectors = QuantumDots.blocks(eig; full=true)
+    oddvals = fullsectors[1].values
+    evenvals = fullsectors[2].values
+    oddvecs = fullsectors[1].vectors
+    evenvecs = fullsectors[2].vectors
+   
+    majcoeffs = QuantumDots.majorana_coefficients(oddvecs[:,1], evenvecs[:,1], b_mb)
+    majcoeffsbdg = QuantumDots.majorana_coefficients(qps[5])
+    @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
+    @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
+
+    @test_nowarn QuantumDots.visualize(qp)
+    @test_nowarn QuantumDots.majvisualize(qp)
 end
 
 @testset "QN" begin
