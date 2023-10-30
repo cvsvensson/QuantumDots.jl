@@ -222,8 +222,10 @@ struct BdGMatrix{T,S} <: AbstractMatrix{T}
         @assert size(H) == size(Δ)
         ishermitian(H) || throw(ArgumentError("H must be hermitian"))
         isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
-        H2, Δ2 = promote(H, Δ)
-        new{eltype(H2),typeof(H2)}(H2, Δ2)
+        #H2, Δ2 = promote(H, Δ)
+        T = promote_type(eltype(H), eltype(Δ))
+        S = promote_type(typeof(H), typeof(Δ))
+        new{T,S}(H, Δ)
     end
 end
 function Base.getindex(A::BdGMatrix, i, j)

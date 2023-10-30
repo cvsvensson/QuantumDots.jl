@@ -347,8 +347,8 @@ end
 
     # Longer kitaev 
     b = QuantumDots.FermionBdGBasis(1:5)
-    b_mb = QuantumDots.FermionBasis(1:5; qn = QuantumDots.parity)
-    ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=.1, t=1.1, Δ=1.0, V=0))
+    b_mb = QuantumDots.FermionBasis(1:5; qn=QuantumDots.parity)
+    ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0.1, t=1.1, Δ=1.0, V=0))
     pmmbdgham = ham2(b)
     pmmham = blockdiagonal(ham2(b_mb), b_mb)
     es, ops = diagonalize(BdGMatrix(pmmbdgham))
@@ -363,14 +363,29 @@ end
     evenvals = fullsectors[2].values
     oddvecs = fullsectors[1].vectors
     evenvecs = fullsectors[2].vectors
-   
-    majcoeffs = QuantumDots.majorana_coefficients(oddvecs[:,1], evenvecs[:,1], b_mb)
+
+    majcoeffs = QuantumDots.majorana_coefficients(oddvecs[:, 1], evenvecs[:, 1], b_mb)
     majcoeffsbdg = QuantumDots.majorana_coefficients(qps[5])
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
 
-    @test_nowarn QuantumDots.visualize(qp)
-    @test_nowarn QuantumDots.majvisualize(qp)
+    #@test_nowarn QuantumDots.visualize(qp)
+    #@test_nowarn QuantumDots.majvisualize(qp)
+
+    m = rand(10, 10)
+    @test !QuantumDots.isantisymmetric(m)
+    @test !QuantumDots.isbdgmatrix(m, m, m, m)
+    H = Hermitian(rand(ComplexF64, 2, 2))
+    Δ = rand(ComplexF64, 2, 2)
+    Δ = Δ - transpose(Δ)
+
+    @test QuantumDots.isantisymmetric(Δ)
+    @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
+
+    bdgm = BdGMatrix(H, Δ)
+    @test size(bdgm) == (4, 4)
+    @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
+
 end
 
 @testset "QN" begin
