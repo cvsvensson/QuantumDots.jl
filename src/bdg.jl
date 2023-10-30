@@ -29,17 +29,14 @@ function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(
     (md1 - md2) / (md1 + md2)
 end
 
-function majorana_wavefunctions(f::QuasiParticle, labels=labels(basis(f)))
-    xylabels = [map(l -> (l, :x), labels); map(l -> (l, :y), labels)]
-    xplus = map(l -> real(f[l, :h] + f[l, :p]), labels)
-    xminus = map(l -> imag(f[l, :h] + f[l, :p]), labels)
-    yplus = map(l -> imag(f[l, :h] - f[l, :p]), labels)
-    yminus = map(l -> real(f[l, :h] - f[l, :p]), labels)
-    return Dictionary(xylabels, [xplus; yplus]),
-    Dictionary(xylabels, [xminus; yminus])
+function majorana_coefficients(f::QuasiParticle, labels=labels(basis(f)))
+    x = map(l -> (f[l, :h] + f[l, :p]), labels)
+    y = map(l -> 1im * (f[l, :h] - f[l, :p]), labels)
+    return Dictionary(labels, x),
+    Dictionary(labels, y)
 end
 function majorana_densities(f::QuasiParticle, labels=_left_half_labels(basis(f)))
-    γplus, γminus = majorana_wavefunctions(f, labels)
+    γplus, γminus = majorana_coefficients(f, labels)
     sum(abs2, γplus), sum(abs2, γminus)
 end
 
@@ -65,11 +62,14 @@ function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
     end
     return ρ
 end
-enforce_ph_symmetry(F::Eigen) = enforce_ph_symmetry(F.values, F.vectors)
-quasiparticle_adjoint(v, N=div(length(v), 2)) = [conj(v[N+1:2N]); conj(v[1:N])]
+const DEFAULT_PH_CUTOFF = 1e-12
+enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF) = enforce_ph_symmetry(F.values, F.vectors; cutoff)
+function quasiparticle_adjoint(v::AbstractVector, N=div(length(v), 2))
+    @views vcat(conj(v[N+1:end]), conj(v[1:N]))
+end
 energysort(e) = e #(sign(e), abs(e))
 quasiparticle_adjoint_index(n, N) = 2N + 1 - n #n+N
-function enforce_ph_symmetry(es, ops; cutoff=1e-12)
+function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
     p = sortperm(es, by=energysort)
     es = es[p]
     ops = ops[:, p]
@@ -103,13 +103,13 @@ function enforce_ph_symmetry(es, ops; cutoff=1e-12)
     es, ops
 end
 
-function check_ph_symmetry(es, ops; cutoff=1e-11)
+function check_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
     N = div(length(es), 2)
     p = sortperm(es, by=energysort)
     inds = Iterators.take(eachindex(es), N)
-    all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i, N)]]) < cutoff for i in inds) &&
-        all(quasiparticle_adjoint(ops[:, p[i]]) ≈ ops[:, p[quasiparticle_adjoint_index(i, N)]] for i in inds) &&
-        ops' * ops ≈ I
+    all(abs(es[p[i]] + es[p[quasiparticle_adjoint_index(i, N)]]) < cutoff for i in inds) || return false
+    all(quasiparticle_adjoint(ops[:, p[i]]) ≈ ops[:, p[quasiparticle_adjoint_index(i, N)]] for i in inds) || return false
+    ops' * ops ≈ I || return false
 end
 
 
@@ -173,4 +173,125 @@ function ground_state_parity(vals, vecs)
     N = div(length(vals), 2)
     pinds = p[[1:N; quasiparticle_adjoint_index.(1:N, N)]]
     sign(det(vecs[:, pinds]))
+end
+
+function isantisymmetric(A::AbstractMatrix)
+    indsm, indsn = axes(A)
+    if indsm != indsn
+        return false
+    end
+    for i = first(indsn):last(indsn), j = (i):last(indsn)
+        if A[i, j] != -A[j, i]
+            return false
+        end
+    end
+    return true
+end
+function isbdgmatrix(H, Δ, Hd, Δd)
+    indsm, indsn = axes(H)
+    if indsm != indsn
+        return false
+    end
+    for i = first(indsn):last(indsn), j = (i):last(indsn)
+        if H[i, j] != conj(H[j, i])
+            return false
+        end
+        if H[i, j] != -conj(Hd[i, j])
+            return false
+        end
+        if Δ[i, j] != -conj(Δd[i, j])
+            return false
+        end
+    end
+    return true
+end
+
+struct BdGMatrix{T,S} <: AbstractMatrix{T}
+    # [H Δ; -conj(Δ) -conj(H)]
+    H::S # Hermitian
+    Δ::S # Antisymmetric
+    function BdGMatrix(H::S1, Δ::S2) where {S1,S2}
+        @assert size(H) == size(Δ)
+        ishermitian(H) || throw(ArgumentError("H must be hermitian"))
+        isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
+        #H2, Δ2 = promote(H, Δ)
+        T = promote_type(eltype(H), eltype(Δ))
+        S = promote_type(typeof(H), typeof(Δ))
+        new{T,S}(H, Δ)
+    end
+end
+function Base.getindex(A::BdGMatrix, i, j)
+    N = size(A.H, 1)
+    i <= N && j <= N && return A.H[i, j]
+    i <= N && j > N && return A.Δ[i, j-N]
+    i > N && j <= N && return -conj(A.Δ[i-N, j])
+    i > N && j > N && return -conj(A.H[i-N, j-N])
+end
+
+Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
+function BdGMatrix(A::AbstractMatrix)
+    N = div(size(A, 1), 2)
+    inds1, inds2 = axes(A)
+    H = @views A[inds1[1:N], inds2[1:N]]
+    Δ = @views A[inds1[1:N], inds2[N+1:2N]]
+    Hd = @views A[inds1[N+1:2N], inds2[N+1:2N]]
+    Δd = @views A[inds1[N+1:2N], inds2[1:N]]
+    isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
+    BdGMatrix(H, Δ)
+end
+Base.size(A::BdGMatrix, i) = 2size(A.H, i)
+Base.size(A::BdGMatrix) = 2 .* size(A.H)
+
+function bdg_to_skew(A::BdGMatrix)
+    H = A.H
+    Δ = A.Δ
+    N = div(size(A, 1), 2)
+    A = zeros(real(eltype(A)), 2N, 2N)
+    for i in 1:N, j in 1:N
+        A[i, j] = imag(-H[i, j] - Δ[i, j])
+        A[i, j+N] = real(H[i, j] - Δ[i, j])
+        A[j+N, i] = -A[i, j+N]
+        A[i+N, j+N] = imag(-H[i, j] + Δ[i, j])
+    end
+    SkewHermitian(A)
+end
+
+bdg_to_skew(bdgham::AbstractMatrix) = bdg_to_skew(BdGMatrix(bdgham))
+
+function skew_eigen_to_bdg(es, ops)
+    T = complex(eltype(ops))
+    N = div(length(es), 2)
+    phases = Diagonal([(iseven(k) ? -one(T) * 1im : one(T)) for k in 1:length(es)])
+    p = sortperm(es, by=energysort)
+    ops2 = zeros(T, 2N, 2N)
+    inds1, inds2 = axes(ops)
+    a = @views ops[inds1[1:N], inds2[1:N]]
+    b = @views ops[inds1[1:N], inds2[N+1:2N]]
+    c = @views ops[inds1[N+1:2N], inds2[1:N]]
+    d = @views ops[inds1[N+1:2N], inds2[N+1:2N]]
+    @. ops2[inds1[1:N], inds2[1:N]] = (a - 1im * c) / sqrt(2)
+    @. ops2[inds1[1:N], inds2[N+1:2N]] = (b - 1im * d) / sqrt(2)
+    @. ops2[inds1[N+1:2N], inds2[1:N]] = (a + 1im * c) / sqrt(2)
+    @. ops2[inds1[N+1:2N], inds2[N+1:2N]] = (b + 1im * d) / sqrt(2)
+    es[p], (ops2*phases)[:, p]
+end
+
+
+abstract type AbstractBdGEigenAlg end
+
+struct SkewEigenAlg <: AbstractBdGEigenAlg
+end
+struct NormalEigenAlg{T<:Number} <: AbstractBdGEigenAlg
+    cutoff::T # tolerance for particle-hole symmetry
+end
+
+
+diagonalize(A::BdGMatrix, cutoff::Number) = diagonalize(A, NormalEigenAlg(cutoff))
+function diagonalize(A::BdGMatrix, alg::NormalEigenAlg)
+    QuantumDots.enforce_ph_symmetry(eigen(Matrix(A)), cutoff=alg.cutoff)
+end
+diagonalize(A::BdGMatrix) = diagonalize(A, SkewEigenAlg())
+function diagonalize(A::AbstractMatrix, ::SkewEigenAlg)
+    es, ops = eigen(bdg_to_skew(A))
+    skew_eigen_to_bdg(imag.(es), ops)
 end
