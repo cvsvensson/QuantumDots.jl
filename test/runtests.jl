@@ -386,6 +386,7 @@ end
     @test size(bdgm) == (4, 4)
     @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
 
+    @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
 end
 
 @testset "QN" begin
