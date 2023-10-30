@@ -232,7 +232,7 @@ function Base.getindex(A::BdGMatrix, i, j)
     N = size(A.H, 1)
     i <= N && j <= N && return A.H[i, j]
     i <= N && j > N && return A.Δ[i, j-N]
-    i > N && j <= N && return -conj(A.Δ[j, i-N])
+    i > N && j <= N && return -conj(A.Δ[i-N, j])
     i > N && j > N && return -conj(A.H[i-N, j-N])
 end
 
