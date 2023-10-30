@@ -327,6 +327,8 @@ end
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test qp[(1, :h)] == qp[1, :h]
+    @test typeof(qp*b[1]) <: AbstractMatrix
+    @test typeof(b[1]*qp) <: AbstractMatrix
 
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)

@@ -128,6 +128,8 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
     return [hoppings pairings2; pairings hoppings2]
 end
 
+Base.:*(f1::QuasiParticle, f2::BdGFermion; kwargs...) = *(f1, QuasiParticle(f2); kwargs...)
+Base.:*(f1::BdGFermion, f2::QuasiParticle; kwargs...) = *(QuasiParticle(f1), f2; kwargs...)
 function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
     b = basis(f1)
     @assert b == basis(f2)
