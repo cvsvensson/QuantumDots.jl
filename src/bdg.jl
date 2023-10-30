@@ -175,14 +175,6 @@ function ground_state_parity(vals, vecs)
     sign(det(vecs[:, pinds]))
 end
 
-
-# function majorana_bdg_transform(N)
-#     i = Matrix(I / sqrt(2), N, N)
-#     [i i; 1im*i -1im*i]
-# end
-# function bdg_to_skew2(bdgham::AbstractMatrix; U=majorana_bdg_transform(div(size(bdgham, 1), 2)))
-#     SkewHermitian(-imag(U * bdgham * U'))
-# end
 function isantisymmetric(A::AbstractMatrix)
     indsm, indsn = axes(A)
     if indsm != indsn
@@ -261,32 +253,10 @@ function bdg_to_skew(A::BdGMatrix)
         A[j+N, i] = -A[i, j+N]
         A[i+N, j+N] = imag(-H[i, j] + Δ[i, j])
     end
-
-    # @. A[1:N, 1:N] = -imag(H + Δ)
-    # @. A[1:N, N+1:2N] = -real(-H + Δ)
-    # @. A[N+1:2N, N+1:2N] = -imag(H - Δ)
-    # A[N+1:2N, 1:N] .-= transpose(A[1:N, N+1:2N])
-    # display(A)
-    # println(norm(A + A'))
     SkewHermitian(A)
 end
 
 bdg_to_skew(bdgham::AbstractMatrix) = bdg_to_skew(BdGMatrix(bdgham))
-# function bdg_to_skew(bdgham::AbstractMatrix{T}) where {T}
-#     N = div(size(bdgham, 1), 2)
-#     A = zeros(real(T), 2N, 2N)
-#     inds1 = axes(bdgham, 1)
-#     inds2 = axes(bdgham, 2)
-#     a = @views bdgham[inds1[1:N], inds2[1:N]]
-#     b = @views bdgham[inds1[1:N], inds2[N+1:2N]]
-#     d = -a
-#     c = b'
-#     @. A[1:N, 1:N] = -imag(a + b + c + d) / 2
-#     @. A[1:N, N+1:2N] = -imag(1im * (b + d - a - c)) / 2
-#     @. A[N+1:2N, 1:N] = -imag(1im * (a - c + b - d)) / 2
-#     @. A[N+1:2N, N+1:2N] = -imag(a - b - c + d) / 2
-#     skewhermitian!(A)
-# end
 
 function skew_eigen_to_bdg(es, ops)
     T = complex(eltype(ops))
