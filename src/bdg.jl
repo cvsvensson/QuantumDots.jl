@@ -128,12 +128,20 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
     return [hoppings pairings2; pairings hoppings2]
 end
 
-Base.:*(f1::QuasiParticle, f2::BdGFermion; kwargs...) = *(f1, QuasiParticle(f2); kwargs...)
-Base.:*(f1::BdGFermion, f2::QuasiParticle; kwargs...) = *(QuasiParticle(f1), f2; kwargs...)
 function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
     b = basis(f1)
     @assert b == basis(f2)
     sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for ((l1, w1), (l2, w2)) in Base.product(pairs(f1.weights), pairs(f2.weights)))
+end
+function Base.:*(f1::QuasiParticle, f2::BdGFermion; kwargs...)
+    b = basis(f1)
+    @assert b == basis(f2)
+    sum(*(BdGFermion(first(l1), b, w1, last(l1) == :h), f2; kwargs...) for (l1, w1) in pairs(f1.weights))
+end
+function Base.:*(f1::BdGFermion, f2::QuasiParticle; kwargs...)
+    b = basis(f1)
+    @assert b == basis(f2)
+    sum(*(f1, BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for (l2, w2) in pairs(f2.weights))
 end
 Base.adjoint(f::QuasiParticle) = QuasiParticle(Dictionary(keys(f.weights).values, quasiparticle_adjoint(f.weights.values, nbr_of_fermions(basis(f)))), basis(f))
 
