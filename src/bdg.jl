@@ -1,15 +1,24 @@
 struct QuasiParticle{T,M,L} <: AbstractBdGFermion
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
+    function QuasiParticle(weights::Dictionary{Tuple{L,Symbol},T}, basis::FermionBdGBasis{M,L}) where {T,M,L}
+        new{T,M,L}(weights, basis)
+    end
 end
 function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where {T,M,L}
     holelabels = map(k -> (k, :h), keys(basis.position).values)
     particlelabels = map(k -> (k, :p), keys(basis.position).values)
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
-    QuasiParticle{T,M,L}(weights, basis)
+    QuasiParticle(weights, basis)
 end
 Base.getindex(qp::QuasiParticle, i) = getindex(qp.weights, i)
 Base.getindex(qp::QuasiParticle, i...) = getindex(qp.weights, i)
+
+function QuasiParticle(f::BdGFermion)
+    label = (f.id, f.hole ? :h : :p)
+    weights = Dictionary([label], [f.amp])
+    QuasiParticle(weights, f.basis)
+end
 
 function majoranas(qp::QuasiParticle)
     return qp + qp', qp - qp'
@@ -143,21 +152,30 @@ function Base.:*(f1::BdGFermion, f2::QuasiParticle; kwargs...)
     @assert b == basis(f2)
     sum(*(f1, BdGFermion(first(l2), b, w2, last(l2) == :h); kwargs...) for (l2, w2) in pairs(f2.weights))
 end
-Base.adjoint(f::QuasiParticle) = QuasiParticle(Dictionary(keys(f.weights).values, quasiparticle_adjoint(f.weights.values, nbr_of_fermions(basis(f)))), basis(f))
 
+adj_key(key) = last(key) == :h ? (first(key), :p) : (first(key), :h)
+function Base.adjoint(f::QuasiParticle)
+    newkeys = map(adj_key, keys(f.weights)).values
+    QuasiParticle(Dictionary(newkeys, f.weights.values), basis(f))
+end
 function Base.:+(f1::QuasiParticle, f2::QuasiParticle)
     @assert basis(f1) == basis(f2)
-    QuasiParticle(map(+, f1.weights, f2.weights), basis(f1))
+    allkeys = merge(keys(f1.weights), keys(f2.weights))
+    newweights = [get(f1.weights, key, false) + get(f2.weights, key, false) for key in allkeys]
+    newdict = Dictionary(allkeys, newweights)
+    QuasiParticle(newdict, basis(f1))
 end
 function Base.:-(f1::QuasiParticle, f2::QuasiParticle)
     @assert basis(f1) == basis(f2)
-    QuasiParticle(map(-, f1.weights, f2.weights), basis(f1))
+    allkeys = merge(keys(f1.weights), keys(f2.weights))
+    newweights = [get(f1.weights, key, false) - get(f2.weights, key, false) for key in allkeys]
+    newdict = Dictionary(allkeys, newweights)
+    QuasiParticle(newdict, basis(f1))
 end
 Base.:*(x::Number, f::QuasiParticle) = QuasiParticle(map(Base.Fix1(*, x), f.weights), basis(f))
 Base.:*(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(*, x), f.weights), basis(f))
 Base.:/(f::QuasiParticle, x::Number) = QuasiParticle(map(Base.Fix2(/, x), f.weights), basis(f))
 
-QuasiParticle(f::BdGFermion) = QuasiParticle(rep(f), f.basis)
 Base.promote_rule(::Type{<:BdGFermion}, ::Type{QuasiParticle{T,M,S}}) where {T,M,S} = QuasiParticle{T,M,S}
 Base.convert(::Type{<:QuasiParticle}, f::BdGFermion) = QuasiParticle(f)
 Base.:+(f1::AbstractBdGFermion, f2::AbstractBdGFermion) = +(promote(f1, f2)...)
