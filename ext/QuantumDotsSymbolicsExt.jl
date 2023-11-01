@@ -34,6 +34,19 @@ function Symbolics.build_function(H::BlockDiagonal, params...; kwargs...)
     blockdiag, blockdiag!
 end
 
+function Symbolics.build_function(H::BdGMatrix, params...; kwargs...)
+    mats = [H.H, H.Δ]
+    fs = [build_function(mat, params...; kwargs...) for mat in mats]
+    function bdgmat!(H::BdGMatrix, xs...)
+        foreach((mat, f) -> last(f)(mat, xs...), [H.H, H.Δ], fs)
+        return H
+    end
+    function bdgmat(xs...)
+        return BdGMatrix(map(f -> first(f)(xs...), fs)...)
+    end
+    bdgmat, bdgmat!
+end
+
 
 function TSL_generator(qn=NoSymmetry(); blocks=qn !== NoSymmetry(), dense=false, bdg=false)
     @variables μL, μC, μR, h, t, Δ, tsoc, U
