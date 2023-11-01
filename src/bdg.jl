@@ -238,11 +238,12 @@ struct BdGMatrix{T,S} <: AbstractMatrix{T}
     # [H Δ; -conj(Δ) -conj(H)]
     H::S # Hermitian
     Δ::S # Antisymmetric
-    function BdGMatrix(H::S1, Δ::S2) where {S1,S2}
+    function BdGMatrix(H::S1, Δ::S2; check = true) where {S1,S2}
         @assert size(H) == size(Δ)
-        ishermitian(H) || throw(ArgumentError("H must be hermitian"))
-        isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
-        #H2, Δ2 = promote(H, Δ)
+        if check
+            ishermitian(H) || throw(ArgumentError("H must be hermitian"))
+            isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
+        end
         T = promote_type(eltype(H), eltype(Δ))
         S = promote_type(typeof(H), typeof(Δ))
         new{T,S}(H, Δ)
@@ -257,15 +258,17 @@ function Base.getindex(A::BdGMatrix, i, j)
 end
 
 Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
-function BdGMatrix(A::AbstractMatrix)
+function BdGMatrix(A::AbstractMatrix; check = true)
     N = div(size(A, 1), 2)
     inds1, inds2 = axes(A)
     H = @views A[inds1[1:N], inds2[1:N]]
     Δ = @views A[inds1[1:N], inds2[N+1:2N]]
     Hd = @views A[inds1[N+1:2N], inds2[N+1:2N]]
     Δd = @views A[inds1[N+1:2N], inds2[1:N]]
-    isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
-    BdGMatrix(H, Δ)
+    if check
+        isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
+    end
+    BdGMatrix(H, Δ; check)
 end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
