@@ -86,3 +86,4 @@ Base.iterate(b::FermionBdGBasis, state) = (res = Base.iterate(keys(b.position), 
 Base.length(::FermionBdGBasis{M}) where {M} = M
 
 
+abstract type AbstractDiagonalHamiltonian end

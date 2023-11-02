@@ -1,17 +1,17 @@
 
-struct LazyLindbladDissipator{J,J2,T,L,E} <: AbstractDissipator
+struct LazyLindbladDissipator{J,J2,T,L,H,E} <: AbstractDissipator
     op::J
     opsquare::J2
     rate::T
     lead::L
-    energies::E
+    diagonal_hamiltonian::E
 end
 Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
-function LazyLindbladDissipator(lead, energies, rate)
-    op = (; in=map(op -> complex(ratetransform(op, energies, lead.T, lead.μ)), lead.jump_in),
-        out=map(op -> complex(ratetransform(op, energies, lead.T, -lead.μ)), lead.jump_out))
+function LazyLindbladDissipator(lead, diagham, rate)
+    op = (; in=map(op -> complex(ratetransform(op, diagham, lead.T, lead.μ)), lead.jump_in),
+        out=map(op -> complex(ratetransform(op, diagham, lead.T, -lead.μ)), lead.jump_out))
     opsquare = map(leadops -> map(x -> Hermitian(x' * x), leadops), op)
-    LazyLindbladDissipator(op, opsquare, rate, lead, energies)
+    LazyLindbladDissipator(op, opsquare, rate, lead, diagham)
 end
 Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), d.energies)
 
@@ -19,7 +19,7 @@ update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters) = d
 function update(d::LazyLindbladDissipator, p)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
-    LazyLindbladDissipator(newlead, d.energies, rate)
+    LazyLindbladDissipator(newlead, d.diagonal_hamiltonian, rate)
 end
 
 function (d::LazyLindbladDissipator)(rho, p, t)
@@ -171,3 +171,5 @@ end
 
 identity_density_matrix(system::LazyLindbladSystem) = vec(Matrix{eltype(system)}(I, size(system.hamiltonian)...))
 Base.eltype(system::LazyLindbladSystem) = promote_type(typeof(1im), eltype(system.hamiltonian))
+
+internal_rep(rho, system::LazyLindbladSystem) = rho

@@ -327,8 +327,8 @@ end
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test qp[(1, :h)] == qp[1, :h]
-    @test typeof(qp*b[1]) <: AbstractMatrix
-    @test typeof(b[1]*qp) <: AbstractMatrix
+    @test typeof(qp * b[1]) <: AbstractMatrix
+    @test typeof(b[1] * qp) <: AbstractMatrix
 
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)
@@ -630,10 +630,10 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        # using QuantumDots, Test, Pkg
-        # Pkg.activate("./test")
-        # using LinearSolve,DifferentialEquations
-        # qn = QuantumDots.NoSymmetry()
+        using QuantumDots, Test, Pkg
+        Pkg.activate("./test")
+        using LinearSolve, OrdinaryDiffEq
+        qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -647,17 +647,17 @@ end
         leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
-        measurements = [particle_number]
+        # measurements = [particle_number]
         system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
         diagonalsystem = QuantumDots.diagonalize(system)
         diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
         @test diagonalsystem.hamiltonian.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagonalsystem2.hamiltonian.values ≈ [0]
-        ls = QuantumDots.LindbladSystem(diagonalsystem)
+        ls = QuantumDots.LindbladSystem(system)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
-        lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+        lazyls = QuantumDots.LazyLindbladSystem(system)
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 

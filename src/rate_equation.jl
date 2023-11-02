@@ -15,24 +15,25 @@ struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
 end
 Base.Matrix(P::PauliSystem) = P.total_master_matrix
 
-struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
+struct PauliDissipator{L,W,I,D,HD} <: AbstractDissipator
     lead::L
     Win::W
     Wout::W
     Iin::I
     Iout::I
     total_master_matrix::D
-    energies::E
+    H::HD
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
-function PauliDissipator(energies::E, lead::L) where {L,E}
+function PauliDissipator(ham::H, lead::L) where {L,H<:DiagonalizedHamiltonian}
+    energies = H.values
     Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
     Iout = -vec(sum(Wout, dims=1))
     D .-= Diagonal(Iin) .- Diagonal(Iout)
-    PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),E}(lead, Win, Wout, Iin, Iout, D, energies)
+    PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),H}(lead, Win, Wout, Iin, Iout, D, ham)
 end
 
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1, 1] * ones(size(sys.total_master_matrix, 2))

@@ -1,4 +1,4 @@
-fermidirac(E, T, μ) = (I + exp((E - μ*I) / T))^(-1)
+fermidirac(E, T, μ) = (I + exp((E - μ * I) / T))^(-1)
 abstract type AbstractLead end
 struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
     T::W1
@@ -35,13 +35,14 @@ Base.eltype(d::AbstractDissipator) = eltype(Matrix(d))
 SciMLBase.islinear(d::AbstractDissipator) = true
 
 ##
-struct DiagonalizedHamiltonian{Vals,Vecs}
+struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
     values::Vals
     vectors::Vecs
+    original::H
 end
 Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
 Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
-Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vectors)
+Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vectors, -h.original)
 Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:done))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:done}) = nothing
@@ -57,25 +58,23 @@ Base.size(d::AbstractOpenSystem) = size(Matrix(d))
 SciMLBase.islinear(d::AbstractOpenSystem) = true
 
 
-struct OpenSystem{H,L,M1,M2} <: AbstractOpenSystem
+struct OpenSystem{H,L} <: AbstractOpenSystem
     hamiltonian::H
     leads::L
-    measurements::M1
-    transformed_measurements::M2
+    # diagonal_hamiltonian::HD
+    # diagonal_leads::LD
 end
 Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
-OpenSystem(H) = OpenSystem(H, nothing, nothing, nothing)
-OpenSystem(H, l) = OpenSystem(H, l, nothing, nothing)
-OpenSystem(H, l, m) = OpenSystem(H, l, m, nothing)
+# OpenSystem(H) = OpenSystem(H, nothing, nothing,nothing,nothing)
+# OpenSystem(H, l) = OpenSystem(H, nothing, l)
+# OpenSystem(H, HD::AbstractDiagonalHamiltonian) = OpenSystem(H, HD, nothing)
 
 leads(system::OpenSystem) = system.leads
-measurements(system::OpenSystem) = system.measurements
-transformed_measurements(system::OpenSystem) = system.transformed_measurements
 changebasis(op, os::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(os)' * op * eigenvectors(os)
 changebasis(::Nothing, os::OpenSystem{<:DiagonalizedHamiltonian}) = nothing
 
 Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
-Base.show(io::IO, system::OpenSystem{H,L,M1,M2}) where {H,L,M1,M2} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads), "\nmeasurements: ", repr(measurements(system)), "\ntransformed_measurements: ", repr(transformed_measurements(system)))
+Base.show(io::IO, system::OpenSystem{H,L}) where {H,L} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads))
 
 abstract type AbstractOpenSolver end
 
@@ -94,6 +93,7 @@ function StationaryStateProblem(system::AbstractOpenSystem, p=SciMLBase.NullPara
 end
 function ODEProblem(system::AbstractOpenSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
     internalu0 = internal_rep(u0, system)
+    println(size(internalu0))
     prob = _ODEProblem(system, internalu0, tspan, p, args...; kwargs...)
 end
 function _ODEProblem(system::AbstractOpenSystem, u0, tspan, p, args...; kwargs...)
@@ -109,32 +109,28 @@ end
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 # LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
 
-diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
-diagonalize_hamiltonian(system::OpenSystem) = OpenSystem(diagonalize(hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
-
-diagonalize_leads(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), map(lead -> diagonalize(eigenvectors(system), lead), leads(system)), measurements(system), transformed_measurements(system))
-transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian}) = OpenSystem(hamiltonian(system), leads(system), measurements(system), map(op -> changebasis(op, system), measurements(system)))
-transform_measurements(system::OpenSystem{<:DiagonalizedHamiltonian,<:Any,Nothing}) = system
-
-function diagonalize(system::OpenSystem; dE=0.0)
-    diagonal_system = diagonalize_hamiltonian(system)
+# diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
+function diagonalize(system::OpenSystem; dE=0)
+    diagham = diagonalize(system.hamiltonian)
     if dE > 0
-        diagonal_system = remove_high_energy_states(dE, diagonal_system)
+        diagham = remove_high_energy_states(dE, diagonal_system)
     end
-    transform_measurements(diagonalize_leads(diagonal_system))
+    # diagleads = map(lead -> diagonalize(eigenvectors(diagham), lead), leads(system))
+    OpenSystem(diagham, leads)
 end
 
 trnorm(rho, n) = tr(reshape(rho, n, n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
-
-remove_high_energy_states(dE, system::OpenSystem) = OpenSystem(remove_high_energy_states(dE, hamiltonian(system)), leads(system), measurements(system), transformed_measurements(system))
+original_hamiltonian(E, vecs) = vecs * Diagonal(E) * vecs'
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal})
     E0 = minimum(eigenvalues(ham))
     sectors = blocks(ham)
     Is = map(eig -> findall(<(ΔE + E0), eig.values), sectors)
     newblocks = map((eig, I) -> eig.vectors[:, I], sectors, Is)
     newvals = map((eig, I) -> eig.values[I], sectors, Is)
-    DiagonalizedHamiltonian(reduce(vcat, newvals), BlockDiagonal(newblocks))
+    E = reduce(vcat, newvals)
+    vecs = BlockDiagonal(newblocks)
+    DiagonalizedHamiltonian(E, vecs, original_hamiltonian(E, vecs))
 end
 function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     vals = eigenvalues(ham)
@@ -143,19 +139,25 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
     I = findall(<(ΔE + E0), vals)
     newvecs = vecs[:, I]
     newvals = vals[I]
-    DiagonalizedHamiltonian(newvals, newvecs)
+    DiagonalizedHamiltonian(newvals, newvecs, original_hamiltonian(newvals, newvecs))
 end
 
+
+function ratetransform(op, diagham::DiagonalizedHamiltonian, T, μ)
+    op2 = changebasis(op, diagham)
+    op3 = ratetransform(op2, diagham.values, T, μ)
+    return changebasis(op3, diagham')
+end
 ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
 
-function ratetransform!(op2, op, energies::AbstractVector, T, μ)
-    for I in CartesianIndices(op)
-        n1, n2 = Tuple(I)
-        δE = energies[n1] - energies[n2]
-        op2[n1, n2] = sqrt(fermidirac(δE, T, μ)) * op[n1, n2]
-    end
-    return op2
-end
+# function ratetransform!(op2, op, energies::AbstractVector, T, μ)
+#     for I in CartesianIndices(op)
+#         n1, n2 = Tuple(I)
+#         δE = energies[n1] - energies[n2]
+#         op2[n1, n2] = sqrt(fermidirac(δE, T, μ)) * op[n1, n2]
+#     end
+#     return op2
+# end
 
 function conductance_matrix(current_op, ls::AbstractOpenSystem, args...)
     rho = solve(StationaryStateProblem(ls))
