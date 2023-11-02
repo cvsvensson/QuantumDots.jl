@@ -4,8 +4,8 @@ const hc = HC()
 
 hopping(t, f1, f2) = t * f1'f2 + hc
 pairing(Δ, f1, f2) = Δ * f2 * f1 + hc
-numberop(f) = (f'f)
-coulomb(f1, f2) = (f1'*f1*f2'*f2)
+numberop(f) = f'f
+coulomb(f1, f2) = f1' * f1 * f2' * f
 function coulomb(f1::BdGFermion, f2::BdGFermion)
     @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog = 1
     0 * numberop(f1)
@@ -28,7 +28,7 @@ function pairing_rotated(Δ, (c1up, c1dn), (c2up, c2dn), angles1, angles2)
     Ω = transpose(su2_rotation(angles1)) * m * su2_rotation(angles2)
     c1 = @SVector [c1up, c1dn]
     c2 = @SVector [c2up, c2dn]
-    (Δ * permutedims(c1) * Ω * c2)[1] + hc
+    (Δ*permutedims(c1)*Ω*c2)[1] + hc
 end
 
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pairing(Δ, f1, f2)
@@ -53,7 +53,7 @@ function _BD1_2site((c1up, c1dn), (c2up, c2dn); t, Δ1, V, θϕ1, θϕ2)
 end
 function _BD1_1site((cup, cdn); μ, h, Δ, U)
     (-μ - h) * numberop(cup) + (-μ + h) * numberop(cdn) +
-    pairing(Δ, cup, cdn) + U * coulomb(cup,cdn)
+    pairing(Δ, cup, cdn) + U * coulomb(cup, cdn)
 end
 
 
