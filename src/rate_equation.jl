@@ -26,7 +26,7 @@ function PauliDissipator(ham::H, lead; change_lead_basis=true) where {H<:Diagona
     energies = ham.values
     lead = change_lead_basis ? changebasis(lead, ham) : lead
     # diaglead = changebasis(lead, ham) #map(lead -> changebasis(lead, ham), leads)
-    Win, Wout = get_rates(energies, diaglead)
+    Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
     Iout = -vec(sum(Wout, dims=1))

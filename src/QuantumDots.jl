@@ -20,7 +20,6 @@ export QubitBasis
 function fastgenerator end
 function fastblockdiagonal end
 function TSL_generator end
-function chem_derivative end
 function visualize end
 function majvisualize end
 
@@ -42,5 +41,6 @@ include("diagonalization.jl")
 include("majorana.jl")
 include("qubit.jl")
 include("pretty_print.jl")
+include("ad.jl")
 
 end

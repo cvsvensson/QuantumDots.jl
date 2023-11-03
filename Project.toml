@@ -4,6 +4,7 @@ authors = ["Viktor Svensson, William Samuelson"]
 version = "0.7.3"
 
 [deps]
+AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
 AxisKeys = "94b1ba4f-4ee9-5380-92f1-94cde586c3c5"
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Crayons = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
@@ -25,7 +26,6 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [extensions]
-QuantumDotsForwardDiffExt = "ForwardDiff"
 QuantumDotsSymbolicsExt = "Symbolics"
 QuantumDotsUnicodePlotsExt = "UnicodePlots"
 
