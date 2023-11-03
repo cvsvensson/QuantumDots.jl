@@ -3,7 +3,7 @@ using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
 using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
-using ForwardDiff
+import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
 using UnicodePlots
 Random.seed!(1234)
 
@@ -429,7 +429,7 @@ end
     c = FermionBasis(1:N)
     ham = QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)
     @test ham isa Hermitian
-    vals, vecs = QuantumDots.diagonalize(ham)
+    vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
     v1, v2 = eachcol(vecs[:, 1:2])
@@ -441,7 +441,7 @@ end
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
-    eig = QuantumDots.diagonalize(ham)
+    eig = diagonalize(ham)
     eigsectors = blocks(eig)
     @test v1 ≈ eigsectors[1].vectors[:, 1]
     gs = QuantumDots.ground_state.(eigsectors)
@@ -451,8 +451,7 @@ end
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), c)
-    # vals, vecs = BlockDiagonals.eigen_blockwise(ham)
-    vals, vecs = QuantumDots.diagonalize(ham)
+    vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[1+size(vecs.blocks[1], 1)]) < 1e-12
     p = parityoperator(c)
     v1 = vecs[:, 1]
@@ -465,7 +464,7 @@ end
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
-    eig = QuantumDots.diagonalize(ham)
+    eig = diagonalize(ham)
     eigsectors = blocks(eig; full=true)
     @test v1 ≈ eigsectors[1].vectors[:, 1]
     @test v2 ≈ eigsectors[2].vectors[:, 1]
@@ -632,8 +631,10 @@ end
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
-        # using LinearSolve, OrdinaryDiffEq
-        # qn = QuantumDots.NoSymmetry()
+        # using LinearSolve, OrdinaryDiffEq, LinearAlgebra
+        # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
+
+        qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -641,23 +642,23 @@ end
         T = rand()
         μL, μR, μH = rand(3)
         # Γ = T/10
-        # leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
-        leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
-        rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+        # leftlead = NormalLead(a[1]'; T, μ=μL)
+        leftlead = CombinedLead((a[1]',); T, μ=μL)
+        rightlead = NormalLead(a[N]'; T, μ=μR)
         leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
         ham = hamiltonian(μH)
-        diagham = QuantumDots.diagonalize(ham)
+        diagham = diagonalize(ham)
         diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
         @test diagham.original ≈ ham
         @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagham2.values ≈ [0]
-        ls = QuantumDots.LindbladSystem(ham, leads)
+        ls = LindbladSystem(ham, leads)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
-        lazyls = QuantumDots.LazyLindbladSystem(ham, leads)
+        lazyls = LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 
@@ -678,8 +679,9 @@ end
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, particle_number, ls)
-        cm = conductance_matrix(ρinternal, particle_number, ls)
-        cm2 = conductance_matrix(ρinternal, particle_number, ls, 0.00001)
+        cm = conductance_matrix(AD.ForwardDiffBackend(), ρinternal, particle_number, ls) #FIXME: different result from the others
+        cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), particle_number, ls)#, 0.00001)
+        cm3 = conductance_matrix(1e-3, particle_number, ls)#, 0.00001)
         @test norm(cm - cm2) < 1e-4
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
@@ -753,19 +755,16 @@ end
     T = 0.1
     μL = 0.5
     μR = 0.0
-    leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
-    rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+    leftlead = CombinedLead((a[1]',); T, μ=μL)
+    rightlead = NormalLead(a[N]'; T, μ=μR)
     leads = (; left=leftlead, right=rightlead)
 
     particle_number = bd(numberoperator(a))
-    measurements = [particle_number]
-    system = QuantumDots.OpenSystem(hamiltonian, leads, measurements)
-    diagonalsystem = QuantumDots.diagonalize(system)
-    ls = QuantumDots.LindbladSystem(diagonalsystem)
+    ls = LindbladSystem(hamiltonian, leads)
     mo = QuantumDots.LinearOperator(ls)
     mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
 
-    lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+    lazyls = LazyLindbladSystem(diagonalsystem)
     fo = QuantumDots.LinearOperator(lazyls)
     fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
     v1 = rand(2^(2N))

@@ -163,14 +163,3 @@ ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(com
 #     # rho = solve(StationaryStateProblem(ls))
 #     conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
 # end
-
-function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, dμ)
-    perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)
-    function get_current(pert)
-        newls = update(ls, pert)
-        sol = solve(StationaryStateProblem(newls))
-        collect(measure(sol, current_op, newls))
-    end
-    I0 = get_current(SciMLBase.NullParameters())
-    stack(map(key -> (get_current(perturbations[[key]]) .- I0) / dμ, keys(perturbations)))
-end
