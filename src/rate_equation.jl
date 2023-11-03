@@ -1,9 +1,14 @@
 struct Pauli <: AbstractOpenSolver end
 
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-(::Pauli)(H::OpenSystem) = Pauli()(diagonalize(H))
-function (::Pauli)(H::OpenSystem{<:DiagonalizedHamiltonian})
-    ds = map(l -> PauliDissipator(eigenvalues(H), l), H.leads)
+# (::Pauli)(H::OpenSystem) = Pauli()(diagonalize(H))
+function (::Pauli)(_H, leads)
+    H = diagonalize(_H)
+    ds = map(l -> PauliDissipator(H, l), leads)
+    PauliSystem(ds)
+end
+function (::Pauli)(H::DiagonalizedHamiltonian, leads)
+    ds = map(l -> PauliDissipator(H, l), leads)
     PauliSystem(ds)
 end
 
@@ -27,7 +32,7 @@ end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
 function PauliDissipator(ham::H, lead::L) where {L,H<:DiagonalizedHamiltonian}
-    energies = H.values
+    energies = ham.values
     Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))

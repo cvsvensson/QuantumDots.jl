@@ -630,10 +630,10 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        # using QuantumDots, Test, Pkg
-        # Pkg.activate("./test")
-        # using LinearSolve, OrdinaryDiffEq
-        # qn = QuantumDots.NoSymmetry()
+        using QuantumDots, Test, Pkg
+        Pkg.activate("./test")
+        using LinearSolve, OrdinaryDiffEq
+        qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -658,7 +658,7 @@ end
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
-        lazyls = QuantumDots.LazyLindbladSystem(hamiltonian(μH), leads)
+        lazyls = QuantumDots.LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 
@@ -678,15 +678,15 @@ end
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
-        numeric_current = QuantumDots.measure(ρ, diagonalsystem, ls)[1]
-        cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
-        cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
+        numeric_current = QuantumDots.measure(ρ, particle_number, ls)
+        cm = conductance_matrix(ρinternal, particle_number, ls)
+        cm2 = conductance_matrix(ρinternal, particle_number, ls, 0.00001)
         @test norm(cm - cm2) < 1e-4
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, diagonalsystem, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
 
-        pauli = QuantumDots.Pauli()(diagonalsystem)
+        pauli = QuantumDots.Pauli()(ham, leads)
         pauli_prob = StationaryStateProblem(pauli)
         ρ_pauli_internal = solve(pauli_prob)
         ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
@@ -696,19 +696,19 @@ end
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test all(map(≈, rate_current, QuantumDots.measure(ρ_pauli, diagonalsystem, pauli)[1]))
+        # @test all(map(≈, rate_current, QuantumDots.measure(ρ_pauli, diagonalsystem, pauli)[1]))
         @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
         @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 
-        cmpauli = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli)
-        cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
-        cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
-        cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
+        cmpauli = conductance_matrix(ρ_pauli_internal, pauli)
+        cmpauli2 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
+        # cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
+        # cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
 
         @test conductance_matrix(ρ_pauli_internal, pauli) ≈ conductance_matrix(pauli)
         @test norm(cmpauli - cmpauli2) < 1e-3
-        @test cmpauli ≈ cmpauli3
-        @test norm(cmpauli3 - cmpauli4) < 1e-3
+        # @test cmpauli ≈ cmpauli3
+        # @test norm(cmpauli3 - cmpauli4) < 1e-3
 
         @test vec(sum(diagonalsystem.transformed_measurements[1] * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
 

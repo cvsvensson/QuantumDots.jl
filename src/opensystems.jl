@@ -159,10 +159,10 @@ ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(com
 #     return op2
 # end
 
-function conductance_matrix(current_op, ls::AbstractOpenSystem, args...)
-    rho = solve(StationaryStateProblem(ls))
-    conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
-end
+# function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
+#     # rho = solve(StationaryStateProblem(ls))
+#     conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
+# end
 
 function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, dμ)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)

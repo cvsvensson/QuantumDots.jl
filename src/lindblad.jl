@@ -133,10 +133,10 @@ reprdissipators(x) = string(typeof(x), ", Labels: ", map(x -> x.label, x)) #Base
 # A*rho*transpose(B) = B⊗A = kron(B,A)
 # superjump(L) = kron(L,L) - 1/2*(kron(one(L),L'*L) + kron(L'*L,one(L)))
 
-const DENSE_CUTOFF = 16
-const KR_LAZY_CUTOFF = 40
-dissipator(L, krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_dissipator(L, krv) : khatri_rao_dissipator(L, krv)
-commutator(A, krv::KhatriRaoVectorizer) = sum(krv.sizes) > KR_LAZY_CUTOFF ? khatri_rao_lazy_commutator(A, krv) : khatri_rao_commutator(A, krv)
+# const DENSE_CUTOFF = 16
+# const KR_LAZY_CUTOFF = 40
+dissipator(L, krv::KhatriRaoVectorizer) = khatri_rao_dissipator(L, krv)
+commutator(A, krv::KhatriRaoVectorizer) = khatri_rao_commutator(A, krv)
 
 function dissipator(L, kv::KronVectorizer)
     D = (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
