@@ -1,16 +1,7 @@
 struct Pauli <: AbstractOpenSolver end
 
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-# (::Pauli)(H::OpenSystem) = Pauli()(diagonalize(H))
-function (::Pauli)(_H, leads)
-    H = diagonalize(_H)
-    ds = map(l -> PauliDissipator(H, l), leads)
-    PauliSystem(ds)
-end
-function (::Pauli)(H::DiagonalizedHamiltonian, leads)
-    ds = map(l -> PauliDissipator(H, l), leads)
-    PauliSystem(ds)
-end
+
 
 struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     total_master_matrix::A
@@ -31,14 +22,16 @@ struct PauliDissipator{L,W,I,D,HD} <: AbstractDissipator
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
-function PauliDissipator(ham::H, lead::L) where {L,H<:DiagonalizedHamiltonian}
+function PauliDissipator(ham::H, lead; change_lead_basis=true) where {H<:DiagonalizedHamiltonian}
     energies = ham.values
-    Win, Wout = get_rates(energies, lead)
+    lead = change_lead_basis ? changebasis(lead, ham) : lead
+    # diaglead = changebasis(lead, ham) #map(lead -> changebasis(lead, ham), leads)
+    Win, Wout = get_rates(energies, diaglead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
     Iout = -vec(sum(Wout, dims=1))
     D .-= Diagonal(Iin) .- Diagonal(Iout)
-    PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),H}(lead, Win, Wout, Iin, Iout, D, ham)
+    PauliDissipator{typeof(lead),typeof(Win),typeof(Iin),typeof(D),H}(lead, Win, Wout, Iin, Iout, D, ham)
 end
 
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1, 1] * ones(size(sys.total_master_matrix, 2))
@@ -52,6 +45,12 @@ function identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
     fill(one(eltype(A)), size(A, 2))
 end
+
+PauliSystem(ham, leads) = PauliSystem(diagonalize(ham), leads)
+function PauliSystem(H::DiagonalizedHamiltonian, leads)
+    ds = map(l -> PauliDissipator(H, l), leads)
+    PauliSystem(ds)
+end
 function PauliSystem(ds)
     Win = zero(first(ds).Win)
     Wout = zero(first(ds).Wout)
@@ -63,16 +62,14 @@ function PauliSystem(ds)
     return P
 end
 update(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
-function update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters)
-    L
-end
+update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters) = L
 function update_pauli_system(L::PauliSystem, p)
     _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end
 function update(d::PauliDissipator, p, tmp=nothing)
-    PauliDissipator(d.energies, update_lead(d.lead, p))
+    PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
 
 function MatrixOperator(P::PauliSystem; normalizer)

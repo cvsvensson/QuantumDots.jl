@@ -630,10 +630,10 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        using QuantumDots, Test, Pkg
-        Pkg.activate("./test")
-        using LinearSolve, OrdinaryDiffEq
-        qn = QuantumDots.NoSymmetry()
+        # using QuantumDots, Test, Pkg
+        # Pkg.activate("./test")
+        # using LinearSolve, OrdinaryDiffEq
+        # qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -647,13 +647,12 @@ end
         leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
-        # measurements = [particle_number]
         ham = hamiltonian(μH)
-        system = QuantumDots.OpenSystem(ham, leads)
-        diagonalsystem = QuantumDots.diagonalize(system)
-        diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
-        @test diagonalsystem.hamiltonian.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
-        @test diagonalsystem2.hamiltonian.values ≈ [0]
+        diagham = QuantumDots.diagonalize(ham)
+        diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
+        @test diagham.original ≈ ham
+        @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
+        @test diagham2.values ≈ [0]
         ls = QuantumDots.LindbladSystem(ham, leads)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
@@ -662,10 +661,10 @@ end
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 
-        prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
-        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
+        prob2 = StationaryStateProblem(lazyls)
         ρinternal = solve(prob; abstol=1e-12)
+        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
         @test tomatrix(ρinternal, ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal, ls))...)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
@@ -682,11 +681,11 @@ end
         cm = conductance_matrix(ρinternal, particle_number, ls)
         cm2 = conductance_matrix(ρinternal, particle_number, ls, 0.00001)
         @test norm(cm - cm2) < 1e-4
-        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, diagonalsystem, ls)[1]))
+        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
 
-        pauli = QuantumDots.Pauli()(ham, leads)
+        pauli = PauliSystem(ham, leads)
         pauli_prob = StationaryStateProblem(pauli)
         ρ_pauli_internal = solve(pauli_prob)
         ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
@@ -709,8 +708,8 @@ end
         @test norm(cmpauli - cmpauli2) < 1e-3
         # @test cmpauli ≈ cmpauli3
         # @test norm(cmpauli3 - cmpauli4) < 1e-3
-
-        @test vec(sum(diagonalsystem.transformed_measurements[1] * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
+        eigen_particle_number = QuantumDots.changebasis(particle_number, diagham)
+        @test vec(sum(eigen_particle_number * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob, Tsit5())

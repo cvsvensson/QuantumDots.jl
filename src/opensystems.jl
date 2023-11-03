@@ -8,11 +8,11 @@ struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
 end
 NormalLead(jin, jout; T, μ) = NormalLead(T, μ, [jin], [jout])
 NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
-update_lead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out)
+# update_lead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out)
 function update_lead(lead, props)
     μ = get(props, :μ, lead.μ)
     T = get(props, :T, lead.T)
-    update_lead(lead; μ, T)
+    NormalLead(T, μ, l.jump_in, l.jump_out)
 end
 CombinedLead(jins; T, μ) = CombinedLead(jins, map(adjoint, jins); T, μ)
 CombinedLead(jins, jouts; T, μ) = NormalLead(T, μ, jins, jouts)
@@ -44,9 +44,11 @@ Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_ty
 Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
 Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vectors, -h.original)
 Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
-Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:done))
-Base.iterate(S::DiagonalizedHamiltonian, ::Val{:done}) = nothing
+Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:original))
+Base.iterate(S::DiagonalizedHamiltonian, ::Val{:original}) = (S.original, Val(:done))
+Base.iterate(::DiagonalizedHamiltonian, ::Val{:done}) = nothing
 Base.adjoint(H::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(conj(H.values), adjoint(H.vectors), adjoint(H.original))
+original_hamiltonian(H::DiagonalizedHamiltonian) = H.original
 
 abstract type AbstractOpenSystem end
 Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
@@ -61,13 +63,8 @@ SciMLBase.islinear(d::AbstractOpenSystem) = true
 struct OpenSystem{H,L} <: AbstractOpenSystem
     hamiltonian::H
     leads::L
-    # diagonal_hamiltonian::HD
-    # diagonal_leads::LD
 end
 Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
-# OpenSystem(H) = OpenSystem(H, nothing, nothing,nothing,nothing)
-# OpenSystem(H, l) = OpenSystem(H, nothing, l)
-# OpenSystem(H, HD::AbstractDiagonalHamiltonian) = OpenSystem(H, HD, nothing)
 
 leads(system::OpenSystem) = system.leads
 changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
@@ -109,20 +106,23 @@ end
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 # LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
 
-# diagonalize(S, lead::NormalLead) = NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
-function diagonalize(system::OpenSystem; dE=0)
-    diagham = diagonalize(system.hamiltonian)
-    if dE > 0
-        diagham = remove_high_energy_states(dE, diagham)
-    end
-    # diagleads = map(lead -> diagonalize(eigenvectors(diagham), lead), leads(system))
-    OpenSystem(diagham, leads)
+function changebasis(lead::NormalLead, H::DiagonalizedHamiltonian)
+    S = eigenvectors(H)
+    NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
 end
+# function diagonalize(system::OpenSystem; dE=0)
+#     diagham = diagonalize(system.hamiltonian)
+#     if dE > 0
+#         diagham = remove_high_energy_states(dE, diagham)
+#     end
+#     # diagleads = map(lead -> diagonalize(eigenvectors(diagham), lead), leads(system))
+#     OpenSystem(diagham, leads)
+# end
 
 trnorm(rho, n) = tr(reshape(rho, n, n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 original_hamiltonian(E, vecs) = vecs * Diagonal(E) * vecs'
-function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal})
+function remove_high_energy_states(ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal}, ΔE)
     E0 = minimum(eigenvalues(ham))
     sectors = blocks(ham)
     Is = map(eig -> findall(<(ΔE + E0), eig.values), sectors)
@@ -132,7 +132,7 @@ function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian{<:Any,<:Blo
     vecs = BlockDiagonal(newblocks)
     DiagonalizedHamiltonian(E, vecs, original_hamiltonian(E, vecs))
 end
-function remove_high_energy_states(ΔE, ham::DiagonalizedHamiltonian)
+function remove_high_energy_states(ham::DiagonalizedHamiltonian, ΔE)
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)
     E0 = minimum(vals)

@@ -13,7 +13,7 @@ export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parame
 export qns, Z2, QArray, Z2Symmetry, QNIndex, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export partial_trace
-export tomatrix, StationaryStateProblem, Lindbladsystem, conductance_matrix
+export tomatrix, StationaryStateProblem, Lindbladsystem, conductance_matrix, PauliSystem
 export QubitBasis
 
 
