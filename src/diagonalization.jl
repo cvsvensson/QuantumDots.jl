@@ -8,7 +8,7 @@ diagonalize!(eig::DiagonalizedHamiltonian) = eig
 
 function diagonalize(m::AbstractMatrix)
     vals, vecs = eigen(m)
-    DiagonalizedHamiltonian(vals, vecs)
+    DiagonalizedHamiltonian(vals, vecs, m)
 end
 diagonalize(m::SparseMatrixCSC) = diagonalize!(Matrix(m))
 diagonalize(m::Hermitian{<:Any,<:SparseMatrixCSC}) = diagonalize!(Hermitian(Matrix(m)))
@@ -47,9 +47,9 @@ function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
     blockinds = map(i -> eachindex(vals)[i], sizestoinds(sizes))
     if full
         filteredinds = [map(i -> i in inds, eachindex(vals)) for inds in blockinds]
-        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds]), filteredinds, bvecs)
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds], m), filteredinds, bvecs)
     else
-        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block), blockinds, bvecs)
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block, m), blockinds, bvecs)
     end
 end
 
@@ -57,5 +57,5 @@ function ground_state(eig::DiagonalizedHamiltonian)
     vals = eig.values
     vecs = eig.vectors
     minind = argmin(vals)
-    (;value = vals[minind], vector = vecs[:, minind])
+    (; value=vals[minind], vector=vecs[:, minind])
 end
