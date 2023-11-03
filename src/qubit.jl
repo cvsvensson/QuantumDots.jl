@@ -43,8 +43,8 @@ Base.keys(b::QubitBasis) = keys(b.dict)
 labels(b::QubitBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::QubitBasis) = show(io, b)
 Base.show(io::IO, b::QubitBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "QubitBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
-Base.iterate(b::QubitBasis) = Base.iterate(b.dict)
-Base.iterate(b::QubitBasis, state) = Base.iterate(b.dict, state)
+Base.iterate(b::QubitBasis) = iterate(b.dict)
+Base.iterate(b::QubitBasis, state) = iterate(b.dict, state)
 Base.length(::QubitBasis{M}) where {M} = M
 QubitBasis(iters...; qn=NoSymmetry()) = QubitBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
 QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(iter, qn))
