@@ -46,7 +46,7 @@ Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vect
 Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:done))
 Base.iterate(S::DiagonalizedHamiltonian, ::Val{:done}) = nothing
-
+Base.adjoint(H::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(conj(H.values), adjoint(H.vectors), adjoint(H.original))
 
 abstract type AbstractOpenSystem end
 Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
@@ -70,8 +70,8 @@ Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
 # OpenSystem(H, HD::AbstractDiagonalHamiltonian) = OpenSystem(H, HD, nothing)
 
 leads(system::OpenSystem) = system.leads
-changebasis(op, os::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(os)' * op * eigenvectors(os)
-changebasis(::Nothing, os::OpenSystem{<:DiagonalizedHamiltonian}) = nothing
+changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
+changebasis(::Nothing, os::DiagonalizedHamiltonian) = nothing
 
 Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
 Base.show(io::IO, system::OpenSystem{H,L}) where {H,L} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads))
@@ -113,7 +113,7 @@ LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
 function diagonalize(system::OpenSystem; dE=0)
     diagham = diagonalize(system.hamiltonian)
     if dE > 0
-        diagham = remove_high_energy_states(dE, diagonal_system)
+        diagham = remove_high_energy_states(dE, diagham)
     end
     # diagleads = map(lead -> diagonalize(eigenvectors(diagham), lead), leads(system))
     OpenSystem(diagham, leads)

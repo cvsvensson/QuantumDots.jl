@@ -16,20 +16,20 @@ struct LindbladCache{KC,MC,SC,OC}
     opcache::OC
 end
 (::Lindblad)(system, args...; kwargs...) = LindbladSystem(system, args...; kwargs...)
-function LindbladSystem(system::OpenSystem, vectorizer=default_vectorizer(system); rates=map(l -> 1, system.leads))
-    diagham = diagonalize(system.hamiltonian)
+function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads))
+    diagham = diagonalize(hamiltonian)
     # diageigvals = Diagonal(eigenvalues(system))
-    commutator_hamiltonian = commutator(system.hamiltonian, vectorizer)
+    commutator_hamiltonian = commutator(hamiltonian, vectorizer)
     unitary = -1im * commutator_hamiltonian
     energies = eigenvalues(diagham)
     kroncache = Matrix(unitary)
     superopcache = deepcopy(kroncache)
-    mulcache = (complex(Matrix(system.hamiltonian)))
-    opcache = (complex(Matrix(system.hamiltonian)))
+    mulcache = (complex(Matrix(hamiltonian)))
+    opcache = (complex(Matrix(hamiltonian)))
     cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
-    dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, diagham, rate, vectorizer, cache), rate, lead, diagham, vectorizer, cache), system.leads, rates)
+    dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, diagham, rate, vectorizer, cache), rate, lead, diagham, vectorizer, cache), leads, rates)
     total = lindblad_matrix(unitary, dissipators)
-    LindbladSystem(total, unitary, dissipators, vectorizer, system.hamiltonian, cache)
+    LindbladSystem(total, unitary, dissipators, vectorizer, hamiltonian, cache)
 end
 
 struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
@@ -47,10 +47,12 @@ _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=g
 function superoperator(lead, diagham::DiagonalizedHamiltonian, rate, vectorizer, cache::LindbladCache)
     superop = zero(cache.superopcache)
     for op in lead.jump_in
-        superop .+= superoperator!(op, diagham, lead.T, lead.μ, rate, vectorizer, cache)
+        # superop .+= superoperator!(op, diagham, lead.T, lead.μ, rate, vectorizer, cache)
+        superop .+= superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer)
     end
     for op in lead.jump_out
-        superop .+= superoperator!(op, diagham, lead.T, -lead.μ, rate, vectorizer, cache)
+        # superop .+= superoperator!(op, diagham, lead.T, -lead.μ, rate, vectorizer, cache)
+        superop .+= superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer)
     end
     return superop
 end

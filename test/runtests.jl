@@ -630,10 +630,10 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        using QuantumDots, Test, Pkg
-        Pkg.activate("./test")
-        using LinearSolve, OrdinaryDiffEq
-        qn = QuantumDots.NoSymmetry()
+        # using QuantumDots, Test, Pkg
+        # Pkg.activate("./test")
+        # using LinearSolve, OrdinaryDiffEq
+        # qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -648,16 +648,17 @@ end
 
         particle_number = bd(numberoperator(a))
         # measurements = [particle_number]
-        system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
+        ham = hamiltonian(μH)
+        system = QuantumDots.OpenSystem(ham, leads)
         diagonalsystem = QuantumDots.diagonalize(system)
         diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
         @test diagonalsystem.hamiltonian.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagonalsystem2.hamiltonian.values ≈ [0]
-        ls = QuantumDots.LindbladSystem(system)
+        ls = QuantumDots.LindbladSystem(ham, leads)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
-        lazyls = QuantumDots.LazyLindbladSystem(system)
+        lazyls = QuantumDots.LazyLindbladSystem(hamiltonian(μH), leads)
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 

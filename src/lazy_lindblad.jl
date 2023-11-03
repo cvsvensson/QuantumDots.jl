@@ -1,10 +1,10 @@
 
-struct LazyLindbladDissipator{J,J2,T,L,H,E} <: AbstractDissipator
+struct LazyLindbladDissipator{J,J2,T,L,H} <: AbstractDissipator
     op::J
     opsquare::J2
     rate::T
     lead::L
-    diagonal_hamiltonian::E
+    hamiltonian::H
 end
 Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
 function LazyLindbladDissipator(lead, diagham, rate)
@@ -13,7 +13,7 @@ function LazyLindbladDissipator(lead, diagham, rate)
     opsquare = map(leadops -> map(x -> Hermitian(x' * x), leadops), op)
     LazyLindbladDissipator(op, opsquare, rate, lead, diagham)
 end
-Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), d.energies)
+Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian))
 
 update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters) = d
 function update(d::LazyLindbladDissipator, p)
@@ -39,10 +39,11 @@ struct LazyLindbladSystem{DS,H,C} <: AbstractOpenSystem
     cache::C
 end
 
-function LazyLindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}; rates=map(l -> 1, system.leads))
-    energies = eigenvalues(system)
-    dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, energies, rate), system.leads, rates)
-    LazyLindbladSystem(dissipators, system.hamiltonian, Matrix(1im * Diagonal(eigenvalues(system.hamiltonian))))
+function LazyLindbladSystem(ham, leads; rates=map(l -> 1, leads))
+    diagham = diagonalize(ham)
+    # energies = eigenvalues(diagham)
+    dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, diagham, rate), leads, rates)
+    LazyLindbladSystem(dissipators, diagham, deepcopy(ham))
 end
 Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint, d.dissipators), -d.hamiltonian, d.cache)
 
