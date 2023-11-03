@@ -12,7 +12,7 @@ NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
 function update_lead(lead, props)
     μ = get(props, :μ, lead.μ)
     T = get(props, :T, lead.T)
-    NormalLead(T, μ, l.jump_in, l.jump_out)
+    NormalLead(T, μ, lead.jump_in, lead.jump_out)
 end
 CombinedLead(jins; T, μ) = CombinedLead(jins, map(adjoint, jins); T, μ)
 CombinedLead(jins, jouts; T, μ) = NormalLead(T, μ, jins, jouts)
