@@ -15,11 +15,11 @@ function LazyLindbladDissipator(lead, diagham, rate)
 end
 Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian))
 
-update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters) = d
-function update(d::LazyLindbladDissipator, p)
+update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters, t=nothing) = d
+function update(d::LazyLindbladDissipator, p, t=nothing)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
-    LazyLindbladDissipator(newlead, d.diagonal_hamiltonian, rate)
+    LazyLindbladDissipator(newlead, d.hamiltonian, rate)
 end
 
 function (d::LazyLindbladDissipator)(rho, p, t)
@@ -41,7 +41,6 @@ end
 
 function LazyLindbladSystem(ham, leads; rates=map(l -> 1, leads))
     diagham = diagonalize(ham)
-    # energies = eigenvalues(diagham)
     dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, diagham, rate), leads, rates)
     LazyLindbladSystem(dissipators, diagham, deepcopy(Matrix(complex(ham))))
 end
@@ -86,7 +85,6 @@ end
 function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
     H = original_hamiltonian(d.hamiltonian)
     dissipator_ops = dissipator_op_list(d)
-    # rho = isreal(_rho) ? complex(_rho) : _rho #Need to have complex matrices for the mul! to be non-allocating
     mul!(out, H, rho, -1im, 0)
     mul!(out, rho, H, 1im, 1)
     cache = d.cache
@@ -172,5 +170,3 @@ end
 
 identity_density_matrix(system::LazyLindbladSystem) = vec(Matrix{eltype(system)}(I, size(system.hamiltonian)...))
 Base.eltype(system::LazyLindbladSystem) = promote_type(typeof(1im), eltype(system.hamiltonian))
-
-internal_rep(rho, system::LazyLindbladSystem) = rho

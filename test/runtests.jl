@@ -789,6 +789,10 @@ end
     ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
     @test ρinternal1 ≈ ρinternal2
 
+    # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
+    @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
+    @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
+    @test_broken cm2 = conductance_matrix(.01, lazyls, particle_number) # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
 @testset "Khatri-Rao" begin

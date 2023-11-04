@@ -15,7 +15,6 @@ struct LindbladCache{KC,MC,SC,OC}
     superopcache::SC
     opcache::OC
 end
-(::Lindblad)(system, args...; kwargs...) = LindbladSystem(system, args...; kwargs...)
 function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads))
     diagham = diagonalize(hamiltonian)
     # diageigvals = Diagonal(eigenvalues(system))

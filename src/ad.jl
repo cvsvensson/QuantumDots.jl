@@ -1,5 +1,7 @@
 
-chem_derivative(backend, args...) = chem_derivative(backend, d -> Matrix(d), args...)
+chem_derivative(backend, d::LindbladDissipator, args...) = chem_derivative(backend, d -> Matrix(d), d, args...)
+chem_derivative(backend, d::PauliDissipator, args...) = chem_derivative(backend, d -> Matrix(d), d, args...)
+
 function chem_derivative(backend, f::Function, d)
     func = μ -> f(update(d, (; μ), nothing))
     AD.derivative(backend, func, d.lead.μ)[1]
