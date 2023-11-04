@@ -427,8 +427,8 @@ end
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
-    vals, vecs = diagonalize(ham)
     ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
+    vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
     v1, v2 = eachcol(vecs[:, 1:2])
