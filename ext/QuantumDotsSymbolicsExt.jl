@@ -3,7 +3,7 @@ module QuantumDotsSymbolicsExt
 using QuantumDots, Symbolics
 using QuantumDots.BlockDiagonals
 import QuantumDots: fastgenerator, fastblockdiagonal, TSL_generator,
- NoSymmetry, TSL_hamiltonian, FermionBdGBasis
+    NoSymmetry, TSL_hamiltonian, FermionBdGBasis
 
 function fastgenerator(gen, N)
     @variables x[1:N]
@@ -37,12 +37,20 @@ end
 function Symbolics.build_function(H::BdGMatrix, params...; kwargs...)
     mats = [H.H, H.Δ]
     fs = [build_function(mat, params...; kwargs...) for mat in mats]
-    function bdgmat!(H::BdGMatrix, xs...)
+    function bdgmat!(H, xs...)
         foreach((mat, f) -> last(f)(mat, xs...), [H.H, H.Δ], fs)
         return H
     end
     function bdgmat(xs...)
-        return BdGMatrix(map(f -> first(f)(xs...), fs)...)
+        mats = map(f -> first(f)(xs...), fs)
+        T1 = eltype(mats[1])
+        T2 = eltype(mats[2])
+        if T2 == Any
+            return BdGMatrix(mats[1], zeros(T1, size(mats[1])...); check=false)
+        elseif T1 == Any
+            return BdGMatrix(zeros(T2, size(mats[2])...), mats[2]; check=false)
+        end
+        return BdGMatrix(mats...; check=false)
     end
     bdgmat, bdgmat!
 end

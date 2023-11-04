@@ -238,7 +238,7 @@ struct BdGMatrix{T,S} <: AbstractMatrix{T}
     # [H Δ; -conj(Δ) -conj(H)]
     H::S # Hermitian
     Δ::S # Antisymmetric
-    function BdGMatrix(H::S1, Δ::S2; check = true) where {S1,S2}
+    function BdGMatrix(H::S1, Δ::S2; check=true) where {S1,S2}
         @assert size(H) == size(Δ)
         if check
             ishermitian(H) || throw(ArgumentError("H must be hermitian"))
@@ -256,9 +256,15 @@ function Base.getindex(A::BdGMatrix, i, j)
     i > N && j <= N && return -conj(A.Δ[i-N, j])
     i > N && j > N && return -conj(A.H[i-N, j-N])
 end
+function Base.similar(A::BdGMatrix, ::Type{T}) where {T}
+    d = similar(A.Δ, T)
+    BdGMatrix(Hermitian(similar(A.H, T)), d - transpose(d))
+end
+Base.:*(x::Real, A::BdGMatrix) = BdGMatrix(x * A.H, x * A.Δ)
+Base.:*(A::BdGMatrix, x::Real) = BdGMatrix(A.H * x, A.Δ * x)
 
 Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
-function BdGMatrix(A::AbstractMatrix; check = true)
+function BdGMatrix(A::AbstractMatrix; check=true)
     N = div(size(A, 1), 2)
     inds1, inds2 = axes(A)
     H = @views A[inds1[1:N], inds2[1:N]]
@@ -272,6 +278,7 @@ function BdGMatrix(A::AbstractMatrix; check = true)
 end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
+
 
 function bdg_to_skew(A::BdGMatrix)
     H = A.H
