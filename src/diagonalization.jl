@@ -1,6 +1,3 @@
-hamiltonian(system::OpenSystem) = system.hamiltonian
-eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
-eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
 eigenvalues(H::DiagonalizedHamiltonian) = H.values
 eigenvectors(H::DiagonalizedHamiltonian) = H.vectors
 diagonalize(eig::DiagonalizedHamiltonian) = eig

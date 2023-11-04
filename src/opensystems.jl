@@ -60,19 +60,6 @@ Base.size(d::AbstractOpenSystem) = size(Matrix(d))
 SciMLBase.islinear(d::AbstractOpenSystem) = true
 
 
-struct OpenSystem{H,L} <: AbstractOpenSystem
-    hamiltonian::H
-    leads::L
-end
-Base.eltype(system::OpenSystem) = eltype(eigenvectors(system))
-
-leads(system::OpenSystem) = system.leads
-changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
-changebasis(::Nothing, os::DiagonalizedHamiltonian) = nothing
-
-Base.show(io::IO, ::MIME"text/plain", system::OpenSystem) = show(io, system)
-Base.show(io::IO, system::OpenSystem{H,L}) where {H,L} = print(io, "OpenSystem:\nHamiltonian: ", repr(system.hamiltonian), "\nleads: ", repr(system.leads))
-
 abstract type AbstractOpenSolver end
 
 function normalized_steady_state_rhs(A)
@@ -103,20 +90,11 @@ function solveDiffProblem!(linsolve, x0, dA)
 end
 
 LinearOperator(mat::AbstractMatrix; kwargs...) = MatrixOperator(mat; kwargs...)
-# LinearOperator(func::Function; kwargs...) = FunctionOperator(func; islinear=true, kwargs...)
 
 function changebasis(lead::NormalLead, H::DiagonalizedHamiltonian)
     S = eigenvectors(H)
     NormalLead(temperature(lead), chemical_potential(lead), map(op -> S' * op * S, lead.jump_in), map(op -> S' * op * S, lead.jump_out))
 end
-# function diagonalize(system::OpenSystem; dE=0)
-#     diagham = diagonalize(system.hamiltonian)
-#     if dE > 0
-#         diagham = remove_high_energy_states(dE, diagham)
-#     end
-#     # diagleads = map(lead -> diagonalize(eigenvectors(diagham), lead), leads(system))
-#     OpenSystem(diagham, leads)
-# end
 
 trnorm(rho, n) = tr(reshape(rho, n, n))
 vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))

@@ -24,4 +24,3 @@ KhatriRaoVectorizer(ham) = KhatriRaoVectorizer(first.(blocksizes(ham)), eltype(h
 
 default_vectorizer(ham::BlockDiagonal) = KhatriRaoVectorizer(ham)
 default_vectorizer(ham) = KronVectorizer(ham)
-default_vectorizer(system::OpenSystem) = default_vectorizer(system.hamiltonian)
