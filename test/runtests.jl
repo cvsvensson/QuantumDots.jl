@@ -531,6 +531,10 @@ end
     @test newhams[1] isa Matrix
     @test newhams[2] isa BlockDiagonal
     @test newhams[3] isa BdGMatrix
+    newhams = map(f -> f[1](0.3), fs)
+    cache = 0 .* newhams
+    map((c, f) -> f[2](c, .3), cache, fs)
+    @test all(newhams .≈ cache)
 end
 
 @testset "Fast generated hamiltonians" begin
