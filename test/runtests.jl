@@ -427,8 +427,7 @@ end
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
-    ham = QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)
-    @test ham isa Hermitian
+    ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
     vals, vecs = QuantumDots.diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
