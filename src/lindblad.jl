@@ -59,11 +59,6 @@ end
 function superoperator(lead, diagham, rate, vectorizer, tmp::Nothing)
     sum(superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer) for op in lead.jump_in) .+ sum(superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer) for op in lead.jump_out)
 end
-# reset_cache!(cache) = (cache.opcache .*= 0; cache.superopcache .*= 0;cache.mulcache .*= 0;cache.kroncache .*= 0;)
-# function superoperator!(lead_op, diagham, T, μ, rate, vectorizer, cache::LindbladCache)
-#     ratetransform!(cache.opcache, lead_op, diagham, T, μ)
-#     return dissipator!(cache.superopcache, cache.opcache, rate, vectorizer, cache.kroncache, cache.mulcache)
-# end
 function superoperator(lead_op, diagham, T, μ, rate, vectorizer)
     op = ratetransform(lead_op, diagham, T, μ)
     return dissipator(op, rate, vectorizer)
@@ -156,7 +151,6 @@ function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kronca
     kron!(kroncache, i, mulcache)
     out .-= kroncache
     out .*= rate
-    #return kv.size > DENSE_CUTOFF ? D : Matrix(D)
     return out
 end
 function dissipator(L, rate, kv::KronVectorizer)

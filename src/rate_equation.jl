@@ -126,12 +126,6 @@ function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal 
 end
 
 
-
-# function conductance_matrix(sys::PauliSystem, args...)
-#     rho = solve(StationaryStateProblem(sys))
-#     conductance_matrix(rho, sys::PauliSystem, args...)
-# end
-
 function conductance_matrix(dμ::Number, sys::PauliSystem)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
     function get_current(pert)

@@ -697,7 +697,6 @@ end
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        # @test all(map(≈, rate_current, QuantumDots.measure(ρ_pauli, diagonalsystem, pauli)[1]))
         @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
         @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 

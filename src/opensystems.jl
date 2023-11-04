@@ -8,7 +8,6 @@ struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
 end
 NormalLead(jin, jout; T, μ) = NormalLead(T, μ, [jin], [jout])
 NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
-# update_lead(l::NormalLead; T=temperature(l), μ=chemical_potential(l), in=l.jump_in, out=l.jump_out) = NormalLead(T, μ, in, out)
 function update_lead(lead, props)
     μ = get(props, :μ, lead.μ)
     T = get(props, :T, lead.T)
@@ -126,17 +125,3 @@ function ratetransform(op, diagham::DiagonalizedHamiltonian, T, μ)
     return changebasis(op3, diagham')
 end
 ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
-
-# function ratetransform!(op2, op, energies::AbstractVector, T, μ)
-#     for I in CartesianIndices(op)
-#         n1, n2 = Tuple(I)
-#         δE = energies[n1] - energies[n2]
-#         op2[n1, n2] = sqrt(fermidirac(δE, T, μ)) * op[n1, n2]
-#     end
-#     return op2
-# end
-
-# function conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
-#     # rho = solve(StationaryStateProblem(ls))
-#     conductance_matrix(rho, current_op, ls::AbstractOpenSystem, args...)
-# end
