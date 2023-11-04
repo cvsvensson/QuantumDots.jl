@@ -633,22 +633,21 @@ end
         # Pkg.activate("./test")
         # using LinearSolve, OrdinaryDiffEq, LinearAlgebra
         # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
+        # qn = QuantumDots.NoSymmetry()
+        # qn = QuantumDots.parity
 
-        qn = QuantumDots.NoSymmetry()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
-        hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
+        get_hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
-        # Γ = T/10
-        # leftlead = NormalLead(a[1]'; T, μ=μL)
         leftlead = CombinedLead((a[1]',); T, μ=μL)
         rightlead = NormalLead(a[N]'; T, μ=μR)
         leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
-        ham = hamiltonian(μH)
+        ham = get_hamiltonian(μH)
         diagham = diagonalize(ham)
         diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
         @test diagham.original ≈ ham
@@ -679,10 +678,11 @@ end
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, particle_number, ls)
-        cm = conductance_matrix(AD.ForwardDiffBackend(), ρinternal, particle_number, ls) #FIXME: different result from the others
-        cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), particle_number, ls)#, 0.00001)
-        cm3 = conductance_matrix(1e-3, particle_number, ls)#, 0.00001)
+        cm = conductance_matrix(AD.ForwardDiffBackend(), ls, ρinternal, particle_number)
+        cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, particle_number)
+        cm3 = conductance_matrix(1e-4, ls, particle_number)
         @test norm(cm - cm2) < 1e-4
+        @test norm(cm - cm3) < 1e-4
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
@@ -701,15 +701,12 @@ end
         @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
         @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 
-        cmpauli = conductance_matrix(ρ_pauli_internal, pauli)
-        cmpauli2 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
-        # cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
-        # cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
+        cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
+        cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
+        cmpauli3 = conductance_matrix(1e-4, pauli)
 
-        @test conductance_matrix(ρ_pauli_internal, pauli) ≈ conductance_matrix(pauli)
         @test norm(cmpauli - cmpauli2) < 1e-3
-        # @test cmpauli ≈ cmpauli3
-        # @test norm(cmpauli3 - cmpauli4) < 1e-3
+        @test norm(cmpauli - cmpauli3) < 1e-3
         eigen_particle_number = QuantumDots.changebasis(particle_number, diagham)
         @test vec(sum(eigen_particle_number * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
 
@@ -750,8 +747,8 @@ end
     N = 2
     qn = QuantumDots.NoSymmetry()
     a = FermionBasis(1:N; qn)
-    bd(m) = QuantumDots.blockdiagonal(m, a)
-    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
+    bd(m) = blockdiagonal(m, a)
+    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] + hc for n in 1:N-1)))
     T = 0.1
     μL = 0.5
     μR = 0.0
@@ -764,7 +761,7 @@ end
     mo = QuantumDots.LinearOperator(ls)
     mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
 
-    lazyls = LazyLindbladSystem(diagonalsystem)
+    lazyls = LazyLindbladSystem(hamiltonian, leads)
     fo = QuantumDots.LinearOperator(lazyls)
     fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
     v1 = rand(2^(2N))

@@ -90,11 +90,10 @@ function StationaryStateProblem(system::AbstractOpenSystem, p=SciMLBase.NullPara
 end
 function ODEProblem(system::AbstractOpenSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
     internalu0 = internal_rep(u0, system)
-    println(size(internalu0))
-    prob = _ODEProblem(system, internalu0, tspan, p, args...; kwargs...)
+    _ODEProblem(system, internalu0, tspan, p, args...; kwargs...)
 end
 function _ODEProblem(system::AbstractOpenSystem, u0, tspan, p, args...; kwargs...)
-    op = ODEProblem(LinearOperator(system, p; kwargs...), u0, tspan, p, args...; kwargs...)
+    ODEProblem(LinearOperator(system, p; kwargs...), u0, tspan, p, args...; kwargs...)
 end
 
 function solveDiffProblem!(linsolve, x0, dA)

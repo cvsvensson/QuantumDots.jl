@@ -1,4 +1,3 @@
-import AbstractDifferentiation as AD
 
 chem_derivative(backend, args...) = chem_derivative(backend, d -> Matrix(d), args...)
 function chem_derivative(backend, f::Function, d)
@@ -12,25 +11,16 @@ function chem_derivative(backend, f::Function, d, _p)
     AD.derivative(backend, func, p.μ)[1]
 end
 
-function conductance_matrix(backend, rho, current_op, ls::AbstractOpenSystem)
+function conductance_matrix(backend, ls::AbstractOpenSystem, rho, current_op)
     dDs = [chem_derivative(backend, d) for d in ls.dissipators]
     linsolve = init(StationaryStateProblem(ls))
-    sols = [QuantumDots.solveDiffProblem!(linsolve, rho, dD) for dD in dDs]
-    rhodiff = stack([collect(measure(sol, current_op, ls)) for sol in sols])
+    rhodiff = stack([collect(measure(QuantumDots.solveDiffProblem!(linsolve, rho, dD), current_op, ls)) for dD in dDs])
     dissdiff = Diagonal([dot(current_op, tomatrix(dD * rho, ls)) for dD in dDs])
     return dissdiff + rhodiff
 end
 
-function conductance_matrix(backend, rho, sys::PauliSystem)
-    dDs = [chem_derivative(backend, d -> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
-    linsolve = init(StationaryStateProblem(sys))
-    rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
-    dissdiff = Diagonal([dot(dD[2], rho) for dD in dDs])
-    return dissdiff + rhodiff
-end
 
-
-function conductance_matrix(dμ::Number, current_op, ls::AbstractOpenSystem)
+function conductance_matrix(dμ::Number, ls::AbstractOpenSystem, current_op)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)
     function get_current(pert)
         newls = update(ls, pert)
@@ -42,8 +32,7 @@ function conductance_matrix(dμ::Number, current_op, ls::AbstractOpenSystem)
 end
 
 
-function conductance_matrix(ad::AD.FiniteDifferencesBackend, current_op, ls::AbstractOpenSystem)
-    # perturbations = map(d -> (; μ=d.lead.μ + dμ), ls.dissipators)
+function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem, current_op)
     μs0 = [d.lead.μ for d in ls.dissipators]
     function get_current(μs)
         count = 0

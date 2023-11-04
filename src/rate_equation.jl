@@ -127,18 +127,39 @@ end
 
 
 
-function conductance_matrix(sys::PauliSystem, args...)
-    rho = solve(StationaryStateProblem(sys))
-    conductance_matrix(rho, sys::PauliSystem, args...)
-end
+# function conductance_matrix(sys::PauliSystem, args...)
+#     rho = solve(StationaryStateProblem(sys))
+#     conductance_matrix(rho, sys::PauliSystem, args...)
+# end
 
-function conductance_matrix(rho, sys::PauliSystem, dμ)
+function conductance_matrix(dμ::Number, sys::PauliSystem)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
     function get_current(pert)
         newsys = update(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
-        collect(get_currents(sol, newsys))
+        real(collect(get_currents(sol, newsys)))
     end
     I0 = get_current(SciMLBase.NullParameters())
     stack(map(key -> (get_current(perturbations[[key]]) .- I0) / dμ, keys(perturbations)))
+end
+
+function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem)
+    μs0 = [d.lead.μ for d in ls.dissipators]
+    function get_current(μs)
+        count = 0
+        pert = map(d -> (; μ=μs[count+=1]), ls.dissipators)
+        newsys = update(ls, pert)
+        sol = solve(StationaryStateProblem(newsys))
+        real(collect(get_currents(sol, newsys)))
+    end
+    AD.jacobian(ad, get_current, μs0)[1]
+end
+
+
+function conductance_matrix(backend, sys::PauliSystem, rho)
+    dDs = [chem_derivative(backend, d -> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
+    linsolve = init(StationaryStateProblem(sys))
+    rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
+    dissdiff = Diagonal([dot(dD[2], rho) for dD in dDs])
+    return dissdiff + rhodiff
 end

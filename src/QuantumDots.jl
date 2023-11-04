@@ -5,6 +5,7 @@ using SplitApplyCombine: group
 using Dictionaries
 using StaticArrays
 using SkewLinearAlgebra
+import AbstractDifferentiation as AD
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
