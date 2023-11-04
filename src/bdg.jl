@@ -256,10 +256,6 @@ function Base.getindex(A::BdGMatrix, i, j)
     i > N && j <= N && return -conj(A.Δ[i-N, j])
     i > N && j > N && return -conj(A.H[i-N, j-N])
 end
-function Base.similar(A::BdGMatrix, ::Type{T}) where {T}
-    d = similar(A.Δ, T)
-    BdGMatrix(Hermitian(similar(A.H, T)), d - transpose(d))
-end
 Base.:*(x::Real, A::BdGMatrix) = BdGMatrix(x * A.H, x * A.Δ)
 Base.:*(A::BdGMatrix, x::Real) = BdGMatrix(A.H * x, A.Δ * x)
 
