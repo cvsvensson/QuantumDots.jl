@@ -56,3 +56,6 @@ function ground_state(eig::DiagonalizedHamiltonian)
     minind = argmin(vals)
     (; value=vals[minind], vector=vecs[:, minind])
 end
+
+changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
+changebasis(::Nothing, os::DiagonalizedHamiltonian) = nothing
