@@ -533,7 +533,7 @@ end
     @test newhams[3] isa BdGMatrix
     newhams = map(f -> f[1](0.3), fs)
     cache = 0 .* newhams
-    map((c, f) -> f[2](c, .3), cache, fs)
+    map((c, f) -> f[2](c, 0.3), cache, fs)
     @test all(newhams .≈ cache)
 end
 
