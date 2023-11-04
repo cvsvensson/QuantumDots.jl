@@ -5,7 +5,7 @@ const hc = HC()
 hopping(t, f1, f2) = t * f1'f2 + hc
 pairing(Δ, f1, f2) = Δ * f2 * f1 + hc
 numberop(f) = f'f
-coulomb(f1, f2) = f1' * f1 * f2' * f
+coulomb(f1, f2) = f1' * f1 * f2' * f2
 function coulomb(f1::BdGFermion, f2::BdGFermion)
     @warn "Returning zero as Coulomb term for BdGFermions. This message is not displayed again." maxlog = 1
     0 * numberop(f1)
