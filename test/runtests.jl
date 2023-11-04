@@ -3,7 +3,7 @@ using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
 using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
-using ForwardDiff
+import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
 using UnicodePlots
 Random.seed!(1234)
 
@@ -428,7 +428,7 @@ end
     N = 4
     c = FermionBasis(1:N)
     ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
-    vals, vecs = QuantumDots.diagonalize(ham)
+    vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
     v1, v2 = eachcol(vecs[:, 1:2])
@@ -440,7 +440,7 @@ end
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
-    eig = QuantumDots.diagonalize(ham)
+    eig = diagonalize(ham)
     eigsectors = blocks(eig)
     @test v1 ≈ eigsectors[1].vectors[:, 1]
     gs = QuantumDots.ground_state.(eigsectors)
@@ -450,8 +450,7 @@ end
     N = 5
     c = FermionBasis(1:N; qn=QuantumDots.parity)
     ham = QuantumDots.blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), c)
-    # vals, vecs = BlockDiagonals.eigen_blockwise(ham)
-    vals, vecs = QuantumDots.diagonalize(ham)
+    vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[1+size(vecs.blocks[1], 1)]) < 1e-12
     p = parityoperator(c)
     v1 = vecs[:, 1]
@@ -464,7 +463,7 @@ end
     mps = QuantumDots.majorana_polarization(w, v, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
-    eig = QuantumDots.diagonalize(ham)
+    eig = diagonalize(ham)
     eigsectors = blocks(eig; full=true)
     @test v1 ≈ eigsectors[1].vectors[:, 1]
     @test v2 ≈ eigsectors[2].vectors[:, 1]
@@ -650,39 +649,40 @@ end
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
-        # using LinearSolve,DifferentialEquations
+        # using LinearSolve, OrdinaryDiffEq, LinearAlgebra
+        # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
+        # qn = QuantumDots.parity
+
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
-        hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
+        get_hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
-        # Γ = T/10
-        # leftlead = QuantumDots.NormalLead(a[1]'; T, μ=μL)
-        leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
-        rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+        leftlead = CombinedLead((a[1]',); T, μ=μL)
+        rightlead = NormalLead(a[N]'; T, μ=μR)
         leads = (; left=leftlead, right=rightlead)
 
         particle_number = bd(numberoperator(a))
-        measurements = [particle_number]
-        system = QuantumDots.OpenSystem(hamiltonian(μH), leads, measurements)
-        diagonalsystem = QuantumDots.diagonalize(system)
-        diagonalsystem2 = QuantumDots.diagonalize(system, dE=μH / 2)
-        @test diagonalsystem.hamiltonian.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
-        @test diagonalsystem2.hamiltonian.values ≈ [0]
-        ls = QuantumDots.LindbladSystem(diagonalsystem)
+        ham = get_hamiltonian(μH)
+        diagham = diagonalize(ham)
+        diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
+        @test diagham.original ≈ ham
+        @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
+        @test diagham2.values ≈ [0]
+        ls = LindbladSystem(ham, leads)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
 
-        lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+        lazyls = LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
         @test eltype(first(lazyls.dissipators)) == ComplexF64
 
-        prob2 = StationaryStateProblem(lazyls)
         prob = StationaryStateProblem(ls)
-        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
+        prob2 = StationaryStateProblem(lazyls)
         ρinternal = solve(prob; abstol=1e-12)
+        ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
         @test tomatrix(ρinternal, ls) ≈ reshape(ρinternal2, size(tomatrix(ρinternal, ls))...)
         ρ = tomatrix(ρinternal, ls)
         linsolve = init(prob)
@@ -695,15 +695,17 @@ end
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
-        numeric_current = QuantumDots.measure(ρ, diagonalsystem, ls)[1]
-        cm = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls)
-        cm2 = conductance_matrix(ρinternal, diagonalsystem.transformed_measurements[1], ls, 0.00001)
+        numeric_current = QuantumDots.measure(ρ, particle_number, ls)
+        cm = conductance_matrix(AD.ForwardDiffBackend(), ls, ρinternal, particle_number)
+        cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, particle_number)
+        cm3 = conductance_matrix(1e-4, ls, particle_number)
         @test norm(cm - cm2) < 1e-4
-        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, diagonalsystem, ls)[1]))
+        @test norm(cm - cm3) < 1e-4
+        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
 
-        pauli = QuantumDots.Pauli()(diagonalsystem)
+        pauli = PauliSystem(ham, leads)
         pauli_prob = StationaryStateProblem(pauli)
         ρ_pauli_internal = solve(pauli_prob)
         ρ_pauli = tomatrix(ρ_pauli_internal, pauli)
@@ -713,21 +715,17 @@ end
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test all(map(≈, rate_current, QuantumDots.measure(ρ_pauli, diagonalsystem, pauli)[1]))
         @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
         @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
 
-        cmpauli = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli)
-        cmpauli2 = conductance_matrix(ρ_pauli_internal, diagonalsystem.transformed_measurements[1], pauli, 0.00001)
-        cmpauli3 = conductance_matrix(ρ_pauli_internal, pauli)
-        cmpauli4 = conductance_matrix(ρ_pauli_internal, pauli, 0.00001)
+        cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
+        cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
+        cmpauli3 = conductance_matrix(1e-4, pauli)
 
-        @test conductance_matrix(ρ_pauli_internal, pauli) ≈ conductance_matrix(pauli)
         @test norm(cmpauli - cmpauli2) < 1e-3
-        @test cmpauli ≈ cmpauli3
-        @test norm(cmpauli3 - cmpauli4) < 1e-3
-
-        @test vec(sum(diagonalsystem.transformed_measurements[1] * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
+        @test norm(cmpauli - cmpauli3) < 1e-3
+        eigen_particle_number = QuantumDots.changebasis(particle_number, diagham)
+        @test vec(sum(eigen_particle_number * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         sol = solve(prob, Tsit5())
@@ -766,24 +764,21 @@ end
     N = 2
     qn = QuantumDots.NoSymmetry()
     a = FermionBasis(1:N; qn)
-    bd(m) = QuantumDots.blockdiagonal(m, a)
-    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] for n in 1:N-1) + QuantumDots.HC()))
+    bd(m) = blockdiagonal(m, a)
+    hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] + hc for n in 1:N-1)))
     T = 0.1
     μL = 0.5
     μR = 0.0
-    leftlead = QuantumDots.CombinedLead((a[1]',); T, μ=μL)
-    rightlead = QuantumDots.NormalLead(a[N]'; T, μ=μR)
+    leftlead = CombinedLead((a[1]',); T, μ=μL)
+    rightlead = NormalLead(a[N]'; T, μ=μR)
     leads = (; left=leftlead, right=rightlead)
 
     particle_number = bd(numberoperator(a))
-    measurements = [particle_number]
-    system = QuantumDots.OpenSystem(hamiltonian, leads, measurements)
-    diagonalsystem = QuantumDots.diagonalize(system)
-    ls = QuantumDots.LindbladSystem(diagonalsystem)
+    ls = LindbladSystem(hamiltonian, leads)
     mo = QuantumDots.LinearOperator(ls)
     mo2 = QuantumDots.LinearOperator(ls; normalizer=true)
 
-    lazyls = QuantumDots.LazyLindbladSystem(diagonalsystem)
+    lazyls = LazyLindbladSystem(hamiltonian, leads)
     fo = QuantumDots.LinearOperator(lazyls)
     fo2 = QuantumDots.LinearOperator(lazyls; normalizer=true)
     v1 = rand(2^(2N))
@@ -812,6 +807,10 @@ end
     ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
     @test ρinternal1 ≈ ρinternal2
 
+    # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
+    @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
+    @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
+    @test_broken cm2 = conductance_matrix(.01, lazyls, particle_number) # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
 @testset "Khatri-Rao" begin
