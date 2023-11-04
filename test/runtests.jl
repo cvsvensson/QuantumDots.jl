@@ -327,8 +327,8 @@ end
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test qp[(1, :h)] == qp[1, :h]
-    @test typeof(qp*b[1]) <: AbstractMatrix
-    @test typeof(b[1]*qp) <: AbstractMatrix
+    @test typeof(qp * b[1]) <: AbstractMatrix
+    @test typeof(b[1] * qp) <: AbstractMatrix
 
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)
@@ -517,6 +517,20 @@ end
     @test vals ≈ [0, 1, π, π + 1]
     parityop = blockdiagonal(parityoperator(a), a)
     numberop = blockdiagonal(numberoperator(a), a)
+end
+
+@testset "build_function" begin
+    N = 2
+    bases = [FermionBasis(1:N), FermionBasis(1:N; qn=QuantumDots.parity), FermionBdGBasis(1:N)]
+    @variables x
+    ham(c) = x * sum(f -> f'f, c)
+    converts = [Matrix, x -> blockdiagonal(x, bases[2]), x -> BdGMatrix(x; check=false)]
+    hams = map((f, c) -> (f ∘ ham)(c), converts, bases)
+    fs = [build_function(x * H, x; expression=Val{false}) for H in hams]
+    newhams = map(f -> f[1](1), fs)
+    @test newhams[1] isa Matrix
+    @test newhams[2] isa BlockDiagonal
+    @test newhams[3] isa BdGMatrix
 end
 
 @testset "Fast generated hamiltonians" begin
