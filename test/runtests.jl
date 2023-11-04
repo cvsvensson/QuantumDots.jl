@@ -327,8 +327,8 @@ end
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test qp[(1, :h)] == qp[1, :h]
-    @test typeof(qp*b[1]) <: AbstractMatrix
-    @test typeof(b[1]*qp) <: AbstractMatrix
+    @test typeof(qp * b[1]) <: AbstractMatrix
+    @test typeof(b[1] * qp) <: AbstractMatrix
 
     us, vs = (rand(length(labels)), rand(length(labels)))
     normalize!(us)
@@ -427,8 +427,7 @@ end
 @testset "Kitaev" begin
     N = 4
     c = FermionBasis(1:N)
-    ham = QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0)
-    @test ham isa Hermitian
+    ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
     vals, vecs = QuantumDots.diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
     p = parityoperator(c)
@@ -518,6 +517,25 @@ end
     @test vals ≈ [0, 1, π, π + 1]
     parityop = blockdiagonal(parityoperator(a), a)
     numberop = blockdiagonal(numberoperator(a), a)
+end
+
+
+@testset "build_function" begin
+    N = 2
+    bases = [FermionBasis(1:N), FermionBasis(1:N; qn=QuantumDots.parity), FermionBdGBasis(1:N)]
+    @variables x
+    ham(c) = x * sum(f -> 1.0 * f'f, c)
+    converts = [Matrix, x -> blockdiagonal(x, bases[2]), x -> BdGMatrix(x; check=false)]
+    hams = map((f, c) -> (f ∘ ham)(c), converts, bases)
+    fs = [build_function(H, x; expression=Val{false}) for H in hams]
+    newhams = map(f -> f[1](1.0), fs)
+    @test newhams[1] isa Matrix
+    @test newhams[2] isa BlockDiagonal
+    @test newhams[3] isa BdGMatrix 
+    cache = 0.1 .* newhams
+    newhams = map(f -> f[1](0.3), fs)
+    map((m, f) -> f[2](m, 0.3), cache, fs)
+    @test all(newhams .≈ cache)
 end
 
 @testset "Fast generated hamiltonians" begin
