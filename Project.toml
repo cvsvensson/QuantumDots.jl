@@ -29,6 +29,7 @@ QuantumDotsSymbolicsExt = "Symbolics"
 QuantumDotsUnicodePlotsExt = "UnicodePlots"
 
 [compat]
+AbstractDifferentiation = "0.6"
 BlockDiagonals = "0.1"
 Dictionaries = "0.3"
 LinearMaps = "3"
