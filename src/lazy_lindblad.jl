@@ -10,7 +10,7 @@ Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
 function LazyLindbladDissipator(lead, diagham, rate)
     op = (; in=map(op -> complex(ratetransform(op, diagham, lead.T, lead.μ)), lead.jump_in),
         out=map(op -> complex(ratetransform(op, diagham, lead.T, -lead.μ)), lead.jump_out))
-    opsquare = map(leadops -> map(x -> Hermitian(x' * x), leadops), op)
+    opsquare = map(leadops -> map(x -> x' * x, leadops), op)
     LazyLindbladDissipator(op, opsquare, rate, lead, diagham)
 end
 Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian))
@@ -40,9 +40,12 @@ struct LazyLindbladSystem{DS,H,C} <: AbstractOpenSystem
 end
 
 function LazyLindbladSystem(ham, leads; rates=map(l -> 1, leads))
-    diagham = diagonalize(ham)
+    _diagham = diagonalize(ham)
+    T = complex(eltype(_diagham.original))
+    diagham = DiagonalizedHamiltonian(_diagham.values, _diagham.vectors, Matrix{T}(_diagham.original))
     dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, diagham, rate), leads, rates)
-    LazyLindbladSystem(dissipators, diagham, deepcopy(Matrix(complex(ham))))
+    cache = -1im * diagham.vectors * first(first(first(dissipators).opsquare))
+    LazyLindbladSystem(dissipators, diagham, cache)
 end
 Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint, d.dissipators), -d.hamiltonian, d.cache)
 
