@@ -46,12 +46,12 @@ _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=g
 function superoperator(lead, diagham::DiagonalizedHamiltonian, rate, vectorizer, cache::LindbladCache)
     superop = zero(cache.superopcache)
     for op in lead.jump_in
-        # superop .+= superoperator!(op, diagham, lead.T, lead.μ, rate, vectorizer, cache)
-        superop .+= superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer)
+        superop .+= superoperator!(op, diagham, lead.T, lead.μ, rate, vectorizer, cache)
+        # superop .+= superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer)
     end
     for op in lead.jump_out
-        # superop .+= superoperator!(op, diagham, lead.T, -lead.μ, rate, vectorizer, cache)
-        superop .+= superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer)
+        superop .+= superoperator!(op, diagham, lead.T, -lead.μ, rate, vectorizer, cache)
+        # superop .+= superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer)
     end
     return superop
 end
@@ -61,6 +61,11 @@ end
 function superoperator(lead_op, diagham, T, μ, rate, vectorizer)
     op = ratetransform(lead_op, diagham, T, μ)
     return dissipator(op, rate, vectorizer)
+end
+
+function superoperator!(lead_op, diagham, T, μ, rate, vectorizer, cache::LindbladCache)
+    ratetransform!(cache.opcache, lead_op, diagham, T, μ)
+    return dissipator!(cache.superopcache, cache.opcache, rate, vectorizer, cache.kroncache, cache.mulcache)
 end
 
 function update(d::LindbladDissipator, p, tmp=d.cache)
