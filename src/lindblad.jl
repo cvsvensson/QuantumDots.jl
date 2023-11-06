@@ -31,15 +31,15 @@ function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamilt
     LindbladSystem(total, unitary, dissipators, vectorizer, hamiltonian, cache)
 end
 
-struct LindbladDissipator{S,T,L,E,V,C} <: AbstractDissipator
+struct LindbladDissipator{S,T,L,H,V,C} <: AbstractDissipator
     superop::S
     rate::T
     lead::L
-    energies::E
+    ham::H
     vectorizer::V
     cache::C
 end
-
+Base.adjoint(d::LindbladDissipator) = LindbladDissipator(adjoint(d.superop), adjoint(d.rate), adjoint(d.lead), adjoint(d.ham), d.vectorizer, d.cache)
 _dissipator_params(d::LindbladDissipator) = (; μ=d.lead.μ, T=d.lead.T, rate=d.rate)
 _dissipator_params(d::LindbladDissipator, p) = (; μ=get(p, :μ, d.lead.μ), T=get(p, :T, d.lead.T), rate=get(p, :rate, d.rate))
 
@@ -71,8 +71,8 @@ end
 function update(d::LindbladDissipator, p, tmp=d.cache)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
-    newsuperop = superoperator(newlead, d.energies, rate, d.vectorizer, tmp)
-    LindbladDissipator(newsuperop, rate, newlead, d.energies, d.vectorizer, d.cache)
+    newsuperop = superoperator(newlead, d.ham, rate, d.vectorizer, tmp)
+    LindbladDissipator(newsuperop, rate, newlead, d.ham, d.vectorizer, d.cache)
 end
 
 function lindblad_matrix(unitary, dissipators)
