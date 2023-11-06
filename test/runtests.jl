@@ -48,16 +48,16 @@ end
     fbits = bits(focknumber, N)
     @test fbits == [0, 0, 1, 0, 1, 0]
 
-    @test QuantumDots.focknbr(fbits) == 20
-    @test QuantumDots.focknbr(Tuple(fbits)) == 20
+    @test QuantumDots.focknbr_from_bits(fbits) == 20
+    @test QuantumDots.focknbr_from_bits(Tuple(fbits)) == 20
     @test !QuantumDots._bit(focknumber, 1)
     @test !QuantumDots._bit(focknumber, 2)
     @test QuantumDots._bit(focknumber, 3)
     @test !QuantumDots._bit(focknumber, 4)
     @test QuantumDots._bit(focknumber, 5)
 
-    @test QuantumDots.focknbr((3, 5)) == 20
-    @test QuantumDots.focknbr([3, 5]) == 20
+    @test QuantumDots.focknbr_from_site_indices((3, 5)) == 20
+    @test QuantumDots.focknbr_from_site_indices([3, 5]) == 20
 
     @testset "removefermion" begin
         focknbr = rand(1:2^N) - 1
