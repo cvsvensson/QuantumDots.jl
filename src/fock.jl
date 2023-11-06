@@ -1,6 +1,6 @@
 focknbr(bits::Union{BitVector,Vector{Bool},NTuple{<:Any,Bool}}) = mapreduce(nb -> nb[2] * (1 << (nb[1] - 1)), +, enumerate(bits))
-focknbr(site::Integer) = 1 << (site - 1)
-focknbr(sites::Vector{<:Integer}) = mapreduce(focknbr, +, sites)
+focknbr_from_site_index(site::Integer) = 1 << (site - 1)
+focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites)
 focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
 
 bits(s::Integer, N) = digits(Bool, s, base=2, pad=N)
@@ -8,10 +8,12 @@ parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
 fermionnumber(fs::Int) = count_ones(fs)
 
 fermionnumber(fs::Int, mask) = count_ones(fs & mask)
-fermionnumber(labels, basis::AbstractBasis) = Base.Fix2(fermionnumber, focknbr(siteindices(labels, basis)))
+fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, labels)))
 
-siteindex(id, b::AbstractBasis) = findfirst(x -> x == id, labels(b))::Int
-siteindices(ids::Union{Tuple{S,Vararg{S}},AbstractVector{S}}, b::AbstractBasis) where {S} = map(id -> siteindex(id, b), ids)#::Int
+siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
+siteindex(id, b::AbstractBasis) = siteindex(id, labels(b))
+siteindices(ids, b::AbstractBasis) = map(id -> siteindex(id, b), ids)#::Int
+siteindices(ids, labels) = map(id -> siteindex(id, labels), ids)#::Int
 
 function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
     M = length(b)

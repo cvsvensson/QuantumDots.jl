@@ -7,7 +7,7 @@ jwstring(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
 
 
 function removefermion(digitposition, statefocknbr) 
-    cdag = focknbr(digitposition)
+    cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
     allowed = !iszero(cdag & statefocknbr) 
     fermionstatistics = jwstring(digitposition, statefocknbr)
