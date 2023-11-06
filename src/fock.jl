@@ -7,10 +7,13 @@ bits(s::Integer, N) = digits(Bool, s, base=2, pad=N)
 parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
 fermionnumber(fs::Int) = count_ones(fs)
 
+fermionnumber(fs::Int, mask) = count_ones(fs & mask)
+fermionnumber(labels, basis::AbstractBasis) = Base.Fix2(fermionnumber, focknbr(siteindices(labels, basis)))
+
 siteindex(id, b::AbstractBasis) = findfirst(x -> x == id, labels(b))::Int
 siteindices(ids::Union{Tuple{S,Vararg{S}},AbstractVector{S}}, b::AbstractBasis) where {S} = map(id -> siteindex(id, b), ids)#::Int
 
-function tensor(v::AbstractVector{T}, b::AbstractBasis) where T
+function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
     M = length(b)
     @assert length(v) == 2^M
     t = Array{T,M}(undef, ntuple(i -> 2, M))

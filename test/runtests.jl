@@ -93,7 +93,7 @@ end
     @test length(fs) == binomial(10, 5)
     @test allunique(fs)
     @test all(QuantumDots.fermionnumber.(fs) .== 5)
-
+    
 end
 
 @testset "Basis" begin
@@ -110,6 +110,13 @@ end
     @test pretty_print(B[1][:, 1], B) |> isnothing
     @test pretty_print(Bspin[1, :↑], Bspin) |> isnothing
     @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
+
+    fn = QuantumDots.fermionnumber((1,),B)
+    @test fn.(0:3) == [0,1,0,1]
+    fn = QuantumDots.fermionnumber((2,),B)
+    @test fn.(0:3) == [0,0,1,1]
+    fn = QuantumDots.fermionnumber((1,2),B)
+    @test fn.(0:3) == [0,1,1,2]
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
