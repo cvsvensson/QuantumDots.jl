@@ -107,7 +107,7 @@ function nextfockstate_with_same_number(v)
     t | (((div((t & -t), (v & -v))) >> 1) - 1)
 end
 function fockstates(M, n)
-    v::Int = focknbr(ntuple(i -> true, n))
+    v::Int = focknbr_from_bits(ntuple(i -> true, n))
     maxv = v * 2^(M - n)
     states = Vector{Int}(undef, binomial(M, n))
     count = 1

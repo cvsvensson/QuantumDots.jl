@@ -1,6 +1,3 @@
-hamiltonian(system::OpenSystem) = system.hamiltonian
-eigenvalues(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvalues(hamiltonian(system))
-eigenvectors(system::OpenSystem{<:DiagonalizedHamiltonian}) = eigenvectors(hamiltonian(system))
 eigenvalues(H::DiagonalizedHamiltonian) = H.values
 eigenvectors(H::DiagonalizedHamiltonian) = H.vectors
 diagonalize(eig::DiagonalizedHamiltonian) = eig
@@ -8,28 +5,28 @@ diagonalize!(eig::DiagonalizedHamiltonian) = eig
 
 function diagonalize(m::AbstractMatrix)
     vals, vecs = eigen(m)
-    DiagonalizedHamiltonian(vals, vecs)
+    DiagonalizedHamiltonian(vals, vecs, m)
 end
-diagonalize(m::SparseMatrixCSC) = diagonalize!(Matrix(m))
-diagonalize(m::Hermitian{<:Any,<:SparseMatrixCSC}) = diagonalize!(Hermitian(Matrix(m)))
+diagonalize(m::SparseMatrixCSC) = diagonalize!(Matrix(m), original=m)
+diagonalize(m::Hermitian{<:Any,<:SparseMatrixCSC}) = diagonalize!(Hermitian(Matrix(m)), original=m)
 function diagonalize(m::BlockDiagonal)
     vals, vecs = BlockDiagonals.eigen_blockwise(m)
-    DiagonalizedHamiltonian(vals, vecs)
+    DiagonalizedHamiltonian(vals, vecs, m)
 end
-function diagonalize!(m::AbstractMatrix)
+function diagonalize!(m::AbstractMatrix; original=nothing)
     vals, vecs = eigen!(m)
-    DiagonalizedHamiltonian(vals, vecs)
+    DiagonalizedHamiltonian(vals, vecs, original)
 end
-diagonalize!(m::SparseMatrixCSC) = diagonalize!(Matrix(m))
-diagonalize!(m::Hermitian{<:Any,<:SparseMatrixCSC}) = diagonalize!(Hermitian(Matrix(m)))
-function diagonalize!(m::BlockDiagonal)
+diagonalize!(m::SparseMatrixCSC) = diagonalize!(Matrix(m); original=m)
+diagonalize!(m::Hermitian{<:Any,<:SparseMatrixCSC}) = diagonalize!(Hermitian(Matrix(m)); original=m)
+function diagonalize!(m::BlockDiagonal; original=nothing)
     vals, vecs = eigen!_blockwise(m)
-    DiagonalizedHamiltonian(vals, vecs)
+    DiagonalizedHamiltonian(vals, vecs, original)
 end
 diagonalize(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize!(m)
-diagonalize!(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize!(BlockDiagonal(Matrix.(m.blocks)))
+diagonalize!(m::BlockDiagonal{<:Any,<:SparseMatrixCSC}) = diagonalize!(BlockDiagonal(Matrix.(m.blocks)); original=m)
 diagonalize(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize!(m)
-diagonalize!(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize!(BlockDiagonal((Hermitian ∘ Matrix).(m.blocks)))
+diagonalize!(m::BlockDiagonal{<:Any,<:Hermitian{<:Any,<:SparseMatrixCSC}}) = diagonalize!(BlockDiagonal((Hermitian ∘ Matrix).(m.blocks)), original=m)
 
 function eigen!_blockwise(B::BlockDiagonal, args...; kwargs...)
     eigens = [eigen!(b, args...; kwargs...) for b in blocks(B)]
@@ -47,9 +44,9 @@ function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
     blockinds = map(i -> eachindex(vals)[i], sizestoinds(sizes))
     if full
         filteredinds = [map(i -> i in inds, eachindex(vals)) for inds in blockinds]
-        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds]), filteredinds, bvecs)
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds], original_hamiltonian(eig)), filteredinds, bvecs)
     else
-        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block), blockinds, bvecs)
+        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block, original_hamiltonian(eig)), blockinds, bvecs)
     end
 end
 
@@ -57,5 +54,10 @@ function ground_state(eig::DiagonalizedHamiltonian)
     vals = eig.values
     vecs = eig.vectors
     minind = argmin(vals)
-    (;value = vals[minind], vector = vecs[:, minind])
+    (; value=vals[minind], vector=vecs[:, minind])
 end
+
+changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
+changebasis(::Nothing, os::DiagonalizedHamiltonian) = nothing
+changebasis!(out, op, os::DiagonalizedHamiltonian) = mul!(out, eigenvectors(os)' * op, eigenvectors(os))
+changebasis!(op, os::DiagonalizedHamiltonian) = mul!(op, eigenvectors(os)' * op, eigenvectors(os))

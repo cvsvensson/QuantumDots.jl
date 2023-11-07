@@ -5,7 +5,7 @@ function qubit_sparse_matrix(qubit_number, totalsize, sym)
 end
 
 function lower_qubit(digitposition, statefocknbr)
-    cdag = focknbr(digitposition)
+    cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
     allowed = !iszero(cdag & statefocknbr)
     return allowed * newfocknbr, allowed
@@ -43,8 +43,8 @@ Base.keys(b::QubitBasis) = keys(b.dict)
 labels(b::QubitBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::QubitBasis) = show(io, b)
 Base.show(io::IO, b::QubitBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "QubitBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
-Base.iterate(b::QubitBasis) = Base.iterate(b.dict)
-Base.iterate(b::QubitBasis, state) = Base.iterate(b.dict, state)
+Base.iterate(b::QubitBasis) = iterate(b.dict)
+Base.iterate(b::QubitBasis, state) = iterate(b.dict, state)
 Base.length(::QubitBasis{M}) where {M} = M
 QubitBasis(iters...; qn=NoSymmetry()) = QubitBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
 QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(iter, qn))
@@ -56,14 +56,14 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sy
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds::NTuple{N,Int} = siteindices(labels, b)
-    bitmask = 2^M - 1 - focknbr(outinds)
+    bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for f1 in UnitRange{UInt64}(0, 2^M - 1), f2 in UnitRange{UInt64}(0, 2^M - 1)
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
-        newfocknbr1 = focknbr(outbits(f1))
-        newfocknbr2 = focknbr(outbits(f2))
+        newfocknbr1 = focknbr_from_bits(outbits(f1))
+        newfocknbr2 = focknbr_from_bits(outbits(f2))
         mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += m[focktoind(f1, b), focktoind(f2, b)]
     end
     return mout

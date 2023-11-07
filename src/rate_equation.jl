@@ -1,11 +1,7 @@
 struct Pauli <: AbstractOpenSolver end
 
 density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-(::Pauli)(H::OpenSystem) = Pauli()(diagonalize(H))
-function (::Pauli)(H::OpenSystem{<:DiagonalizedHamiltonian})
-    ds = map(l -> PauliDissipator(eigenvalues(H), l), H.leads)
-    PauliSystem(ds)
-end
+
 
 struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     total_master_matrix::A
@@ -15,24 +11,27 @@ struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
 end
 Base.Matrix(P::PauliSystem) = P.total_master_matrix
 
-struct PauliDissipator{L,W,I,D,E} <: AbstractDissipator
+struct PauliDissipator{L,W,I,D,HD} <: AbstractDissipator
     lead::L
     Win::W
     Wout::W
     Iin::I
     Iout::I
     total_master_matrix::D
-    energies::E
+    H::HD
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
-function PauliDissipator(energies::E, lead::L) where {L,E}
+function PauliDissipator(ham::H, lead; change_lead_basis=true) where {H<:DiagonalizedHamiltonian}
+    energies = ham.values
+    lead = change_lead_basis ? changebasis(lead, ham) : lead
+    # diaglead = changebasis(lead, ham) #map(lead -> changebasis(lead, ham), leads)
     Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
     Iout = -vec(sum(Wout, dims=1))
     D .-= Diagonal(Iin) .- Diagonal(Iout)
-    PauliDissipator{L,typeof(Win),typeof(Iin),typeof(D),E}(lead, Win, Wout, Iin, Iout, D, energies)
+    PauliDissipator{typeof(lead),typeof(Win),typeof(Iin),typeof(D),H}(lead, Win, Wout, Iin, Iout, D, ham)
 end
 
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1, 1] * ones(size(sys.total_master_matrix, 2))
@@ -46,6 +45,12 @@ function identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
     fill(one(eltype(A)), size(A, 2))
 end
+
+PauliSystem(ham, leads) = PauliSystem(diagonalize(ham), leads)
+function PauliSystem(H::DiagonalizedHamiltonian, leads)
+    ds = map(l -> PauliDissipator(H, l), leads)
+    PauliSystem(ds)
+end
 function PauliSystem(ds)
     Win = zero(first(ds).Win)
     Wout = zero(first(ds).Wout)
@@ -57,16 +62,14 @@ function PauliSystem(ds)
     return P
 end
 update(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
-function update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters)
-    L
-end
+update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters) = L
 function update_pauli_system(L::PauliSystem, p)
     _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end
 function update(d::PauliDissipator, p, tmp=nothing)
-    PauliDissipator(d.energies, update_lead(d.lead, p))
+    PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
 
 function MatrixOperator(P::PauliSystem; normalizer)
@@ -123,19 +126,34 @@ function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal 
 end
 
 
-
-function conductance_matrix(sys::PauliSystem, args...)
-    rho = solve(StationaryStateProblem(sys))
-    conductance_matrix(rho, sys::PauliSystem, args...)
-end
-
-function conductance_matrix(rho, sys::PauliSystem, dμ)
+function conductance_matrix(dμ::Number, sys::PauliSystem)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
     function get_current(pert)
         newsys = update(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
-        collect(get_currents(sol, newsys))
+        real(collect(get_currents(sol, newsys)))
     end
     I0 = get_current(SciMLBase.NullParameters())
     stack(map(key -> (get_current(perturbations[[key]]) .- I0) / dμ, keys(perturbations)))
+end
+
+function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem)
+    μs0 = [d.lead.μ for d in ls.dissipators]
+    function get_current(μs)
+        count = 0
+        pert = map(d -> (; μ=μs[count+=1]), ls.dissipators)
+        newsys = update(ls, pert)
+        sol = solve(StationaryStateProblem(newsys))
+        real(collect(get_currents(sol, newsys)))
+    end
+    AD.jacobian(ad, get_current, μs0)[1]
+end
+
+
+function conductance_matrix(backend, sys::PauliSystem, rho)
+    dDs = [chem_derivative(backend, d -> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
+    linsolve = init(StationaryStateProblem(sys))
+    rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
+    dissdiff = Diagonal([dot(dD[2], rho) for dD in dDs])
+    return dissdiff + rhodiff
 end

@@ -1,25 +1,25 @@
 
-struct LazyLindbladDissipator{J,J2,T,L,E} <: AbstractDissipator
+struct LazyLindbladDissipator{J,J2,T,L,H} <: AbstractDissipator
     op::J
     opsquare::J2
     rate::T
     lead::L
-    energies::E
+    hamiltonian::H
 end
 Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
-function LazyLindbladDissipator(lead, energies, rate)
-    op = (; in=map(op -> complex(ratetransform(op, energies, lead.T, lead.μ)), lead.jump_in),
-        out=map(op -> complex(ratetransform(op, energies, lead.T, -lead.μ)), lead.jump_out))
-    opsquare = map(leadops -> map(x -> Hermitian(x' * x), leadops), op)
-    LazyLindbladDissipator(op, opsquare, rate, lead, energies)
+function LazyLindbladDissipator(lead, diagham, rate)
+    op = (; in=map(op -> complex(ratetransform(op, diagham, lead.T, lead.μ)), lead.jump_in),
+        out=map(op -> complex(ratetransform(op, diagham, lead.T, -lead.μ)), lead.jump_out))
+    opsquare = map(leadops -> map(x -> x' * x, leadops), op)
+    LazyLindbladDissipator(op, opsquare, rate, lead, diagham)
 end
-Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), d.energies)
+Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian))
 
-update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters) = d
-function update(d::LazyLindbladDissipator, p)
+update(d::LazyLindbladDissipator, ::SciMLBase.NullParameters, t=nothing) = d
+function update(d::LazyLindbladDissipator, p, t=nothing)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
-    LazyLindbladDissipator(newlead, d.energies, rate)
+    LazyLindbladDissipator(newlead, d.hamiltonian, rate)
 end
 
 function (d::LazyLindbladDissipator)(rho, p, t)
@@ -39,10 +39,13 @@ struct LazyLindbladSystem{DS,H,C} <: AbstractOpenSystem
     cache::C
 end
 
-function LazyLindbladSystem(system::OpenSystem{<:DiagonalizedHamiltonian}; rates=map(l -> 1, system.leads))
-    energies = eigenvalues(system)
-    dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, energies, rate), system.leads, rates)
-    LazyLindbladSystem(dissipators, system.hamiltonian, Matrix(1im * Diagonal(eigenvalues(system.hamiltonian))))
+function LazyLindbladSystem(ham, leads; rates=map(l -> 1, leads))
+    _diagham = diagonalize(ham)
+    T = complex(eltype(_diagham.original))
+    diagham = DiagonalizedHamiltonian(_diagham.values, _diagham.vectors, Matrix{T}(_diagham.original))
+    dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, diagham, rate), leads, rates)
+    cache = -1im * diagham.vectors * first(first(first(dissipators).opsquare))
+    LazyLindbladSystem(dissipators, diagham, cache)
 end
 Base.adjoint(d::LazyLindbladSystem) = LazyLindbladSystem(map(adjoint, d.dissipators), -d.hamiltonian, d.cache)
 
@@ -82,10 +85,9 @@ function Base.:*(d::LazyLindbladDissipator, rho)
     return out
 end
 
-function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
-    H = Diagonal(eigenvalues(d.hamiltonian))
+function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
+    H = original_hamiltonian(d.hamiltonian)
     dissipator_ops = dissipator_op_list(d)
-    rho = isreal(_rho) ? complex(_rho) : _rho #Need to have complex matrices for the mul! to be non-allocating
     mul!(out, H, rho, -1im, 0)
     mul!(out, rho, H, 1im, 1)
     cache = d.cache
@@ -98,7 +100,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, _rho)
     return out
 end
 function Base.:*(d::LazyLindbladSystem, rho)
-    H = Diagonal(eigenvalues(d.hamiltonian))
+    H = original_hamiltonian(d.hamiltonian)
     dissipator_ops = dissipator_op_list(d)
     out = -1im .* (H * rho .- rho * H)
     for (L, L2, rate) in dissipator_ops
@@ -109,7 +111,7 @@ end
 dissipator_op_list(d::LazyLindbladSystem) = mapreduce(dissipator_op_list, vcat, d.dissipators)
 function dissipator_op_list(d::LazyLindbladDissipator)
     ops = vcat(collect(zip(d.op.in, d.opsquare.in)), collect(zip(d.op.out, d.opsquare.out)))
-    ops_rate = map(o -> (o..., d.rate), ops)
+    map(o -> (o..., d.rate), ops)
 end
 function vec_action(d::LazyLindbladSystem)
     sz = size(d.hamiltonian)

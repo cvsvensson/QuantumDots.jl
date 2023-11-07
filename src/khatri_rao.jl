@@ -18,17 +18,19 @@ function khatri_rao_lazy_dissipator(L, kv::KhatriRaoVectorizer)
     end
     hvcat(length(inds), prodmaps...) - 1 / 2 * cat(summaps...; dims=(1, 2))
 end
-function khatri_rao_dissipator(L::AbstractMatrix{T}, kv::KhatriRaoVectorizer; rate = one(T)) where T
+function khatri_rao_dissipator(L::AbstractMatrix{T}, kv::KhatriRaoVectorizer; rate=one(T)) where {T}
     N = kv.cumsumsquared[end]
     out = zeros(T, N, N)
-    kroncache = zeros(T, N, N)
     mulcache = zero(L)
-    khatri_rao_dissipator!(out,L,rate,kv,kroncache, mulcache)
+    kroncaches = [zeros(T, length(ind), length(ind)) for ind in kv.vectorinds]
+    khatri_rao_dissipator!(out, L, rate, kv, kroncaches, mulcache)
     return out
 end
 
-function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, _kroncache, mulcache)
-    mul!(mulcache, L',L,1/2,0)
+_kroncache_subblock(kroncache::AbstractVector, k, newinds) = kroncache[k]
+_kroncache_subblock(kroncache::AbstractMatrix, k, newinds) = @view(kroncache[newinds[k], newinds[k]])
+function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVectorizer, kroncaches, mulcache)
+    mul!(mulcache, L', L, 1 / 2, 0)
     L2 = mulcache
     inds = kv.inds
     blocksizes = kv.sizes
@@ -41,7 +43,7 @@ function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVecto
         if k1 == k2
             L2block = @view(L2[ind1, ind2])
             id = I(blocksizes[k2])
-            kroncache = @view(_kroncache[newinds[k1], newinds[k2]])
+            kroncache = _kroncache_subblock(kroncaches, k1, newinds)
             kron!(kroncache, transpose(L2block), id)
             out[newinds[k1], newinds[k2]] .-= kroncache
             kron!(kroncache, id, L2block)
@@ -66,20 +68,20 @@ function khatri_rao_lazy(L1, L2, kv::KhatriRaoVectorizer)
     hvcat(length(inds), maps...)
 end
 
-function khatri_rao(L1::AbstractMatrix{T1},L2::AbstractMatrix{T2}, kv::KhatriRaoVectorizer) where {T1,T2}
-    T = promote_type(T1,T2)
-    KR = zeros(T,kv.cumsumsquared[end],kv.cumsumsquared[end])
-    khatri_rao!(KR,L1,L2,kv)
+function khatri_rao(L1::AbstractMatrix{T1}, L2::AbstractMatrix{T2}, kv::KhatriRaoVectorizer) where {T1,T2}
+    T = promote_type(T1, T2)
+    KR = zeros(T, kv.cumsumsquared[end], kv.cumsumsquared[end])
+    khatri_rao!(KR, L1, L2, kv)
 end
-function khatri_rao!(KR, L1,L2, kv::KhatriRaoVectorizer)
-    khatri_rao!(KR,L1,L2,kv.inds,kv.vectorinds)
+function khatri_rao!(KR, L1, L2, kv::KhatriRaoVectorizer)
+    khatri_rao!(KR, L1, L2, kv.inds, kv.vectorinds)
 end
-function khatri_rao!(KR, L1,L2, inds, finalinds)
+function khatri_rao!(KR, L1, L2, inds, finalinds)
     #TODO: Put in checks
     for i in eachindex(inds), j in eachindex(inds)
         l1 = @view(L1[inds[i], inds[j]])
         l2 = @view(L2[inds[i], inds[j]])
-        kron!(@view(KR[finalinds[i],finalinds[j]]),l1, l2)
+        kron!(@view(KR[finalinds[i], finalinds[j]]), l1, l2)
     end
     return KR
 end
