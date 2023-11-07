@@ -48,16 +48,16 @@ end
     fbits = bits(focknumber, N)
     @test fbits == [0, 0, 1, 0, 1, 0]
 
-    @test QuantumDots.focknbr(fbits) == 20
-    @test QuantumDots.focknbr(Tuple(fbits)) == 20
+    @test QuantumDots.focknbr_from_bits(fbits) == 20
+    @test QuantumDots.focknbr_from_bits(Tuple(fbits)) == 20
     @test !QuantumDots._bit(focknumber, 1)
     @test !QuantumDots._bit(focknumber, 2)
     @test QuantumDots._bit(focknumber, 3)
     @test !QuantumDots._bit(focknumber, 4)
     @test QuantumDots._bit(focknumber, 5)
 
-    @test QuantumDots.focknbr((3, 5)) == 20
-    @test QuantumDots.focknbr([3, 5]) == 20
+    @test QuantumDots.focknbr_from_site_indices((3, 5)) == 20
+    @test QuantumDots.focknbr_from_site_indices([3, 5]) == 20
 
     @testset "removefermion" begin
         focknbr = rand(1:2^N) - 1
@@ -93,7 +93,7 @@ end
     @test length(fs) == binomial(10, 5)
     @test allunique(fs)
     @test all(QuantumDots.fermionnumber.(fs) .== 5)
-
+    
 end
 
 @testset "Basis" begin
@@ -110,6 +110,13 @@ end
     @test pretty_print(B[1][:, 1], B) |> isnothing
     @test pretty_print(Bspin[1, :↑], Bspin) |> isnothing
     @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
+
+    fn = QuantumDots.fermionnumber((1,),B)
+    @test fn.(0:3) == [0,1,0,1]
+    fn = QuantumDots.fermionnumber((2,),B)
+    @test fn.(0:3) == [0,0,1,1]
+    fn = QuantumDots.fermionnumber((1,2),B)
+    @test fn.(0:3) == [0,1,1,2]
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]

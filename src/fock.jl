@@ -1,21 +1,26 @@
-focknbr(bits::Union{BitVector,Vector{Bool},NTuple{<:Any,Bool}}) = mapreduce(nb -> nb[2] * (1 << (nb[1] - 1)), +, enumerate(bits))
-focknbr(site::Integer) = 1 << (site - 1)
-focknbr(sites::Vector{<:Integer}) = mapreduce(focknbr, +, sites)
-focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
+focknbr_from_bits(bits) = mapreduce(nb -> nb[2] * (1 << (nb[1] - 1)), +, enumerate(bits))
+focknbr_from_site_index(site::Integer) = 1 << (site - 1)
+focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites)
+# focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
 
 bits(s::Integer, N) = digits(Bool, s, base=2, pad=N)
 parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
 fermionnumber(fs::Int) = count_ones(fs)
 
-siteindex(id, b::AbstractBasis) = findfirst(x -> x == id, labels(b))::Int
-siteindices(ids::Union{Tuple{S,Vararg{S}},AbstractVector{S}}, b::AbstractBasis) where {S} = map(id -> siteindex(id, b), ids)#::Int
+fermionnumber(fs::Int, mask) = count_ones(fs & mask)
+fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, labels)))
 
-function tensor(v::AbstractVector{T}, b::AbstractBasis) where T
+siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
+siteindex(id, b::AbstractBasis) = siteindex(id, labels(b))
+siteindices(ids, b::AbstractBasis) = map(id -> siteindex(id, b), ids)#::Int
+siteindices(ids, labels) = map(id -> siteindex(id, labels), ids)#::Int
+
+function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
     M = length(b)
     @assert length(v) == 2^M
     t = Array{T,M}(undef, ntuple(i -> 2, M))
     for I in CartesianIndices(t)
-        fs = focknbr(Bool.(Tuple(I) .- 1))
+        fs = focknbr_from_bits(Bool.(Tuple(I) .- 1))
         t[I] = v[focktoind(fs, b)] #* parity(fs)
     end
     return t
@@ -23,7 +28,7 @@ end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
 _bit(f, k) = Bool((f >> (k - 1)) & 1)
 function phase_factor(focknbr1, focknbr2, subinds::NTuple)
-    bitmask = focknbr(subinds)
+    bitmask = focknbr_from_site_indices(subinds)
     prod(i -> (jwstring(i, bitmask & focknbr1) * jwstring(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds)
 end
 function phase_factor(focknbr1, focknbr2, ::Val{N}) where {N}
@@ -47,14 +52,14 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b) #::NTuple{N,Int}
     @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
-    bitmask = 2^M - 1 - focknbr(outinds)
+    bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for f1 in UnitRange{UInt64}(0, 2^M - 1), f2 in UnitRange{UInt64}(0, 2^M - 1)
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
-        newfocknbr1 = focknbr(outbits(f1))
-        newfocknbr2 = focknbr(outbits(f2))
+        newfocknbr1 = focknbr_from_bits(outbits(f1))
+        newfocknbr2 = focknbr_from_bits(outbits(f2))
         s1 = phase_factor(f1, f2, Val(M))
         s2 = phase_factor(newfocknbr1, newfocknbr2, Val(N))
         s = s2 * s1

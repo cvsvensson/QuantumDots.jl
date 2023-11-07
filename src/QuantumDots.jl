@@ -45,4 +45,7 @@ include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
 
+Base.one(m::BlockDiagonal) = BlockDiagonal(one.(blocks(m)))
+Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))
+
 end

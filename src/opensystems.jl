@@ -125,3 +125,17 @@ function ratetransform(op, diagham::DiagonalizedHamiltonian, T, μ)
     return changebasis(op3, diagham')
 end
 ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
+
+function ratetransform!(out, op, diagham::DiagonalizedHamiltonian, T, μ)
+    changebasis!(out, op, diagham)
+    ratetransform!(out, diagham.values, T, μ)
+    return changebasis!(out, diagham')
+end
+function ratetransform!(op, energies::AbstractVector, T, μ)
+    for I in CartesianIndices(op)
+        n1, n2 = Tuple(I)
+        δE = energies[n1] - energies[n2]
+        op[n1, n2] = sqrt(fermidirac(δE, T, μ)) * op[n1, n2]
+    end
+    return op
+end
