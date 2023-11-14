@@ -198,3 +198,6 @@ function ODEProblem(system::LindbladSystem, u0, tspan, p=SciMLBase.NullParameter
 end
 
 Base.size(ls::LindbladSystem) = size(ls.total)
+Base.size(ls::LindbladDissipator) = size(ls.superop)
+Base.eltype(ls::LindbladSystem) = eltype(ls.total)
+Base.eltype(ls::LindbladDissipator) = eltype(ls.superop)

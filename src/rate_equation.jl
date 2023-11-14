@@ -161,3 +161,8 @@ function ODEProblem(system::PauliSystem, u0, tspan, p=SciMLBase.NullParameters()
     internalu0 = internal_rep(u0, system)
     ODEProblem(LinearOperator(system, p; kwargs...), internalu0, tspan, p, args...; kwargs...)
 end
+
+Base.size(d::PauliDissipator) = size(d.total_master_matrix)
+Base.size(d::PauliSystem) = size(d.total_master_matrix)
+Base.eltype(d::PauliSystem) = eltype(d.total_master_matrix)
+Base.eltype(d::PauliDissipator) = eltype(d.total_master_matrix)
