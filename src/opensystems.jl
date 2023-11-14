@@ -50,14 +50,7 @@ Base.adjoint(H::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(conj(H.values
 original_hamiltonian(H::DiagonalizedHamiltonian) = H.original
 
 abstract type AbstractOpenSystem end
-# Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
-# LinearAlgebra.mul!(v, d::AbstractOpenSystem, u) = mul!(v, Matrix(d), u)
-# LinearAlgebra.mul!(v, d::AbstractOpenSystem, u, a, b) = mul!(v, Matrix(d), u, a, b)
-# Base.eltype(system::AbstractOpenSystem) = eltype(Matrix(system))
-# Base.size(d::AbstractOpenSystem, i) = size(Matrix(d), i)
-# Base.size(d::AbstractOpenSystem) = size(Matrix(d))
 SciMLBase.islinear(d::AbstractOpenSystem) = true
-
 
 abstract type AbstractOpenSolver end
 
