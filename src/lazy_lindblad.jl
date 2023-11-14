@@ -182,10 +182,6 @@ identity_density_matrix(system::LazyLindbladSystem) = vec(Matrix{eltype(system)}
 Base.eltype(system::LazyLindbladSystem) = promote_type(typeof(1im), eltype(system.hamiltonian))
 
 
-
-# function ODEProblem(system::LazyLindbladSystem, u0::AbstractMatrix, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
-#     SciMLBase.ODEProblem(system, u0, tspan, p, args...; kwargs...)
-# end
 function ODEProblem(system::LazyLindbladSystem, u0::AbstractVector, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
     SciMLBase.ODEProblem(LinearOperator(system, p; kwargs...), u0, tspan, p, args...; kwargs...)
 end
