@@ -39,8 +39,10 @@ internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
 tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
 tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
-LinearOperator(L::PauliSystem{<:AbstractMatrix}, args...; normalizer=false) = MatrixOperator(L; normalizer)
-
+function LinearOperator(L::PauliSystem, args...; normalizer=false)
+    A = normalizer ? add_normalizer(L.total_master_matrix) : L.total_master_matrix
+    MatrixOperator(A)
+end
 function identity_density_matrix(system::PauliSystem)
     A = system.total_master_matrix
     fill(one(eltype(A)), size(A, 2))
@@ -61,21 +63,18 @@ function PauliSystem(ds)
     update_total_operators!(P)
     return P
 end
-update(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
+update_coefficients(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
 update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters) = L
 function update_pauli_system(L::PauliSystem, p)
-    _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+    _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end
-function update(d::PauliDissipator, p, tmp=nothing)
+function update_coefficients(d::PauliDissipator, p, tmp=nothing)
     PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
 
-function MatrixOperator(P::PauliSystem; normalizer)
-    A = normalizer ? add_normalizer(P.total_master_matrix) : P.total_master_matrix
-    MatrixOperator(A)
-end
+
 function zero_total_operators!(P::PauliSystem)
     foreach(x -> fill!(x, zero(eltype(x))), (P.total_rate_matrix.in,
         P.total_rate_matrix.out,
@@ -129,7 +128,7 @@ end
 function conductance_matrix(dμ::Number, sys::PauliSystem)
     perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
     function get_current(pert)
-        newsys = update(sys, pert)
+        newsys = update_coefficients(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
         real(collect(get_currents(sol, newsys)))
     end
@@ -142,7 +141,7 @@ function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSys
     function get_current(μs)
         count = 0
         pert = map(d -> (; μ=μs[count+=1]), ls.dissipators)
-        newsys = update(ls, pert)
+        newsys = update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newsys))
         real(collect(get_currents(sol, newsys)))
     end
@@ -157,3 +156,13 @@ function conductance_matrix(backend, sys::PauliSystem, rho)
     dissdiff = Diagonal([dot(dD[2], rho) for dD in dDs])
     return dissdiff + rhodiff
 end
+
+function ODEProblem(system::PauliSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
+    internalu0 = internal_rep(u0, system)
+    ODEProblem(LinearOperator(system, p; kwargs...), internalu0, tspan, p, args...; kwargs...)
+end
+
+Base.size(d::PauliDissipator) = size(d.total_master_matrix)
+Base.size(d::PauliSystem) = size(d.total_master_matrix)
+Base.eltype(d::PauliSystem) = eltype(d.total_master_matrix)
+Base.eltype(d::PauliDissipator) = eltype(d.total_master_matrix)

@@ -68,7 +68,7 @@ function superoperator!(lead_op, diagham, T, μ, rate, vectorizer, cache::Lindbl
     return dissipator!(cache.superopcache, cache.opcache, rate, vectorizer, cache.kroncache, cache.mulcache)
 end
 
-function update(d::LindbladDissipator, p, tmp=d.cache)
+function update_coefficients(d::LindbladDissipator, p, tmp=d.cache)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
     newsuperop = superoperator(newlead, d.ham, rate, d.vectorizer, tmp)
@@ -86,7 +86,7 @@ end
 
 update_lindblad_system(L::LindbladSystem, ::SciMLBase.NullParameters) = L
 function update_lindblad_system(L::LindbladSystem, p, tmp=L.cache)
-    _newdissipators = map(lp -> first(lp) => update(L.dissipators[first(lp)], last(lp), tmp), collect(pairs(p)))
+    _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp), tmp), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     total = lindblad_matrix(L.unitary, newdissipators)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.cache)
@@ -94,14 +94,14 @@ end
 
 LinearOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer=false) = MatrixOperator(L, p; normalizer)
 
-function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer)
-    A0 = Matrix(update(L, p))
+function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer, kwargs...)
+    A0 = Matrix(update_coefficients(L, p))
     A = normalizer ? lindblad_with_normalizer(A0, L.vectorizer) : A0
     MatrixOperator(A)
 end
 
 (L::LindbladSystem)(u, p, t; kwargs...) = update_lindblad_system(L, p; kwargs...) * u
-update(L::LindbladSystem, p) = update_lindblad_system(L, p)
+update_coefficients(L::LindbladSystem, p) = update_lindblad_system(L, p)
 
 tomatrix(rho::AbstractVector, system::LindbladSystem) = tomatrix(rho, system.vectorizer)
 tomatrix(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
@@ -190,3 +190,14 @@ end
 lindblad_with_normalizer(lindblad::AbstractMatrix, vectorizer) = lindblad_with_normalizer_dense(lindblad, vectorizer)
 
 identity_density_matrix(system::LindbladSystem) = one(eltype(system.total)) * (system.vectorizer.idvec ./ sqrt(size(system.total, 2)))
+
+
+function ODEProblem(system::LindbladSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
+    internalu0 = internal_rep(u0, system)
+    ODEProblem(LinearOperator(system, p; kwargs...), internalu0, tspan, p, args...; kwargs...)
+end
+
+Base.size(ls::LindbladSystem) = size(ls.total)
+Base.size(ls::LindbladDissipator) = size(ls.superop)
+Base.eltype(ls::LindbladSystem) = eltype(ls.total)
+Base.eltype(ls::LindbladDissipator) = eltype(ls.superop)

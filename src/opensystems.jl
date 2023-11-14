@@ -50,14 +50,7 @@ Base.adjoint(H::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(conj(H.values
 original_hamiltonian(H::DiagonalizedHamiltonian) = H.original
 
 abstract type AbstractOpenSystem end
-Base.:*(d::AbstractOpenSystem, v) = Matrix(d) * v
-LinearAlgebra.mul!(v, d::AbstractOpenSystem, u) = mul!(v, Matrix(d), u)
-LinearAlgebra.mul!(v, d::AbstractOpenSystem, u, a, b) = mul!(v, Matrix(d), u, a, b)
-Base.eltype(system::AbstractOpenSystem) = eltype(Matrix(system))
-Base.size(d::AbstractOpenSystem, i) = size(Matrix(d), i)
-Base.size(d::AbstractOpenSystem) = size(Matrix(d))
 SciMLBase.islinear(d::AbstractOpenSystem) = true
-
 
 abstract type AbstractOpenSolver end
 
@@ -73,13 +66,6 @@ function StationaryStateProblem(system::AbstractOpenSystem, p=SciMLBase.NullPara
     A = LinearOperator(system, p; normalizer=true, kwargs...)
     b = normalized_steady_state_rhs(A)
     LinearProblem(A, b; u0, kwargs...)
-end
-function ODEProblem(system::AbstractOpenSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
-    internalu0 = internal_rep(u0, system)
-    _ODEProblem(system, internalu0, tspan, p, args...; kwargs...)
-end
-function _ODEProblem(system::AbstractOpenSystem, u0, tspan, p, args...; kwargs...)
-    ODEProblem(LinearOperator(system, p; kwargs...), u0, tspan, p, args...; kwargs...)
 end
 
 function solveDiffProblem!(linsolve, x0, dA)
