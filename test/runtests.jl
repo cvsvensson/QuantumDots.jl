@@ -93,7 +93,7 @@ end
     @test length(fs) == binomial(10, 5)
     @test allunique(fs)
     @test all(QuantumDots.fermionnumber.(fs) .== 5)
-    
+
 end
 
 @testset "Basis" begin
@@ -111,12 +111,12 @@ end
     @test pretty_print(Bspin[1, :↑], Bspin) |> isnothing
     @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
 
-    fn = QuantumDots.fermionnumber((1,),B)
-    @test fn.(0:3) == [0,1,0,1]
-    fn = QuantumDots.fermionnumber((2,),B)
-    @test fn.(0:3) == [0,0,1,1]
-    fn = QuantumDots.fermionnumber((1,2),B)
-    @test fn.(0:3) == [0,1,1,2]
+    fn = QuantumDots.fermionnumber((1,), B)
+    @test fn.(0:3) == [0, 1, 0, 1]
+    fn = QuantumDots.fermionnumber((2,), B)
+    @test fn.(0:3) == [0, 0, 1, 1]
+    fn = QuantumDots.fermionnumber((1, 2), B)
+    @test fn.(0:3) == [0, 1, 1, 2]
 
     (c,) = QuantumDots.cell(1, B)
     @test c == B[1]
@@ -537,7 +537,7 @@ end
     newhams = map(f -> f[1](1.0), fs)
     @test newhams[1] isa Matrix
     @test newhams[2] isa BlockDiagonal
-    @test newhams[3] isa BdGMatrix 
+    @test newhams[3] isa BdGMatrix
     cache = 0.1 .* newhams
     newhams = map(f -> f[1](0.3), fs)
     map((m, f) -> f[2](m, 0.3), cache, fs)
@@ -814,10 +814,25 @@ end
     ρinternal2 = solve(prob2, LinearSolve.KrylovJL_LSMR(); abstol=1e-12)
     @test ρinternal1 ≈ ρinternal2
 
+    prob = ODEProblem(lazyls, Matrix{ComplexF64}(I, 2^N, 2^N) / 2^N, (0, 2))
+    sol = solve(prob, Tsit5())
+    @test tr(sol(1)) ≈ 1
+
+    u = sol(1)
+    diss = lazyls.dissipators[1]
+    out = diss * u
+    @test abs(tr(out)) < 1e-10
+    @test diss(u) ≈ out
+    @test diss(deepcopy(out), u, nothing, nothing) ≈ out
+    out = lazyls * u
+    @test abs(tr(out)) < 1e-10
+    @test lazyls(u) ≈ out
+    @test lazyls(deepcopy(out), u, nothing, nothing) ≈ out
+
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
-    @test_broken cm2 = conductance_matrix(.01, lazyls, particle_number) # https://github.com/SciML/LinearSolve.jl/issues/414 
+    @test_broken cm2 = conductance_matrix(0.01, lazyls, particle_number) # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
 @testset "Khatri-Rao" begin
