@@ -7,7 +7,7 @@ struct LazyLindbladDissipator{J,J2,T,L,H} <: AbstractDissipator
     hamiltonian::H
 end
 Base.eltype(d::LazyLindbladDissipator) = promote_type(map(eltype, d.op.in)...)
-function LazyLindbladDissipator(lead, diagham, rate)
+function LazyLindbladDissipator(lead::NormalLead, diagham, rate)
     op = (; in=map(op -> complex(ratetransform(op, diagham, lead.T, lead.μ)), lead.jump_in),
         out=map(op -> complex(ratetransform(op, diagham, lead.T, -lead.μ)), lead.jump_out))
     opsquare = map(leadops -> map(x -> x' * x, leadops), op)
@@ -64,7 +64,7 @@ end
 function update_lazy_lindblad_system(L::LazyLindbladSystem, p)
     _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
-    LazyLindbladSystem(newdissipators, L.hamiltonian)
+    LazyLindbladSystem(newdissipators, L.hamiltonian, L.cache)
 end
 
 update_coefficients(L::LazyLindbladSystem, p) = update_lazy_lindblad_system(L, p)
@@ -106,7 +106,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
     return out
 end
 function Base.:*(d::LazyLindbladSystem, rho)
-    H = original_hamiltonian(d.hamiltonian)
+    H = d.hamiltonian.original
     dissipator_ops = dissipator_op_list(d)
     out = -1im .* (H * rho .- rho * H)
     for (L, L2, rate) in dissipator_ops
