@@ -384,7 +384,7 @@ end
     m = rand(10, 10)
     @test !QuantumDots.isantisymmetric(m)
     @test !QuantumDots.isbdgmatrix(m, m, m, m)
-    H = hermitianpart(rand(ComplexF64, 2, 2))
+    H = Matrix(Hermitian(rand(ComplexF64, 2, 2)))
     Δ = rand(ComplexF64, 2, 2)
     Δ = Δ - transpose(Δ)
 
@@ -397,12 +397,13 @@ end
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
 
-    @test 2*bdgm ≈ bdgm + bdgm
+    @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
     @test iszero(bdgm - bdgm)
-    hpbdgm = hermitianpart(bdgm)
-    @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
-    @test hpbdgm ≈ hermitianpart!(bdgm)
-    
+    if VERSION ≥ v"1.10"
+        hpbdgm = hermitianpart(bdgm)
+        @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+        @test hpbdgm ≈ hermitianpart!(bdgm)
+    end
 end
 
 @testset "QN" begin
@@ -831,16 +832,16 @@ end
     @test abs(tr(out)) < 1e-10
     @test diss(u) ≈ out
     @test diss(u, nothing, nothing) ≈ out
-    @test !(diss(u, (;μ = 1), nothing) ≈ out)
-    @test diss(u, (;μ = diss.lead.μ), nothing) ≈ out
+    @test !(diss(u, (; μ=1), nothing) ≈ out)
+    @test diss(u, (; μ=diss.lead.μ), nothing) ≈ out
     @test diss(deepcopy(out), u, nothing, nothing) ≈ out
 
     out = lazyls * u
     @test abs(tr(out)) < 1e-10
     @test lazyls(u) ≈ out
     @test lazyls(u, nothing, nothing) ≈ out
-    @test !(lazyls(u, (;left = (;μ = 1)), nothing) ≈ out)
-    @test lazyls(u, (;left = (; μ = lazyls.dissipators.left.lead.μ)), nothing) ≈ out
+    @test !(lazyls(u, (; left=(; μ=1)), nothing) ≈ out)
+    @test lazyls(u, (; left=(; μ=lazyls.dissipators.left.lead.μ)), nothing) ≈ out
     @test lazyls(deepcopy(out), u, nothing, nothing) ≈ out
 
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)

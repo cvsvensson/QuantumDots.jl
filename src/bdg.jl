@@ -278,16 +278,18 @@ end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
 
-function LinearAlgebra.hermitianpart!(m::BdGMatrix)
-    m.Δ .-= transpose(m.Δ)
-    rdiv!(m.Δ, 2)
-    BdGMatrix(hermitianpart!(m.H), m.Δ)
-end
-function LinearAlgebra.hermitianpart(m::BdGMatrix)
-    Δ = similar(m.Δ)
-    tΔ = transpose(m.Δ)
-    @. Δ = (m.Δ - tΔ) / 2
-    BdGMatrix(hermitianpart(m.H), Δ)
+@static if VERSION ≥ v"1.10"
+    function LinearAlgebra.hermitianpart!(m::BdGMatrix)
+        m.Δ .-= transpose(m.Δ)
+        rdiv!(m.Δ, 2)
+        BdGMatrix(hermitianpart!(m.H), m.Δ)
+    end
+    function LinearAlgebra.hermitianpart(m::BdGMatrix)
+        Δ = similar(m.Δ)
+        tΔ = transpose(m.Δ)
+        @. Δ = (m.Δ - tΔ) / 2
+        BdGMatrix(hermitianpart(m.H), Δ)
+    end
 end
 
 function bdg_to_skew(A::BdGMatrix)
