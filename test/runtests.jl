@@ -391,7 +391,7 @@ end
     @test QuantumDots.isantisymmetric(Δ)
     @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
 
-    bdgm = BdGMatrix(H.data, Δ)
+    bdgm = BdGMatrix(H, Δ)
     @test size(bdgm) == (4, 4)
     @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
 
