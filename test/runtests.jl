@@ -823,10 +823,12 @@ end
     out = diss * u
     @test abs(tr(out)) < 1e-10
     @test diss(u) ≈ out
+    @test diss(u, nothing, nothing) ≈ out
     @test diss(deepcopy(out), u, nothing, nothing) ≈ out
     out = lazyls * u
     @test abs(tr(out)) < 1e-10
     @test lazyls(u) ≈ out
+    @test lazyls(u, nothing, nothing) ≈ out
     @test lazyls(deepcopy(out), u, nothing, nothing) ≈ out
 
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
