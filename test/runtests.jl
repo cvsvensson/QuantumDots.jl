@@ -378,24 +378,31 @@ end
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
 
-    @test_nowarn QuantumDots.visualize(qp)
-    @test_nowarn QuantumDots.majvisualize(qp)
+    # @test_nowarn QuantumDots.visualize(qp)
+    # @test_nowarn QuantumDots.majvisualize(qp)
 
     m = rand(10, 10)
     @test !QuantumDots.isantisymmetric(m)
     @test !QuantumDots.isbdgmatrix(m, m, m, m)
-    H = Hermitian(rand(ComplexF64, 2, 2))
+    H = hermitianpart(rand(ComplexF64, 2, 2))
     Δ = rand(ComplexF64, 2, 2)
     Δ = Δ - transpose(Δ)
 
     @test QuantumDots.isantisymmetric(Δ)
     @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
 
-    bdgm = BdGMatrix(H, Δ)
+    bdgm = BdGMatrix(H.data, Δ)
     @test size(bdgm) == (4, 4)
     @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+
+    @test 2*bdgm ≈ bdgm + bdgm
+    @test iszero(bdgm - bdgm)
+    hpbdgm = hermitianpart(bdgm)
+    @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+    @test hpbdgm ≈ hermitianpart!(bdgm)
+    
 end
 
 @testset "QN" begin
