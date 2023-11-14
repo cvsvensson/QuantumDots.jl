@@ -234,21 +234,22 @@ function isbdgmatrix(H, Δ, Hd, Δd)
     return true
 end
 
-struct BdGMatrix{T,S} <: AbstractMatrix{T}
+struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
     # [H Δ; -conj(Δ) -conj(H)]
-    H::S # Hermitian
-    Δ::S # Antisymmetric
-    function BdGMatrix(H::S1, Δ::S2; check=true) where {S1,S2}
+    H::SH # Hermitian
+    Δ::SΔ # Antisymmetric
+    function BdGMatrix(H::SH, Δ::SΔ; check=true) where {SH,SΔ}
         @assert size(H) == size(Δ)
         if check
             ishermitian(H) || throw(ArgumentError("H must be hermitian"))
             isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
         end
         T = promote_type(eltype(H), eltype(Δ))
-        S = promote_type(typeof(H), typeof(Δ))
-        new{T,S}(H, Δ)
+        # S = promote_type(typeof(H), typeof(Δ))
+        new{T,SH,SΔ}(H, Δ)
     end
 end
+# BdGMatrix(H::Hermitian, Δ; check=true) = BdGMatrix((H), Δ; check)  
 function Base.getindex(A::BdGMatrix, i, j)
     N = size(A.H, 1)
     i <= N && j <= N && return A.H[i, j]
@@ -258,6 +259,8 @@ function Base.getindex(A::BdGMatrix, i, j)
 end
 Base.:*(x::Real, A::BdGMatrix) = BdGMatrix(x * A.H, x * A.Δ)
 Base.:*(A::BdGMatrix, x::Real) = BdGMatrix(A.H * x, A.Δ * x)
+Base.:+(A::BdGMatrix, B::BdGMatrix) = BdGMatrix(A.H + B.H, A.Δ + B.Δ)
+Base.:-(A::BdGMatrix, B::BdGMatrix) = BdGMatrix(A.H - B.H, A.Δ - B.Δ)
 
 Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
 function BdGMatrix(A::AbstractMatrix; check=true)
@@ -275,6 +278,19 @@ end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
 
+@static if VERSION ≥ v"1.10"
+    function LinearAlgebra.hermitianpart!(m::BdGMatrix)
+        m.Δ .-= transpose(m.Δ)
+        rdiv!(m.Δ, 2)
+        BdGMatrix(hermitianpart!(m.H), m.Δ)
+    end
+    function LinearAlgebra.hermitianpart(m::BdGMatrix)
+        Δ = similar(m.Δ)
+        tΔ = transpose(m.Δ)
+        @. Δ = (m.Δ - tΔ) / 2
+        BdGMatrix(hermitianpart(m.H), Δ)
+    end
+end
 
 function bdg_to_skew(A::BdGMatrix)
     H = A.H
