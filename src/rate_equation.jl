@@ -40,7 +40,7 @@ internal_rep(u::AbstractVector, ::PauliSystem) = u
 tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
 tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
 function LinearOperator(L::PauliSystem, args...; normalizer=false)
-    A = normalizer ? add_normalizer(L.total_master_matrix) : P.total_master_matrix
+    A = normalizer ? add_normalizer(L.total_master_matrix) : L.total_master_matrix
     MatrixOperator(A)
 end
 function identity_density_matrix(system::PauliSystem)
