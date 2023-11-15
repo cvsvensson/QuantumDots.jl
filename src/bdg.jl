@@ -278,7 +278,7 @@ end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
 
-@static if VERSION ≥ v"1.10"
+@static if VERSION ≥ v"1.10-"
     function LinearAlgebra.hermitianpart!(m::BdGMatrix)
         m.Δ .-= transpose(m.Δ)
         rdiv!(m.Δ, 2)

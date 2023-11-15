@@ -399,7 +399,7 @@ end
 
     @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
     @test iszero(bdgm - bdgm)
-    if VERSION ≥ v"1.10"
+    if VERSION ≥ v"1.10-"
         hpbdgm = hermitianpart(bdgm)
         @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
         @test hpbdgm ≈ hermitianpart!(bdgm)
