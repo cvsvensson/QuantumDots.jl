@@ -451,9 +451,19 @@ end
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
-    w, v = QuantumDots.majorana_coefficients(v1, v2, c)
-    mps = QuantumDots.majorana_polarization(w, v, 1:2)
+    w, z = QuantumDots.majorana_coefficients(v1, v2, c)
+    mps = QuantumDots.majorana_polarization(w, z, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
+
+    ϕ = rand() * 2pi
+    wϕ, zϕ = QuantumDots.majorana_coefficients(v1, exp(1im * ϕ) * v2, c)
+    mpsϕ = QuantumDots.majorana_polarization(wϕ, zϕ, 1:2)
+    @test mpsϕ.mp ≈ 1 && mpsϕ.mpu ≈ 1
+    wϕ2, zϕ2 = QuantumDots.rotate_majorana_coefficients(wϕ, zϕ, -mpsϕ.phase)
+
+    test_angle(w) = mod(angle(w[findmax(abs, w)[2]]), pi / 4) < 1e-12
+    @test test_angle(wϕ2) && test_angle(zϕ2)
+    @test !(test_angle(wϕ) && test_angle(zϕ))
 
     eig = diagonalize(ham)
     eigsectors = blocks(eig)
@@ -474,8 +484,8 @@ end
     w = [dot(v1, f + f', v2) for f in c.dict]
     z = [dot(v1, (f' - f), v2) for f in c.dict]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
-    w, v = QuantumDots.majorana_coefficients(v1, v2, c)
-    mps = QuantumDots.majorana_polarization(w, v, 1:2)
+    w, z = QuantumDots.majorana_coefficients(v1, v2, c)
+    mps = QuantumDots.majorana_polarization(w, z, 1:2)
     @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
     eig = diagonalize(ham)
