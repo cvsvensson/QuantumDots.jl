@@ -271,7 +271,7 @@ end
     A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
     Abdg = QuantumDots.BdGMatrix(A)
     vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(A))
-    vals2, vecs2 = diagonalize(Abdg, QuantumDots.DEFAULT_PH_CUTOFF)
+    vals2, vecs2 = diagonalize(Abdg, QuantumDots.NormalEigenAlg())
     @test norm(vals - sort([-μ1, -μ2, μ1, μ2])) < 1e-14
     @test QuantumDots.ground_state_parity(vals, vecs) == 1
     vals_skew, vecs_skew = diagonalize(A)
