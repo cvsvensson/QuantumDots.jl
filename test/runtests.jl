@@ -484,7 +484,10 @@ end
     @test mpsϕ.mp ≈ 1 && mpsϕ.mpu ≈ 1
     wϕ2, zϕ2 = QuantumDots.rotate_majorana_coefficients(wϕ, zϕ, -mpsϕ.phase)
 
-    test_angle(w) = mod(angle(w[findmax(abs, w)[2]]), pi / 4) < 1e-12
+    function test_angle(w)
+        a = mod(angle(w[findmax(abs, w)[2]]), pi / 4)
+        a < 1e-12 || a > pi / 4 - 1e-12
+    end
     @test test_angle(wϕ2) && test_angle(zϕ2)
     @test !(test_angle(wϕ) && test_angle(zϕ))
 
