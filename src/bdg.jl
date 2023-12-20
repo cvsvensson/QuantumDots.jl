@@ -11,8 +11,15 @@ function QuasiParticle(v::AbstractVector{T}, basis::FermionBdGBasis{M,L}) where 
     weights = Dictionary(vcat(holelabels, particlelabels), collect(v))
     QuasiParticle(weights, basis)
 end
-Base.getindex(qp::QuasiParticle, i) = getindex(qp.weights, i)
-Base.getindex(qp::QuasiParticle, i...) = getindex(qp.weights, i)
+Base.eltype(qp::QuasiParticle) = eltype(qp.weights)
+function Base.getindex(qp::QuasiParticle, i)
+    if i in qp.weights.indices
+        return getindex(qp.weights, i)
+    else
+        return zero(eltype(qp))
+    end
+end
+Base.getindex(qp::QuasiParticle, i...) = getindex(qp, i)
 
 function QuasiParticle(f::BdGFermion)
     label = (f.id, f.hole ? :h : :p)
@@ -49,15 +56,17 @@ function majorana_densities(f::QuasiParticle, labels=_left_half_labels(basis(f))
     sum(abs2, γplus), sum(abs2, γminus)
 end
 
+Base.collect(χ::QuasiParticle) = vcat([χ[key, :h] for key in keys(basis(χ))], [χ[key, :p] for key in keys(basis(χ))])
+
 """
     one_particle_density_matrix(χ::QuasiParticle{T})
 
     Gives the one_particle_density_matrix for the state with χ as it's ground state
 """
 function one_particle_density_matrix(χ::QuasiParticle{T}) where {T}
-    N = nbr_of_fermions(basis(χ))
-    U = χ.weights.values
-    U * transpose(U)
+    # N = nbr_of_fermions(basis(χ))
+    U = collect(χ)
+    conj(U) * transpose(U)
 end
 function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
     sum(one_particle_density_matrix, χs)
@@ -67,7 +76,7 @@ function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
     N = div(size(U, 1), 2)
     ρ = zeros(T, 2N, 2N)
     for i in 1:N
-        ρ += U[:, i] * transpose(U[:, i])
+        ρ += conj(U[:, i]) * transpose(U[:, i])
     end
     return ρ
 end
@@ -88,7 +97,7 @@ quasiparticle_adjoint_index(n, N) = 2N + 1 - n #n+N
 function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
     p = sortperm(es, by=energysort)
     es = es[p]
-    ops = ops[:, p]
+    ops = complex(ops[:, p])
     N = div(length(es), 2)
     ph = quasiparticle_adjoint
     for k in Iterators.take(eachindex(es), N)
@@ -107,7 +116,7 @@ function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
                 if norm(v) > cutoff
                     v
                 else
-                    ph(op) - op
+                    1im * (ph(op) - op)
                 end
             end
             majminus = begin
@@ -115,7 +124,7 @@ function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
                 if norm(v) > cutoff
                     v
                 else
-                    ph(op2) + op2
+                    1im * (ph(op2) + op2)
                 end
             end
             majs = [majplus majminus]
@@ -374,7 +383,7 @@ SkewEigenAlg() = SkewEigenAlg(DEFAULT_PH_CUTOFF)
 function diagonalize(A::BdGMatrix, alg::NormalEigenAlg)
     QuantumDots.enforce_ph_symmetry(eigen(Matrix(A)), cutoff=alg.cutoff)
 end
-diagonalize(A::BdGMatrix) = diagonalize(A, SkewEigenAlg(DEFAULT_PH_CUTOFF))
+diagonalize(A::BdGMatrix) = diagonalize(A, NormalEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
     enforce_ph_symmetry(skew_eigen_to_bdg(imag.(es), ops)...; cutoff=alg.cutoff)
