@@ -104,31 +104,24 @@ function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
             op2 = ops[:, k2]
             majplus = begin
                 v = ph(op) + op
-                v2 = ph(op2) + op2
                 if norm(v) > cutoff
                     v
-                elseif norm(v2) > cutoff
-                    v2
                 else
-                    1im * (ph(op) - op)
+                    ph(op) - op
                 end
             end
             majminus = begin
-                v = ph(op) - op
-                v2 = ph(op2) - op2
+                v = ph(op2) - op2
                 if norm(v) > cutoff
                     v
-                elseif norm(v2) > cutoff
-                    v2
                 else
-                    1im * (ph(op) + op)
+                    ph(op2) + op2
                 end
             end
             majs = [majplus majminus]
-            X = cholesky(majs' * majs)
-            newmajs = majs * inv(X.U)
             @assert all(norm.(eachcol(majs)) .> cutoff)
-            @assert norm(imag(X.U)) < cutoff
+            X = cholesky(Hermitian(majs' * majs))
+            newmajs = majs * inv(X.U)
             @assert newmajs' * newmajs ≈ I
             o1 = (newmajs[:, 1] + 1 * newmajs[:, 2])
             o2 = (newmajs[:, 1] - 1 * newmajs[:, 2])
@@ -384,5 +377,5 @@ end
 diagonalize(A::BdGMatrix) = diagonalize(A, SkewEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
-    enforce_ph_symmetry(skew_eigen_to_bdg(imag.(es), ops); cutoff=alg.cutoff)
+    enforce_ph_symmetry(skew_eigen_to_bdg(imag.(es), ops)...; cutoff=alg.cutoff)
 end
