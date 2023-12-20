@@ -262,6 +262,12 @@ end
     @test norm(QuantumDots.rep(b[1] - b[1])) == 0
     @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
+    qp = b[1] + 1im * b[2]
+    @test keys(qp.weights).values == [(1, :h), (2, :h)]
+    @test keys(qp'.weights).values == [(1, :p), (2, :p)]
+    @test qp.weights.values == [1, 1im]
+    @test qp'.weights.values == [1, -1im]
+
     A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
     Abdg = QuantumDots.BdGMatrix(A)
     vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(A))
@@ -277,16 +283,26 @@ end
     @test QuantumDots.ground_state_parity(vals, vecs) == -1
 
     t = Δ = 1
-    ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ, V=0))
-    poor_mans_ham = ham(b) #Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
-    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ=exp(1im), V=0))
+    poor_mans_ham = ham(b)
+    vals, vecs = eigen(poor_mans_ham)
+    es0, ops0 = QuantumDots.enforce_ph_symmetry(vals, vecs)
+    es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
+    es2, ops2 = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.SkewEigenAlg())
+    @test es0 ≈ es
+    @test es0 ≈ es2
+    @test poor_mans_ham ≈ ops0 * Diagonal(es0) * ops0'
+    @test poor_mans_ham ≈ ops * Diagonal(es) * ops'
+    @test poor_mans_ham ≈ ops2 * Diagonal(es) * ops2'
+
+
     @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es, by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
 
     b_mb = QuantumDots.FermionBasis(labels)
-    poor_mans_ham_mb = ham(b_mb)#Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    poor_mans_ham_mb = ham(b_mb)
     es_mb, states = eigen(poor_mans_ham_mb)
     P = QuantumDots.parityoperator(b_mb)
 
