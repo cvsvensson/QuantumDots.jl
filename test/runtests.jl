@@ -267,6 +267,9 @@ end
     @test keys(qp'.weights).values == [(1, :p), (2, :p)]
     @test qp.weights.values == [1, 1im]
     @test qp'.weights.values == [1, -1im]
+    @test qp[1, :h] == 1
+    @test qp'[1, :p] == 1
+    @test qp[2, :p] == 0
 
     A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
     Abdg = QuantumDots.BdGMatrix(A)
