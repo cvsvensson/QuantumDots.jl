@@ -290,13 +290,13 @@ end
     es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
     es2, ops2 = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.SkewEigenAlg())
     @test es0 ≈ es
-    @test es0 ≈ es2 skip = true
+    @test es0 ≈ es2
     @test I ≈ ops0' * ops0
     @test I ≈ ops' * ops
     @test I ≈ ops2' * ops2
     @test poor_mans_ham ≈ ops0 * Diagonal(es0) * ops0'
     @test poor_mans_ham ≈ ops * Diagonal(es) * ops'
-    @test poor_mans_ham ≈ ops2 * Diagonal(es) * ops2' skip = true
+    @test poor_mans_ham ≈ ops2 * Diagonal(es) * ops2'
 
     ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ, V=0))
     poor_mans_ham = ham(b)
