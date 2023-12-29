@@ -298,7 +298,19 @@ Base.:*(A::BdGMatrix, x::Real) = BdGMatrix(A.H * x, A.Δ * x)
 Base.:+(A::BdGMatrix, B::BdGMatrix) = BdGMatrix(A.H + B.H, A.Δ + B.Δ)
 Base.:-(A::BdGMatrix, B::BdGMatrix) = BdGMatrix(A.H - B.H, A.Δ - B.Δ)
 
-Base.Matrix(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
+Base.hvcat(A::BdGMatrix) = [A.H A.Δ; -conj(A.Δ) -conj(A.H)]
+function Base.Matrix(A::BdGMatrix)
+    n, m = size(A.H)
+    T = promote_type(eltype(A.H), eltype(A.Δ))
+    out = Matrix{T}(undef, 2n, 2n)
+    for j in axes(A.H, 2), i in axes(A.H, 1)
+        out[i, j] = A.H[i, j]
+        out[i, j+n] = A.Δ[i, j]
+        out[i+n, j] = -conj(A.Δ[i, j])
+        out[i+n, j+n] = -conj(A.H[i, j])
+    end
+    return out
+end
 function BdGMatrix(A::AbstractMatrix; check=true)
     N = div(size(A, 1), 2)
     inds1, inds2 = axes(A)

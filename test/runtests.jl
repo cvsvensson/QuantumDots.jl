@@ -419,7 +419,8 @@ end
 
     bdgm = BdGMatrix(H, Δ)
     @test size(bdgm) == (4, 4)
-    @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
 
@@ -430,6 +431,32 @@ end
         @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
         @test hpbdgm ≈ hermitianpart!(bdgm)
     end
+
+    m = sprand(10, 10, .1)
+    @test !QuantumDots.isantisymmetric(m)
+    @test !QuantumDots.isbdgmatrix(m, m, m, m)
+    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, .1)))
+    Δ = sprand(ComplexF64, 10, 10, .1)
+    Δ = Δ - transpose(Δ)
+
+    @test QuantumDots.isantisymmetric(Δ)
+    @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
+
+    bdgm = BdGMatrix(H, Δ)
+    @test size(bdgm) == (20, 20)
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
+
+    @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+
+    @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
+    @test iszero(bdgm - bdgm)
+    if VERSION ≥ v"1.10-"
+        hpbdgm = hermitianpart(bdgm)
+        @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+        @test hpbdgm ≈ hermitianpart!(bdgm)
+    end
+
 end
 
 @testset "QN" begin
