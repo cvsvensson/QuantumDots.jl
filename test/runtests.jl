@@ -262,13 +262,22 @@ end
     @test norm(QuantumDots.rep(b[1] - b[1])) == 0
     @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
+    qp = b[1] + 1im * b[2]
+    @test keys(qp.weights).values == [(1, :h), (2, :h)]
+    @test keys(qp'.weights).values == [(1, :p), (2, :p)]
+    @test qp.weights.values == [1, 1im]
+    @test qp'.weights.values == [1, -1im]
+    @test qp[1, :h] == 1
+    @test qp'[1, :p] == 1
+    @test qp[2, :p] == 0
+
     A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
     Abdg = QuantumDots.BdGMatrix(A)
     vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(A))
-    vals2, vecs2 = diagonalize(Abdg, QuantumDots.DEFAULT_PH_CUTOFF)
+    vals2, vecs2 = diagonalize(Abdg, QuantumDots.NormalEigenAlg())
     @test norm(vals - sort([-μ1, -μ2, μ1, μ2])) < 1e-14
     @test QuantumDots.ground_state_parity(vals, vecs) == 1
-    vals_skew, vecs_skew = diagonalize(A)
+    vals_skew, vecs_skew = diagonalize(A, QuantumDots.SkewEigenAlg())
     vals_skew ≈ vals
     (vecs_skew' * vecs)^2 ≈ I
     @test QuantumDots.ground_state_parity(vals_skew, vecs_skew) == 1
@@ -277,16 +286,32 @@ end
     @test QuantumDots.ground_state_parity(vals, vecs) == -1
 
     t = Δ = 1
+    ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ=exp(1im), V=0))
+    poor_mans_ham = ham(b)
+    vals, vecs = eigen(poor_mans_ham)
+    es0, ops0 = QuantumDots.enforce_ph_symmetry(vals, vecs)
+    es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
+    es2, ops2 = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.SkewEigenAlg())
+    @test es0 ≈ es
+    @test es0 ≈ es2
+    @test I ≈ ops0' * ops0
+    @test I ≈ ops' * ops
+    @test I ≈ ops2' * ops2
+    @test poor_mans_ham ≈ ops0 * Diagonal(es0) * ops0'
+    @test poor_mans_ham ≈ ops * Diagonal(es) * ops'
+    @test poor_mans_ham ≈ ops2 * Diagonal(es) * ops2'
+
     ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ, V=0))
-    poor_mans_ham = ham(b) #Matrix(QuantumDots.kitaev_hamiltonian(b; μ= 0,t,Δ,V=0))
-    es, ops = QuantumDots.enforce_ph_symmetry(eigen(poor_mans_ham))
+    poor_mans_ham = ham(b)
+    es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
+
     @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es, by=abs)[1:2]) < 1e-12
     qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
 
     b_mb = QuantumDots.FermionBasis(labels)
-    poor_mans_ham_mb = ham(b_mb)#Matrix(QuantumDots.kitaev_hamiltonian(b_mb; μ= 0,t,Δ,V=0))
+    poor_mans_ham_mb = ham(b_mb)
     es_mb, states = eigen(poor_mans_ham_mb)
     P = QuantumDots.parityoperator(b_mb)
 
@@ -300,6 +325,7 @@ end
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
 
     gs_parity = QuantumDots.ground_state_parity(es, ops)
+    @test gs_parity ≈ parity(states[:, 1])
     ρeven, ρodd = if gs_parity == 1
         one_particle_density_matrix(qps[1:2]),
         one_particle_density_matrix(qps[[1, 3]])
@@ -360,8 +386,8 @@ end
     ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0.1, t=1.1, Δ=1.0, V=0))
     pmmbdgham = ham2(b)
     pmmham = blockdiagonal(ham2(b_mb), b_mb)
-    es, ops = diagonalize(BdGMatrix(pmmbdgham))
-    es2, ops2 = diagonalize(BdGMatrix(pmmbdgham), 1e-10)
+    es, ops = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.SkewEigenAlg(1e-10))
+    es2, ops2 = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.NormalEigenAlg(1e-10))
     @test QuantumDots.check_ph_symmetry(es, ops)
     qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
@@ -393,7 +419,8 @@ end
 
     bdgm = BdGMatrix(H, Δ)
     @test size(bdgm) == (4, 4)
-    @test Matrix(bdgm) ≈ [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)]
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
 
@@ -404,6 +431,32 @@ end
         @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
         @test hpbdgm ≈ hermitianpart!(bdgm)
     end
+
+    m = sprand(10, 10, .1)
+    @test !QuantumDots.isantisymmetric(m)
+    @test !QuantumDots.isbdgmatrix(m, m, m, m)
+    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, .1)))
+    Δ = sprand(ComplexF64, 10, 10, .1)
+    Δ = Δ - transpose(Δ)
+
+    @test QuantumDots.isantisymmetric(Δ)
+    @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
+
+    bdgm = BdGMatrix(H, Δ)
+    @test size(bdgm) == (20, 20)
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
+
+    @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+
+    @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
+    @test iszero(bdgm - bdgm)
+    if VERSION ≥ v"1.10-"
+        hpbdgm = hermitianpart(bdgm)
+        @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+        @test hpbdgm ≈ hermitianpart!(bdgm)
+    end
+
 end
 
 @testset "QN" begin
@@ -461,7 +514,10 @@ end
     @test mpsϕ.mp ≈ 1 && mpsϕ.mpu ≈ 1
     wϕ2, zϕ2 = QuantumDots.rotate_majorana_coefficients(wϕ, zϕ, -mpsϕ.phase)
 
-    test_angle(w) = mod(angle(w[findmax(abs, w)[2]]), pi / 4) < 1e-12
+    function test_angle(w)
+        a = mod(angle(w[findmax(abs, w)[2]]), pi / 4)
+        a < 1e-12 || a > pi / 4 - 1e-12
+    end
     @test test_angle(wϕ2) && test_angle(zϕ2)
     @test !(test_angle(wϕ) && test_angle(zϕ))
 
