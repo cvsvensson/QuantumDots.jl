@@ -344,15 +344,6 @@ end
 
 bdg_to_skew(bdgham::AbstractMatrix) = bdg_to_skew(BdGMatrix(bdgham))
 
-function skew_qp_adjoint(v)
-    vout = similar(v)
-    N = div(length(v), 2)
-    for j in 1:N
-        vout[j] = v[j]
-        vout[j+N] = -v[j+N]
-    end
-    return vout
-end
 function skew_eigen_to_bdg(es, ops)
     T = complex(eltype(ops))
     N = div(length(es), 2)
