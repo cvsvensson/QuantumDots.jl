@@ -299,7 +299,7 @@ end
     @test I ≈ ops2' * ops2
     @test poor_mans_ham ≈ ops0 * Diagonal(es0) * ops0'
     @test poor_mans_ham ≈ ops * Diagonal(es) * ops'
-    @test poor_mans_ham ≈ ops2 * Diagonal(es) * ops2'
+    @test poor_mans_ham ≈ ops2 * Diagonal(es2) * ops2'
 
     ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ, V=0))
     poor_mans_ham = ham(b)
@@ -423,6 +423,7 @@ end
     @test Matrix(bdgm) ≈ hvcat(bdgm)
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+    @test QuantumDots.skew_to_bdg(QuantumDots.bdg_to_skew(bdgm)) ≈ bdgm
 
     @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
     @test iszero(bdgm - bdgm)

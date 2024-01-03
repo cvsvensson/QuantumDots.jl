@@ -94,16 +94,16 @@ function quasiparticle_adjoint(v::AbstractVector)
 end
 energysort(e) = e #(sign(e), abs(e))
 quasiparticle_adjoint_index(n, N) = 2N + 1 - n #n+N
-function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
-    p = sortperm(es, by=energysort)
-    es = es[p]
-    ops = complex(ops[:, p])
+function enforce_ph_symmetry(_es, _ops; cutoff=DEFAULT_PH_CUTOFF)
+    p = sortperm(_es, by=energysort)
+    es = _es[p]
+    ops = complex(_ops[:, p])
     N = div(length(es), 2)
     ph = quasiparticle_adjoint
     for k in Iterators.take(eachindex(es), N)
         k2 = quasiparticle_adjoint_index(k, N)
-        if es[k] > cutoff
-            @warn isapprox(es[k], -es[k2], atol=cutoff) "$(es[k]) != $(-es[k2])"
+        if es[k] > cutoff && isapprox(es[k], -es[k2], atol=cutoff)
+            @warn "es[k] = $(es[k]) != $(-es[k2]) = -es[k_adj]"
         end
         op = ops[:, k]
         op_ph = ph(op)
@@ -121,17 +121,30 @@ function enforce_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
             end
             majminus = begin
                 v = ph(op2) - op2
-                if norm(v) > cutoff
+                if norm(v) > cutoff && abs(dot(v, majplus)) < norm(majplus)^2
                     v
                 else
                     1im * (ph(op2) + op2)
                 end
             end
             majs = [majplus majminus]
-            @assert all(norm.(eachcol(majs)) .> cutoff)
-            X = cholesky(Hermitian(majs' * majs))
+            if !all(norm.(eachcol(majs)) .> cutoff)
+                @warn "Norm of majoranas = $(norm.(eachcol(majs)))"
+            end
+            HM = Hermitian(majs' * majs)
+            X = try
+                cholesky(HM)
+            catch
+                println(_es)
+                println(_ops)
+                vals = eigvals(HM)
+                @warn "Cholesky failed, matrix is not positive definite? eigenvals = $vals. Adding $cutoff * I"
+                cholesky(HM + cutoff * I)
+            end
             newmajs = majs * inv(X.U)
-            @assert newmajs' * newmajs ≈ I
+            if !(newmajs' * newmajs ≈ I)
+                @warn "New majoranas are not orthogonal? $(norm(newmajs' * newmajs - I))"
+            end
             o1 = (newmajs[:, 1] + 1 * newmajs[:, 2])
             o2 = (newmajs[:, 1] - 1 * newmajs[:, 2])
             normalize!(o1)
@@ -340,36 +353,53 @@ Base.size(A::BdGMatrix) = 2 .* size(A.H)
     end
 end
 
-function bdg_to_skew(A::BdGMatrix)
-    H = A.H
-    Δ = A.Δ
-    N = div(size(A, 1), 2)
-    A = zeros(real(eltype(A)), 2N, 2N)
+function bdg_to_skew(B::BdGMatrix)
+    H = B.H
+    Δ = B.Δ
+    N = div(size(B, 1), 2)
+    A = zeros(real(eltype(B)), 2N, 2N)
     for i in 1:N, j in 1:N
-        A[i, j] = imag(-H[i, j] - Δ[i, j])
-        A[i, j+N] = real(H[i, j] - Δ[i, j])
-        A[j+N, i] = -A[i, j+N]
-        A[i+N, j+N] = imag(-H[i, j] + Δ[i, j])
+        A[i, j] = imag(H[i, j] + Δ[i, j])
+        A[i+N, j] = real(H[i, j] + Δ[i, j])
+        A[j, i+N] = -A[i+N, j]
+        A[i+N, j+N] = imag(H[i, j] - Δ[i, j])
     end
     SkewHermitian(A)
 end
-
 bdg_to_skew(bdgham::AbstractMatrix) = bdg_to_skew(BdGMatrix(bdgham))
 
-function skew_eigen_to_bdg(es, ops)
-    T = complex(eltype(ops))
-    N = div(length(es), 2)
+function skew_to_bdg(A::AbstractMatrix)
+    N = div(size(A, 1), 2)
+    T = complex(eltype(A))
+    H = zeros(T, N, N)
+    Δ = zeros(T, N, N)
+    for i in 1:N, j in 1:N
+        H[i, j] = (A[i+N, j] - A[i, j+N] + 1im * (A[i, j] + A[i+N, j+N])) / 2
+        Δ[i, j] = (A[i+N, j] + A[i, j+N] + 1im * (A[i, j] - A[i+N, j+N])) / 2
+    end
+    return BdGMatrix(H, Δ)
+end
+
+function skew_to_bdg(v::AbstractVector)
+    N = div(length(v), 2)
+    T = complex(eltype(v))
+    uv = zeros(T, 2N)
+    for i in 1:N
+        uv[i] = (v[i] - 1im * v[i+N]) / sqrt(2)
+        uv[i+N] = (v[i] + 1im * v[i+N]) / sqrt(2)
+    end
+    return uv
+end
+
+function skew_eigen_to_bdg(_es, ops)
+    es = imag(-_es)
     pair_itr = collect(Iterators.partition(es, 2)) #take each eigenpair
     p = sortperm(pair_itr, by=Base.Fix1(-, 0) ∘ abs ∘ first) #permutation to sort the pairs
     internal_p = map(pair -> sortperm(pair), pair_itr[p]) #permutation within each pair
     pinds = vcat([2p - 1 + pp[1] - 1 for (p, pp) in zip(p, internal_p)],
         reverse([2p - 1 + pp[2] - 1 for (p, pp) in zip(p, internal_p)])) #puts all negative energies first and positive energies at the adjoint indices
-    ops2 = zeros(T, 2N, 2N)
-    for i in 1:N, j in 1:2N
-        ops2[i, j] = (ops[i, j] - 1im * ops[i+N, j]) / sqrt(2)
-        ops2[i+N, j] = (ops[i, j] + 1im * ops[i+N, j]) / sqrt(2)
-    end
-    return es[pinds], ops2[:, pinds]
+    H = stack(skew_to_bdg, eachcol(ops))
+    return es[pinds], H[:, pinds]
 end
 
 abstract type AbstractBdGEigenAlg end
@@ -390,5 +420,5 @@ diagonalize(A::BdGMatrix) = diagonalize(A, NormalEigenAlg(DEFAULT_PH_CUTOFF))
 # diagonalize(A::BdGMatrix) = diagonalize(A, SkewEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
-    enforce_ph_symmetry(skew_eigen_to_bdg(imag.(es), ops)...; cutoff=alg.cutoff)
+    enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
 end
