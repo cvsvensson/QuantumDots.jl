@@ -130,23 +130,24 @@ function enforce_ph_symmetry(_es, _ops; cutoff=DEFAULT_PH_CUTOFF)
             majs = [majplus majminus]
             if !all(norm.(eachcol(majs)) .> cutoff)
                 @warn "Norm of majoranas = $(norm.(eachcol(majs)))"
+                @debug "Norm of majoranas is small. Majoranas:" majs
             end
             HM = Hermitian(majs' * majs)
             X = try
                 cholesky(HM)
             catch
-                println(_es)
-                println(_ops)
                 vals = eigvals(HM)
                 @warn "Cholesky failed, matrix is not positive definite? eigenvals = $vals. Adding $cutoff * I"
+                @debug "Cholesky failed. Input:" _es _ops
                 cholesky(HM + cutoff * I)
             end
             newmajs = majs * inv(X.U)
             if !(newmajs' * newmajs ≈ I)
                 @warn "New majoranas are not orthogonal? $(norm(newmajs' * newmajs - I))"
+                @debug "New majoranas are not orthogonal? New majoranas:" newmajs
             end
-            o1 = (newmajs[:, 1] + 1 * newmajs[:, 2])
-            o2 = (newmajs[:, 1] - 1 * newmajs[:, 2])
+            o1 = (newmajs[:, 1] + newmajs[:, 2])
+            o2 = (newmajs[:, 1] - newmajs[:, 2])
             normalize!(o1)
             normalize!(o2)
             if abs(dot(o1, op)) > abs(dot(o2, op))
