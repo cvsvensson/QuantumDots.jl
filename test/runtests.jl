@@ -1,7 +1,7 @@
 using QuantumDots
 using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
 using Symbolics
-using SimpleDiffEq
+using OrdinaryDiffEq
 using LinearSolve
 import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
 using UnicodePlots
@@ -811,12 +811,12 @@ end
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
         dt = 1e-3
-        sol = solve(prob, SimpleTsit5(); dt)
+        sol = solve(prob, Tsit5())
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
-        sol = solve(prob, SimpleTsit5(); dt)
+        sol = solve(prob, Tsit5())
         @test norm(ρ_pauli_internal - sol(100)) < 1e-3
 
         @test QuantumDots.internal_rep(ρ, ls) ≈
@@ -891,7 +891,7 @@ end
     @test ρinternal1 ≈ ρinternal2
 
     prob = ODEProblem(lazyls, Matrix{ComplexF64}(I, 2^N, 2^N) / 2^N, (0, 2))
-    sol = solve(prob, SimpleTsit5(); dt = 1e-3)
+    sol = solve(prob, Tsit5())
     @test tr(sol(1)) ≈ 1
 
     u = sol(1)
