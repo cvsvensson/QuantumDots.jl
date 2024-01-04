@@ -729,12 +729,12 @@ end
 
 @testset "transport" begin
     function test_qd_transport(qn)
-        using QuantumDots, Test, Pkg
-        Pkg.activate("./test")
-        using LinearSolve, SimpleDiffEq, LinearAlgebra
-        import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
-        qn = QuantumDots.NoSymmetry()
-        qn = QuantumDots.parity
+        # using QuantumDots, Test, Pkg
+        # Pkg.activate("./test")
+        # using LinearSolve, SimpleDiffEq, LinearAlgebra
+        # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
+        # qn = QuantumDots.NoSymmetry()
+        # qn = QuantumDots.parity
 
         N = 1
         a = FermionBasis(1:N; qn)
