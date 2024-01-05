@@ -731,7 +731,7 @@ end
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
-        # using LinearSolve, OrdinaryDiffEq, LinearAlgebra
+        # using LinearSolve, SimpleDiffEq, LinearAlgebra
         # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
         # qn = QuantumDots.parity
@@ -810,6 +810,7 @@ end
         @test vec(sum(eigen_particle_number * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
+        dt = 1e-3
         sol = solve(prob, Tsit5())
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
@@ -914,7 +915,7 @@ end
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
-    @test_broken cm2 = conductance_matrix(0.01, lazyls, particle_number) # https://github.com/SciML/LinearSolve.jl/issues/414 
+    @test_broken conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
 @testset "Khatri-Rao" begin
