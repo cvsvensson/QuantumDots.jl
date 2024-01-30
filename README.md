@@ -7,7 +7,7 @@ QuantumDots.jl
 
 This package provides some tools for working with quantum systems. The scope is not clearly defined and the api may change. As such, the package is not registered in the general registry but can be installed by
 ```julia
-using Pkg; Pkg.add("https://github.com/cvsvensson/QuantumDots.jl")
+using Pkg; Pkg.add(url="https://github.com/cvsvensson/QuantumDots.jl")
 ```
 
 Functionality includes
@@ -24,6 +24,7 @@ N = 2 # number of fermions
 spatial_labels = 1:N 
 internal_labels = (:↑,:↓)
 c = FermionBasis(spatial_labels, internal_labels)
+
 ```
 
 Indexing into the basis like returns sparse representations of the fermionic operators, so that one can write down Hamiltonians in a natural way
@@ -31,6 +32,11 @@ Indexing into the basis like returns sparse representations of the fermionic ope
 H_hopping = c[1,:↑]'c[2,:↑] + c[1,:↓]'c[2,:↓] + hc 
 H_coulomb = sum(c[n,:↑]'c[n,:↑]c[n,:↓]'c[n,:↓] for n in spatial_labels)
 H = H_hopping + H_coulomb
+#= 16×16 SparseArrays.SparseMatrixCSC{Int64, Int64} with 23 stored entries:
+⎡⠠⠂⠀⠀⠀⠀⠀⠀⎤
+⎢⠀⠀⠰⢂⠑⢄⠀⠀⎥
+⎢⠀⠀⠑⢄⠠⢆⠀⠀⎥
+⎣⠀⠀⠀⠀⠀⠀⠰⢆⎦ =#
 ```
 
 One can also work in the single particle basis `FermionBdGBasis` if the system is noninteracting. Quadratic functions of the fermionic operators produce the single particle BdG Hamiltonian.
