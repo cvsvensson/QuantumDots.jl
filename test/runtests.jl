@@ -754,10 +754,10 @@ end
         @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagham2.values ≈ [0]
         ls = LindbladSystem(ham, leads)
-        ls_nocache = LindbladSystem(ham, leads; usecache = false)
+        ls_cache = LindbladSystem(ham, leads; usecache = true)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
-        @test collect(mo) ≈ collect(QuantumDots.LinearOperator(ls_nocache))
+        @test collect(mo) ≈ collect(QuantumDots.LinearOperator(ls_cache))
 
         lazyls = LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
