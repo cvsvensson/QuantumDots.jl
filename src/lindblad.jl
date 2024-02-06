@@ -15,17 +15,20 @@ struct LindbladCache{KC,MC,SC,OC}
     superopcache::SC
     opcache::OC
 end
-function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads))
+function LindbladCache(unitary, hamiltonian)
+    kroncache = Matrix(unitary)
+    superopcache = deepcopy(kroncache)
+    mulcache = (complex(Matrix(hamiltonian)))
+    opcache = deepcopy(mulcache)
+    LindbladCache(kroncache, mulcache, superopcache, opcache)
+end
+function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads), usecache=false)
     diagham = diagonalize(hamiltonian)
     # diageigvals = Diagonal(eigenvalues(system))
     commutator_hamiltonian = commutator(hamiltonian, vectorizer)
     unitary = -1im * commutator_hamiltonian
-    energies = eigenvalues(diagham)
-    kroncache = Matrix(unitary)
-    superopcache = deepcopy(kroncache)
-    mulcache = (complex(Matrix(hamiltonian)))
-    opcache = (complex(Matrix(hamiltonian)))
-    cache = LindbladCache(kroncache, mulcache, superopcache, opcache)
+    # energies = eigenvalues(diagham)
+    cache = usecache ? LindbladCache(unitary, hamiltonian) : nothing
     dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, diagham, rate, vectorizer, cache), rate, lead, diagham, vectorizer, cache), leads, rates)
     total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, hamiltonian, cache)
@@ -47,16 +50,14 @@ function superoperator(lead, diagham::DiagonalizedHamiltonian, rate, vectorizer,
     superop = zero(cache.superopcache)
     for op in lead.jump_in
         superop .+= superoperator!(op, diagham, lead.T, lead.μ, rate, vectorizer, cache)
-        # superop .+= superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer)
     end
     for op in lead.jump_out
         superop .+= superoperator!(op, diagham, lead.T, -lead.μ, rate, vectorizer, cache)
-        # superop .+= superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer)
     end
     return superop
 end
-function superoperator(lead, diagham, rate, vectorizer, tmp::Nothing)
-    sum(superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer) for op in lead.jump_in) .+ sum(superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer) for op in lead.jump_out)
+function superoperator(lead, diagham, rate, vectorizer, ::Nothing)
+    (sum(superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer) for op in lead.jump_in) + sum(superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer) for op in lead.jump_out))
 end
 function superoperator(lead_op, diagham, T, μ, rate, vectorizer)
     op = ratetransform(lead_op, diagham, T, μ)
@@ -157,8 +158,20 @@ function dissipator!(out, L::AbstractMatrix{T}, rate, kv::KronVectorizer, kronca
     out .*= rate
     return out
 end
+# function dissipator_linearmap(L, rate, ::KronVectorizer)
+#     rate * (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
+# end
 function dissipator(L, rate, kv::KronVectorizer)
-    return Matrix(rate * (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L)))
+    kroncache = kron(transpose(L'), L)
+    out = deepcopy(kroncache)
+    i = I(kv.size)
+    mulcache = L' * L / 2
+    kron!(kroncache, transpose(mulcache), i)
+    out .-= kroncache
+    kron!(kroncache, i, mulcache)
+    out .-= kroncache
+    out .*= rate
+    return out
 end
 
 commutator(A, ::KronVectorizer) = commutator(A)
