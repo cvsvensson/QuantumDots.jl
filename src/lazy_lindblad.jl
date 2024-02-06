@@ -185,3 +185,8 @@ Base.eltype(system::LazyLindbladSystem) = promote_type(typeof(1im), eltype(syste
 function ODEProblem(system::LazyLindbladSystem, u0::AbstractVector, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)
     SciMLBase.ODEProblem(LinearOperator(system, p; kwargs...), u0, tspan, p, args...; kwargs...)
 end
+
+internal_rep(m::AbstractMatrix, ::LazyLindbladSystem) = m
+internal_rep(v::AbstractVector, ls::LazyLindbladSystem) = reshape(v, size(ls.hamiltonian)...)
+tomatrix(rho::AbstractMatrix, ::LazyLindbladSystem) = rho
+tomatrix(rho::AbstractVector, ls::LazyLindbladSystem) = reshape(rho, size(ls.hamiltonian)...)
