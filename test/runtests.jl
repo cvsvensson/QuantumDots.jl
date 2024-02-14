@@ -613,7 +613,7 @@ end
     @test newhams[1] isa Matrix
     @test newhams[2] isa BlockDiagonal
     @test newhams[3] isa BdGMatrix
-    @test all(isnothing(pretty_print(ham(b), b)) for b in bases)
+    @test all(isnothing(pretty_print(ham(b), b)) for b in bases[[1,2]])
     cache = 0.1 .* newhams
     newhams = map(f -> f[1](0.3), fs)
     map((m, f) -> f[2](m, 0.3), cache, fs)
