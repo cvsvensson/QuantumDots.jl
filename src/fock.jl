@@ -27,15 +27,15 @@ function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
 _bit(f, k) = Bool((f >> (k - 1)) & 1)
-function phase_factor(focknbr1, focknbr2, subinds::NTuple)
+function phase_factor(focknbr1, focknbr2, subinds::NTuple)::Int
     bitmask = focknbr_from_site_indices(subinds)
     prod(i -> (jwstring(i, bitmask & focknbr1) * jwstring(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds)
 end
-function phase_factor(focknbr1, focknbr2, ::Val{N}) where {N}
-    prod(ntuple(i -> phase_factor(focknbr1, focknbr2, i), N))
+function phase_factor(focknbr1, focknbr2, N)::Int
+    prod(_phase_factor(focknbr1, focknbr2, i) for i in 1:N)
 end
 
-function phase_factor(focknbr1, focknbr2, i::Integer)
+function _phase_factor(focknbr1, focknbr2, i)::Int
     _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
 end
 
@@ -51,7 +51,7 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b) #::NTuple{N,Int}
-    @assert all(diff([outinds...]) .> 0) "Subsystems must be ordered in the same way as the full system"
+    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system"
     bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for f1 in UnitRange{UInt64}(0, 2^M - 1), f2 in UnitRange{UInt64}(0, 2^M - 1)
@@ -60,10 +60,10 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
         end
         newfocknbr1 = focknbr_from_bits(outbits(f1))
         newfocknbr2 = focknbr_from_bits(outbits(f2))
-        s1 = phase_factor(f1, f2, Val(M))
-        s2 = phase_factor(newfocknbr1, newfocknbr2, Val(N))
+        s1 = phase_factor(f1, f2, M)
+        s2 = phase_factor(newfocknbr1, newfocknbr2, N)
         s = s2 * s1
-        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]#*s2
+        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]
     end
     return mout
 end
