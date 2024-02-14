@@ -754,8 +754,10 @@ end
         @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagham2.values ≈ [0]
         ls = LindbladSystem(ham, leads)
+        ls_cache = LindbladSystem(ham, leads; usecache = true)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
+        @test collect(mo) ≈ collect(QuantumDots.LinearOperator(ls_cache))
 
         lazyls = LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
@@ -915,7 +917,7 @@ end
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
-    @test_broken conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
+    @test conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
 @testset "Khatri-Rao" begin
