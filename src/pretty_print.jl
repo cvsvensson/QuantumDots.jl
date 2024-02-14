@@ -1,6 +1,6 @@
-our_round(num::LinearAlgebra.LAPACK.BlasFloat; digits) = round(num; digits)
+round_float(num::LinearAlgebra.BlasFloat; digits) = round(num; digits)
 # for printing unroundable values
-our_round(num; digits) = num
+round_float(num; digits) = num
 
 function pretty_print(v::AbstractVector, b::AbstractBasis; digits=3)
     N = length(b)
@@ -17,7 +17,7 @@ function pretty_print(v::AbstractVector, b::AbstractBasis; digits=3)
         for ind in qntoinds(qn, b)
             fs = indtofock(ind, b)
             print(" |", Int.(bits(fs, N))..., ">")
-            println(" : ", our_round(v[ind]; digits))
+            println(" : ", round_float(v[ind]; digits))
         end
     end
 end

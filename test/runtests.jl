@@ -433,11 +433,11 @@ end
         @test hpbdgm ≈ hermitianpart!(bdgm)
     end
 
-    m = sprand(10, 10, .1)
+    m = sprand(10, 10, 0.1)
     @test !QuantumDots.isantisymmetric(m)
     @test !QuantumDots.isbdgmatrix(m, m, m, m)
-    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, .1)))
-    Δ = sprand(ComplexF64, 10, 10, .1)
+    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, 0.1)))
+    Δ = sprand(ComplexF64, 10, 10, 0.1)
     Δ = Δ - transpose(Δ)
 
     @test QuantumDots.isantisymmetric(Δ)
