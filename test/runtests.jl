@@ -107,9 +107,9 @@ end
     @test parityoperator(B) isa SparseMatrixCSC
     @test parityoperator(Bspin) isa SparseMatrixCSC
     @test pretty_print(B[1], B) |> isnothing
-    @test pretty_print(B[1][:, 1], B) |> isnothing
-    @test pretty_print(Bspin[1, :↑], Bspin) |> isnothing
-    @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
+    @test pretty_print(pi * B[1][:, 1], B) |> isnothing
+    @test pretty_print(rand() * Bspin[1, :↑], Bspin) |> isnothing
+    @test pretty_print(rand(ComplexF64) * Bspin[1, :↑][:, 1], Bspin) |> isnothing
 
     fn = QuantumDots.fermionnumber((1,), B)
     @test fn.(0:3) == [0, 1, 0, 1]
@@ -433,11 +433,11 @@ end
         @test hpbdgm ≈ hermitianpart!(bdgm)
     end
 
-    m = sprand(10, 10, .1)
+    m = sprand(10, 10, 0.1)
     @test !QuantumDots.isantisymmetric(m)
     @test !QuantumDots.isbdgmatrix(m, m, m, m)
-    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, .1)))
-    Δ = sprand(ComplexF64, 10, 10, .1)
+    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, 0.1)))
+    Δ = sprand(ComplexF64, 10, 10, 0.1)
     Δ = Δ - transpose(Δ)
 
     @test QuantumDots.isantisymmetric(Δ)
@@ -613,6 +613,7 @@ end
     @test newhams[1] isa Matrix
     @test newhams[2] isa BlockDiagonal
     @test newhams[3] isa BdGMatrix
+    @test all(isnothing(pretty_print(ham(b), b)) for b in bases[[1, 2]])
     cache = 0.1 .* newhams
     newhams = map(f -> f[1](0.3), fs)
     map((m, f) -> f[2](m, 0.3), cache, fs)
@@ -754,7 +755,7 @@ end
         @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
         @test diagham2.values ≈ [0]
         ls = LindbladSystem(ham, leads)
-        ls_cache = LindbladSystem(ham, leads; usecache = true)
+        ls_cache = LindbladSystem(ham, leads; usecache=true)
         mo = QuantumDots.LinearOperator(ls)
         @test mo isa MatrixOperator
         @test collect(mo) ≈ collect(QuantumDots.LinearOperator(ls_cache))

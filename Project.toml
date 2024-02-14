@@ -1,7 +1,8 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
 authors = ["Viktor Svensson, William Samuelson"]
-version = "0.8.9"
+version = "0.8.10"
+
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
