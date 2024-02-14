@@ -77,16 +77,16 @@ update_coefficients!(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullPa
 function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
     fill!(out, zero(eltype(out)))
     for (L, L2, rate) in dissipator_op_list(d)
-        out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+        out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
     end
     return out
 end
 function Base.:*(d::LazyLindbladDissipator, rho)
     ops = dissipator_op_list(d)
     (L, L2, rate) = first(ops)
-    out = rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
-    for (L, L2, rate) in ops[2:end]
-        out .+= rate .* (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    out = rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    for (L, L2, rate) in Iterators.drop(ops, 1)
+        out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
     end
     return out
 end

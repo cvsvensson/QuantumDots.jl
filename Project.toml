@@ -1,7 +1,7 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
 authors = ["Viktor Svensson, William Samuelson"]
-version = "0.8.10"
+version = "0.8.11"
 
 
 [deps]
