@@ -109,7 +109,7 @@ end
     @test pretty_print(B[1], B) |> isnothing
     @test pretty_print(pi * B[1][:, 1], B) |> isnothing
     @test pretty_print(rand() * Bspin[1, :↑], Bspin) |> isnothing
-    @test pretty_print(Bspin[1, :↑][:, 1], Bspin) |> isnothing
+    @test pretty_print(rand(ComplexF64) * Bspin[1, :↑][:, 1], Bspin) |> isnothing
 
     fn = QuantumDots.fermionnumber((1,), B)
     @test fn.(0:3) == [0, 1, 0, 1]
