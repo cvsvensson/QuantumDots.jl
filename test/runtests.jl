@@ -205,6 +205,15 @@ end
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
             end
         end
+
+        # The wedge product is a permutation of kron and a parity operator
+        v1 = rand(2)
+        v2 = rand(4)
+        v3 = QuantumDots.wedge(v1, b1, v2, b2)
+        if b1.symmetry == QuantumDots.NoSymmetry()
+            @test kron(QuantumDots.parityoperator(b2) * v2, v1) == v3
+        end
+        @test sort(kron(QuantumDots.parityoperator(b2) * v2, v1), by=abs) == sort(v3, by=abs)
     end
 end
 
