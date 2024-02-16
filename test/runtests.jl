@@ -221,6 +221,19 @@ end
         P2 = QuantumDots.parityoperator(b2)
         P3 = QuantumDots.parityoperator(b3)
         QuantumDots.wedge(P1, b1, P2, b2, b3) ≈ P3
+
+
+        rho1 = rand(2, 2)
+        rho2 = rand(4, 4)
+        rho3 = QuantumDots.wedge(m1, b1, m2, b2, b3)
+        for P1 in [P1 + I, I - P1], P2 in [P2 + I, I - P2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            m1 = P1 * rho1 * P1
+            m2 = P2 * rho2 * P2
+            P3 = QuantumDots.wedge(P1, b1, P2, b2, b3)
+            m3 = P3 * rho3 * P3
+            @test QuantumDots.wedge(m1, b1, m2, b2, b3) == m3
+        end
+        #TODO: test density matrices
     end
 end
 
