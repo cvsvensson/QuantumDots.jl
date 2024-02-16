@@ -166,6 +166,19 @@ end
     @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
 end
 
+@testset "Wedge" begin
+    for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
+        qn = QuantumDots.NoSymmetry()
+        b1 = FermionBasis(1:1; qn)
+        b2 = FermionBasis(1:3; qn)
+        @test_throws ArgumentError QuantumDots.wedge(b1, b2)
+        b2 = FermionBasis(2:3; qn)
+        b3 = FermionBasis(1:3; qn)
+        b3w = QuantumDots.wedge(b1, b2)
+        @test norm(b3w .- b3) == 0
+    end
+end
+
 @testset "QubitBasis" begin
     N = 2
     B = QubitBasis(1:N)

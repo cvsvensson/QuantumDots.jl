@@ -44,6 +44,7 @@ include("majorana.jl")
 include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
+include("wedge.jl")
 
 Base.one(m::BlockDiagonal) = BlockDiagonal(one.(blocks(m)))
 Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))
