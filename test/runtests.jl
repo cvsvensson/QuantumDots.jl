@@ -168,7 +168,6 @@ end
 
 @testset "Wedge" begin
     for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
-        qn = QuantumDots.NoSymmetry()
         b1 = FermionBasis(1:1; qn)
         b2 = FermionBasis(1:3; qn)
         @test_throws ArgumentError QuantumDots.wedge(b1, b2)
@@ -176,6 +175,36 @@ end
         b3 = FermionBasis(1:3; qn)
         b3w = QuantumDots.wedge(b1, b2)
         @test norm(b3w .- b3) == 0
+
+        for i1 in [[], [1]], i2 in [[], [1], [2], [1, 2]]
+            f1 = QuantumDots.focknbr_from_site_indices(i1)
+            f2 = QuantumDots.focknbr_from_site_indices(i2)
+            f3 = QuantumDots.focknbr_from_site_indices([i1..., 1 .+ i2...])
+
+            v1 = zeros(size(first(b1), 1))
+            v1[QuantumDots.focktoind(f1, b1)] = 1
+            v2 = zeros(size(first(b2), 1))
+            v2[QuantumDots.focktoind(f2, b2)] = 1
+            v3 = zeros(size(first(b3), 1))
+            v3[QuantumDots.focktoind(f3, b3)] = isodd(length(i2)) ? -1 : 1
+            @test QuantumDots.wedge(v1, b1, v2, b2) ≈ v3
+        end
+
+        O1 = isodd.(QuantumDots.numberoperator(b1))
+        O2 = isodd.(QuantumDots.numberoperator(b2))
+        for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            v1 = P1 * rand(2)
+            v2 = P2 * rand(4)
+            v3 = QuantumDots.wedge(v1, b1, v2, b2)
+            for k1 in keys(b1), k2 in keys(b2)
+                b1f = b1[k1]
+                b2f = b2[k2]
+                b3f = b3[k1] * b3[k2]
+                v3w = QuantumDots.wedge(b1f * v1, b1, b2f * v2, b2, b3)
+                v3f = b3f * v3
+                @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
+            end
+        end
     end
 end
 
