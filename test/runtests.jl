@@ -214,6 +214,13 @@ end
             @test kron(QuantumDots.parityoperator(b2) * v2, v1) == v3
         end
         @test sort(kron(QuantumDots.parityoperator(b2) * v2, v1), by=abs) == sort(v3, by=abs)
+
+
+        # Test wedge of matrices
+        P1 = QuantumDots.parityoperator(b1)
+        P2 = QuantumDots.parityoperator(b2)
+        P3 = QuantumDots.parityoperator(b3)
+        QuantumDots.wedge(P1, b1, P2, b2, b3) ≈ P3
     end
 end
 
