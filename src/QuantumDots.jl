@@ -17,6 +17,7 @@ export partial_trace
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem
 export NormalLead, CombinedLead
 export QubitBasis
+export wedge
 
 
 function fastgenerator end
