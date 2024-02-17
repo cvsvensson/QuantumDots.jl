@@ -166,6 +166,99 @@ end
     @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
 end
 
+@testset "Wedge" begin
+    for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
+        b1 = FermionBasis(1:1; qn)
+        b2 = FermionBasis(1:3; qn)
+        @test_throws ArgumentError wedge(b1, b2)
+        b2 = FermionBasis(2:3; qn)
+        b3 = FermionBasis(1:3; qn)
+        b3w = wedge(b1, b2)
+        @test norm(b3w .- b3) == 0
+
+        for i1 in [[], [1]], i2 in [[], [1], [2], [1, 2]]
+            f1 = QuantumDots.focknbr_from_site_indices(i1)
+            f2 = QuantumDots.focknbr_from_site_indices(i2)
+            f3 = QuantumDots.focknbr_from_site_indices([i1..., 1 .+ i2...])
+
+            v1 = zeros(size(first(b1), 1))
+            v1[QuantumDots.focktoind(f1, b1)] = 1
+            v2 = zeros(size(first(b2), 1))
+            v2[QuantumDots.focktoind(f2, b2)] = 1
+            v3 = zeros(size(first(b3), 1))
+            v3[QuantumDots.focktoind(f3, b3)] = isodd(length(i2)) ? -1 : 1
+            @test wedge(v1, b1, v2, b2) ≈ v3
+        end
+
+        O1 = isodd.(QuantumDots.numberoperator(b1))
+        O2 = isodd.(QuantumDots.numberoperator(b2))
+        for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            v1 = P1 * rand(2)
+            v2 = P2 * rand(4)
+            v3 = wedge(v1, b1, v2, b2)
+            for k1 in keys(b1), k2 in keys(b2)
+                b1f = b1[k1]
+                b2f = b2[k2]
+                b3f = b3[k1] * b3[k2]
+                v3w = wedge(b1f * v1, b1, b2f * v2, b2, b3)
+                v3f = b3f * v3
+                @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
+            end
+        end
+
+        # The wedge product is a permutation of kron and a parity operator
+        v1 = rand(2)
+        v2 = rand(4)
+        v3 = wedge(v1, b1, v2, b2)
+        if b1.symmetry == QuantumDots.NoSymmetry()
+            @test kron(QuantumDots.parityoperator(b2) * v2, v1) == v3
+        end
+        @test sort(kron(QuantumDots.parityoperator(b2) * v2, v1), by=abs) == sort(v3, by=abs)
+
+
+        # Test wedge of matrices
+        P1 = QuantumDots.parityoperator(b1)
+        P2 = QuantumDots.parityoperator(b2)
+        P3 = QuantumDots.parityoperator(b3)
+        wedge(P1, b1, P2, b2, b3) ≈ P3
+
+
+        rho1 = rand(2, 2)
+        rho2 = rand(4, 4)
+        rho3 = wedge(rho1, b1, rho2, b2, b3)
+        for P1 in [P1 + I, I - P1], P2 in [P2 + I, I - P2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            m1 = P1 * rho1 * P1
+            m2 = P2 * rho2 * P2
+            P3 = wedge(P1, b1, P2, b2, b3)
+            m3 = P3 * rho3 * P3
+            @test wedge(m1, b1, m2, b2, b3) == m3
+        end
+
+        H1 = Matrix(0.5b1[1]' * b1[1])
+        H2 = Matrix(-0.1b2[2]' * b2[2] + 0.3b2[3]' * b2[3] + (b2[2]' * b2[3] + hc))
+        vals1, vecs1 = eigen(H1)
+        vals2, vecs2 = eigen(H2)
+        H3 = Matrix(0.5b3[1]' * b3[1] - 0.1b3[2]' * b3[2] + 0.3b3[3]' * b3[3] + (b3[2]' * b3[3] + hc))
+        vals3, vecs3 = eigen(H3)
+        H3w = wedge(H1, b1, one(H2), b2, b3) + wedge(one(H1), b1, H2, b2, b3)
+        @test H3w == H3
+
+        vals3w = map(sum, Base.product(vals1, vals2)) |> vec
+        p = sortperm(vals3w)
+        vals3w[p] ≈ vals3
+
+        vecs3w = vec(map(v12 -> wedge(v12[1], b1, v12[2], b2, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
+        @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
+
+        β = .7
+        rho1 = exp(-β*H1)
+        rho2 = exp(-β*H2)
+        rho3 = exp(-β*H3)
+        rho3w = wedge(rho1, b1, rho2, b2, b3)
+        @test rho3w ≈ rho3
+    end
+end
+
 @testset "QubitBasis" begin
     N = 2
     B = QubitBasis(1:N)

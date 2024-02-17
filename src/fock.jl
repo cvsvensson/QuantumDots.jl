@@ -1,6 +1,6 @@
 focknbr_from_bits(bits) = mapreduce(nb -> nb[2] * (1 << (nb[1] - 1)), +, enumerate(bits))
 focknbr_from_site_index(site::Integer) = 1 << (site - 1)
-focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites)
+focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites, init=0)
 # focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
 
 bits(s::Integer, N) = digits(Bool, s, base=2, pad=N)

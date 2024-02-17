@@ -17,6 +17,7 @@ export partial_trace
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem
 export NormalLead, CombinedLead
 export QubitBasis
+export wedge
 
 
 function fastgenerator end
@@ -44,6 +45,7 @@ include("majorana.jl")
 include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
+include("wedge.jl")
 
 Base.one(m::BlockDiagonal) = BlockDiagonal(one.(blocks(m)))
 Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))
