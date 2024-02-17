@@ -14,14 +14,9 @@ promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
 promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()
 
 
-
-function wedge(v1::AbstractVector, b1::FermionBasis, v2::AbstractVector, b2::FermionBasis)
-    b3 = wedge(b1, b2)
-    wedge(v1, b1, v2, b2, b3)
-end
-
 #TODO: specialize for ::NoSymmetry, where kron and parity operator can be used
-function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis) where {M1,M2,T1,T2}
+#TODO: Try first permuting, then kron, then permuting back
+function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     if M1 + M2 != M3
         throw(ArgumentError("The combined basis does not have the correct number of sites"))
@@ -35,7 +30,7 @@ function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{
     end
     return v3
 end
-function wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis) where {M1,M2,T1,T2}
+function wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     if M1 + M2 != M3
         throw(ArgumentError("The combined basis does not have the correct number of sites"))
