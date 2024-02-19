@@ -265,6 +265,14 @@ end
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
     end
+    
+    #Test basis compatibility
+    b1 = FermionBasis(1:2; qn=QuantumDots.parity)
+    b2 = FermionBasis(2:4; qn=QuantumDots.parity)
+    @test_throws ArgumentError wedge(b1, b2)
+    b2 = FermionBasis(3:4; qn=QuantumDots.parity)
+    b3 = FermionBasis([1, 3, 2, 4]; qn=QuantumDots.parity)
+    @test_throws ArgumentError wedge(rand(4, 4), b1, rand(4, 4), b2, b3)
 end
 
 @testset "QubitBasis" begin

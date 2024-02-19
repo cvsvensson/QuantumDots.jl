@@ -13,14 +13,20 @@ promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
 promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
 promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()
 
+function check_wedge_basis_compatibility(b1::FermionBasis{M1}, b2::FermionBasis{M2}, b3::FermionBasis{M3}) where {M1,M2,M3}
+    if M1 + M2 != M3
+        throw(ArgumentError("The combined basis does not have the correct number of sites"))
+    end
+    if vcat(collect(keys(b1)), collect(keys(b2))) != collect(keys(b3))
+        throw(ArgumentError("The labels of the output basis are not the same (or ordered the same) as the labels of the input bases. $(keys(b1)) * $(keys(b2)) != $(keys(b3))"))
+    end
+end
 
 #TODO: specialize for ::NoSymmetry, where kron and parity operator can be used
 #TODO: Try first permuting, then kron, then permuting back
 function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
-    if M1 + M2 != M3
-        throw(ArgumentError("The combined basis does not have the correct number of sites"))
-    end
+    check_wedge_basis_compatibility(b1, b2, b3)
     T3 = promote_type(T1, T2)
     v3 = zeros(T3, 2^M3)
     for f1 in 0:2^M1-1, f2 in 0:2^M2-1
@@ -32,9 +38,7 @@ function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{
 end
 function wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
-    if M1 + M2 != M3
-        throw(ArgumentError("The combined basis does not have the correct number of sites"))
-    end
+    check_wedge_basis_compatibility(b1, b2, b3)
     T3 = promote_type(T1, T2)
     m3 = zeros(T3, 2^M3, 2^M3)
     for f1_1 in 0:2^M1-1, f1_2 in 0:2^M2-1
