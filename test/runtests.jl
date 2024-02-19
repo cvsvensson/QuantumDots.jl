@@ -250,12 +250,18 @@ end
         vecs3w = vec(map(v12 -> wedge(v12[1], b1, v12[2], b2, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
         @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
 
-        β = .7
-        rho1 = exp(-β*H1)
-        rho2 = exp(-β*H2)
-        rho3 = exp(-β*H3)
+        β = 0.7
+        rho1 = exp(-β * H1)
+        rmul!(rho1, 1 / tr(rho1))
+        rho2 = exp(-β * H2)
+        rmul!(rho2, 1 / tr(rho2))
+        rho3 = exp(-β * H3)
+        rmul!(rho3, 1 / tr(rho3))
         rho3w = wedge(rho1, b1, rho2, b2, b3)
         @test rho3w ≈ rho3
+
+        partial_trace(wedge(rho1, b1, rho2, b2, b3), b1, b3) ≈ rho1
+        partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
     end
 end
 
