@@ -260,8 +260,10 @@ end
         rho3w = wedge(rho1, b1, rho2, b2, b3)
         @test rho3w ≈ rho3
 
-        partial_trace(wedge(rho1, b1, rho2, b2, b3), b1, b3) ≈ rho1
-        partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
+        @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b1, b3) ≈ rho1
+        @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
+        @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
+        @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
     end
 end
 
