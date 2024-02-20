@@ -265,7 +265,7 @@ end
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
     end
-    
+
     #Test basis compatibility
     b1 = FermionBasis(1:2; qn=QuantumDots.parity)
     b2 = FermionBasis(2:4; qn=QuantumDots.parity)
@@ -841,7 +841,7 @@ end
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
-        # using LinearSolve, SimpleDiffEq, LinearAlgebra
+        # using LinearSolve, LinearAlgebra
         # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
         # qn = QuantumDots.parity
@@ -950,6 +950,12 @@ end
         @test size(pauli) == size(Matrix(pauli)) == size(first(pauli.dissipators))
         @test size(ls) == size(Matrix(ls)) == size(first(ls.dissipators))
 
+        A = QuantumDots.LinearOperator(ls)
+        vr = rand(ComplexF64, size(A, 2))
+        vl = rand(ComplexF64, size(A, 2))
+        solr = solve(ODEProblem(A, vr, (0, 10)), Tsit5(); abstol=1e-5)
+        soll = solve(ODEProblem(A', vl, (0, 10)), Tsit5(); abstol=1e-5)
+        @test isapprox(dot(soll(10), vr), dot(vl, solr(10)); atol=1e-4)
     end
     test_qd_transport(QuantumDots.NoSymmetry())
     test_qd_transport(QuantumDots.parity)
