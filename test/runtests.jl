@@ -37,9 +37,14 @@ Random.seed!(1234)
     end
 end
 
-
-@testset "QuantumDots.jl" begin
-
+@testset "CAR" begin
+    for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
+        c = FermionBasis(1:2; qn)
+        @test c[1] * c[1] == 0I
+        @test c[1]' * c[1] + c[1] * c[1]' == I
+        @test c[1]' * c[2] + c[2] * c[1]' == 0I
+        @test c[1] * c[2] + c[2] * c[1] == 0I
+    end
 end
 
 @testset "Fock" begin
