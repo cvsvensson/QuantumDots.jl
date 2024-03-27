@@ -81,7 +81,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
     end
     return out
 end
-function Base.:*(d::LazyLindbladDissipator, rho)
+function Base.:*(d::LazyLindbladDissipator, rho::AbstractMatrix)
     ops = dissipator_op_list(d)
     (L, L2, rate) = first(ops)
     out = rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
@@ -105,7 +105,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
     end
     return out
 end
-function Base.:*(d::LazyLindbladSystem, rho)
+function Base.:*(d::LazyLindbladSystem, rho::AbstractMatrix)
     H = d.hamiltonian.original
     dissipator_ops = dissipator_op_list(d)
     out = -1im .* (H * rho .- rho * H)

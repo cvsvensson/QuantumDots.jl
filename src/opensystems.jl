@@ -25,7 +25,7 @@ chemical_potential(lead::NormalLead) = lead.μ
 temperature(lead::NormalLead) = lead.T
 
 abstract type AbstractDissipator end
-Base.:*(d::AbstractDissipator, v) = Matrix(d) * v
+Base.:*(d::AbstractDissipator, v::AbstractVector) = Matrix(d) * v
 LinearAlgebra.mul!(v, d::AbstractDissipator, u) = mul!(v, Matrix(d), u)
 LinearAlgebra.mul!(v, d::AbstractDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
 Base.size(d::AbstractDissipator, i) = size(Matrix(d), i)
