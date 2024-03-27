@@ -22,8 +22,8 @@ function pretty_print(v::AbstractVector, b::AbstractBasis; digits=3)
     end
 end
 
-using AxisKeys
-using Crayons
+import AxisKeys
+import Crayons
 
 struct ColoredString{C}
     s::String
@@ -48,7 +48,7 @@ function pretty_print(m::AbstractMatrix, b::AbstractManyBodyBasis)
     println()
     k2 = vcat([[ColoredString(string("|", Int.(bits(indtofock(ind, b), N))..., ">"), colors[n]) for ind in qntoinds(qn, b)]
                for (n, qn) in enumerate(qns(b))]...)
-    ka = KeyedArray(m, row=k2, col=k2)
+    ka = AxisKeys.KeyedArray(m, row=k2, col=k2)
     display(ka)
 end
 
