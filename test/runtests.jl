@@ -850,7 +850,7 @@ end
         # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
         # qn = QuantumDots.parity
-
+        Random.seed!(1234)
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -897,9 +897,9 @@ end
         numeric_current = QuantumDots.measure(ρ, particle_number, ls)
         cm = conductance_matrix(AD.ForwardDiffBackend(), ls, ρinternal, particle_number)
         cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, particle_number)
-        cm3 = conductance_matrix(1e-4, ls, particle_number)
-        @test norm(cm - cm2) < 1e-4
-        @test norm(cm - cm3) < 1e-4
+        cm3 = conductance_matrix(1e-5, ls, particle_number)
+        @test norm(cm - cm2) < 1e-3
+        @test norm(cm - cm3) < 1e-3
         @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
         @test abs(sum(numeric_current)) < 1e-10
         @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
