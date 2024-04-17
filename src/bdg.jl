@@ -300,7 +300,7 @@ struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
     end
 end
 # BdGMatrix(H::Hermitian, Δ; check=true) = BdGMatrix((H), Δ; check)  
-function Base.getindex(A::BdGMatrix, i, j)
+function Base.getindex(A::BdGMatrix, i::Integer, j::Integer)
     N = size(A.H, 1)
     i <= N && j <= N && return A.H[i, j]
     i <= N && j > N && return A.Δ[i, j-N]

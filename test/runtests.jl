@@ -559,7 +559,7 @@ end
 
     bdgm = BdGMatrix(H, Δ)
     @test size(bdgm) == (20, 20)
-    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm) == bdgm[:, :]
     @test Matrix(bdgm) ≈ hvcat(bdgm)
 
     @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
