@@ -354,7 +354,7 @@ Base.size(A::BdGMatrix) = 2 .* size(A.H)
     end
 end
 
-function bdg_to_skew(B::BdGMatrix)
+function bdg_to_skew(B::BdGMatrix; check=true)
     H = B.H
     Δ = B.Δ
     N = div(size(B, 1), 2)
@@ -365,9 +365,13 @@ function bdg_to_skew(B::BdGMatrix)
         A[j, i+N] = -A[i+N, j]
         A[i+N, j+N] = imag(H[i, j] - Δ[i, j])
     end
-    SkewHermitian(A)
+    if check
+        return SkewHermitian(A)
+    else
+        return SkewHermitian{eltype(A),typeof(A)}(A)
+    end
 end
-bdg_to_skew(bdgham::AbstractMatrix) = bdg_to_skew(BdGMatrix(bdgham))
+bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; check); check)
 
 function skew_to_bdg(A::AbstractMatrix)
     N = div(size(A, 1), 2)
