@@ -169,6 +169,15 @@ end
         @test all(bilinear_equality(c, FermionBasis(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
     end
     @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
+
+    ## Single particle density matrix
+    c = FermionBasis(1:2)
+    rho = zero(first(c) * first(c))
+    rho[1] = 1
+    rho = rho / tr(rho)
+    @test single_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 1, 1])
+    single_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
+    single_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
 end
 
 @testset "Wedge" begin
