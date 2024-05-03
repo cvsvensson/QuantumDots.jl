@@ -178,6 +178,15 @@ end
     @test one_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 1, 1])
     @test one_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
     @test one_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
+
+    cbdg = FermionBdGBasis(1:2)
+    get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + (c[1]' * c[2]' + hc))
+    H = Matrix(get_ham(c))
+    Hbdg = get_ham(cbdg)
+    gs = first(eachcol(diagonalize(H).vectors))
+    opdm_bdg = one_particle_density_matrix(diagonalize(Hbdg).vectors)
+    opdm = one_particle_density_matrix(gs * gs', c)
+    @test opdm ≈ opdm_bdg
 end
 
 @testset "Wedge" begin
