@@ -171,22 +171,27 @@ end
     @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
 
     ## Single particle density matrix
-    c = FermionBasis(1:2)
+    N = 3
+    c = FermionBasis(1:N)
+    cbdg = FermionBdGBasis(1:N)
     rho = zero(first(c) * first(c))
     rho[1] = 1
     rho = rho / tr(rho)
-    @test one_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 1, 1])
+    @test one_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 0, 1, 1, 1])
     @test one_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
     @test one_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
+    @test one_particle_density_matrix(rho, c, [1, 2]) ≈ Diagonal([0, 0, 1, 1])
 
-    cbdg = FermionBdGBasis(1:2)
-    get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + (c[1]' * c[2]' + hc))
+    get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + 0.01c[3]' * c[3] + (c[1]' * c[2]' + hc))
     H = Matrix(get_ham(c))
     Hbdg = get_ham(cbdg)
     gs = first(eachcol(diagonalize(H).vectors))
     opdm_bdg = one_particle_density_matrix(diagonalize(Hbdg).vectors)
     opdm = one_particle_density_matrix(gs * gs', c)
     @test opdm ≈ opdm_bdg
+
+    @test norm(partial_trace(gs, (1,), c)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(opdm_bdg[[1, 1 + N], [1, 1 + N]])
+    @test (one_particle_density_matrix(gs * gs', c, (1, 2))) ≈ (opdm_bdg[[1, 2, 1 + N, 2 + N], [1, 2, 1 + N, 2 + N]])
 end
 
 @testset "Wedge" begin
