@@ -172,13 +172,15 @@ function check_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
 end
 
 
-function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) where {T}
-    N = nbr_of_fermions(b)
+function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, labels=keys(b)) where {T}
+    N = length(labels)
     hoppings = zeros(T, N, N)
     pairings = zeros(T, N, N)
     hoppings2 = zeros(T, N, N)
     pairings2 = zeros(T, N, N)
-    for (n, (f1, f2)) in enumerate(Base.product(b.dict, b.dict))
+    for (n, (l1, l2)) in enumerate(Base.product(labels, labels))
+        f1 = b[l1]
+        f2 = b[l2]
         pairings[n] += tr(ρ * f1 * f2)
         pairings2[n] += tr(ρ * f1' * f2')# -conj(pairings[n])#
         hoppings[n] += tr(ρ * f1' * f2)
@@ -426,9 +428,4 @@ diagonalize(A::BdGMatrix) = diagonalize(A, NormalEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
-end
-
-function one_particle_density_matrix(rho::AbstractMatrix, c::FermionBasis, labels = keys(c))
-    fermions = vcat([c[l] for l in labels], [c[l]' for l in labels])
-    [tr(fl'*fr*rho) for fr in fermions, fl in fermions]
 end
