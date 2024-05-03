@@ -175,9 +175,9 @@ end
     rho = zero(first(c) * first(c))
     rho[1] = 1
     rho = rho / tr(rho)
-    @test single_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 1, 1])
-    single_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
-    single_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
+    @test one_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 1, 1])
+    @test one_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
+    @test one_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
 end
 
 @testset "Wedge" begin

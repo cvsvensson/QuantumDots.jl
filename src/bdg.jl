@@ -428,7 +428,7 @@ function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
 end
 
-function single_particle_density_matrix(rho::AbstractMatrix, c::FermionBasis, labels = keys(c))
+function one_particle_density_matrix(rho::AbstractMatrix, c::FermionBasis, labels = keys(c))
     fermions = vcat([c[l] for l in labels], [c[l]' for l in labels])
     [tr(fl'*fr*rho) for fr in fermions, fl in fermions]
 end
