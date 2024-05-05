@@ -5,14 +5,13 @@ DocMeta.setdocmeta!(QuantumDots, :DocTestSetup, :(using QuantumDots); recursive=
 
 makedocs(;
     modules=[QuantumDots],
-    authors="Viktor Svensson",
-    repo="https://github.com/cvsvensson/QuantumDots.jl/blob/{commit}{path}#{line}",
-    sitename="QuantumDots.jl",
+    authors="Viktor Svensson", sitename="QuantumDots.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://cvsvensson.github.io/QuantumDots.jl",
         edit_link="main",
         assets=String[],
+        repolink="https://github.com/cvsvensson/QuantumDots.jl/blob/{commit}{path}#{line}",
     ),
     pages=[
         "Home" => "index.md",
