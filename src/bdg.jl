@@ -1,3 +1,8 @@
+"""
+    struct QuasiParticle{T,M,L} <: AbstractBdGFermion
+
+The `QuasiParticle` struct represents a quasi-particle in the context of a BdG (Bogoliubov-de Gennes) fermion system. It is a linear combination of basis BdG fermions, and is defined by a set of weights and a basis.
+"""
 struct QuasiParticle{T,M,L} <: AbstractBdGFermion
     weights::Dictionary{Tuple{L,Symbol},T}
     basis::FermionBdGBasis{M,L}
@@ -21,6 +26,11 @@ function Base.getindex(qp::QuasiParticle, i)
 end
 Base.getindex(qp::QuasiParticle, i...) = getindex(qp, i)
 
+"""
+    QuasiParticle(f::BdGFermion)
+
+Constructs a `QuasiParticle` object from a `BdGFermion` object.
+"""
 function QuasiParticle(f::BdGFermion)
     label = (f.id, f.hole ? :h : :p)
     weights = Dictionary([label], [f.amp])
@@ -45,6 +55,11 @@ function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(
     (md1 - md2) / (md1 + md2)
 end
 
+"""
+    majorana_coefficients(f::QuasiParticle, labels=labels(basis(f)))
+
+Compute the Majorana coefficients for a given `QuasiParticle` object `f`. Returns two dictionaries, for the two types of Majorana operators.
+"""
 function majorana_coefficients(f::QuasiParticle, labels=labels(basis(f)))
     x = map(l -> f[l, :h] + f[l, :p], labels)
     y = map(l -> 1im * (f[l, :h] - f[l, :p]), labels)
@@ -61,17 +76,27 @@ Base.collect(χ::QuasiParticle) = vcat([χ[key, :h] for key in keys(basis(χ))],
 """
     one_particle_density_matrix(χ::QuasiParticle{T})
 
-    Gives the one_particle_density_matrix for the state with χ as it's ground state
+    Return the one_particle_density_matrix for the state with χ occupied as its ground state.
 """
 function one_particle_density_matrix(χ::QuasiParticle{T}) where {T}
-    # N = nbr_of_fermions(basis(χ))
     U = collect(χ)
     conj(U) * transpose(U)
 end
+
+"""
+    one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
+
+Return the one_particle_density_matrix for the state with all χs occupied as its ground state.
+"""
 function one_particle_density_matrix(χs::AbstractVector{<:QuasiParticle})
     sum(one_particle_density_matrix, χs)
 end
 
+"""
+    one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
+
+Compute the one-particle density matrix for the vacuum of a BdG system diagonalized by `U`.
+"""
 function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
     N = div(size(U, 1), 2)
     ρ = zeros(T, 2N, 2N)
@@ -82,6 +107,11 @@ function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
 end
 const DEFAULT_PH_CUTOFF = 1e-12
 enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF) = enforce_ph_symmetry(F.values, F.vectors; cutoff)
+"""
+    quasiparticle_adjoint(v::AbstractVector)
+
+Compute the adjoint of a quasiparticle represented by the weights in `v`. The adjoint is computed by swapping the hole and particle parts of the vector and taking the complex conjugate of each element.
+"""
 function quasiparticle_adjoint(v::AbstractVector)
     Base.require_one_based_indexing(v)
     N = div(length(v), 2)
@@ -172,6 +202,11 @@ function check_ph_symmetry(es, ops; cutoff=DEFAULT_PH_CUTOFF)
 end
 
 
+"""
+    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis)
+
+Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
+"""
 function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) where {T}
     N = nbr_of_fermions(b)
     hoppings = zeros(T, N, N)
@@ -187,6 +222,11 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) whe
     return [hoppings pairings2; pairings hoppings2]
 end
 
+"""
+    *(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
+
+Return the BdG matrix of the product of quasiparticles `f1` and `f2`.
+"""
 function Base.:*(f1::QuasiParticle, f2::QuasiParticle; kwargs...)
     b = basis(f1)
     @assert b == basis(f2)
@@ -234,6 +274,11 @@ Base.:+(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) + QuasiParticle(f2)
 Base.:-(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) - QuasiParticle(f2)
 rep(qp::QuasiParticle) = sum((lw) -> rep(BdGFermion(first(first(lw)), basis(qp), last(lw), last(first(lw)) == :h)), pairs(qp.weights))
 
+"""
+    many_body_fermion(f::BdGFermion, basis::FermionBasis)
+
+Return the representation of `f` in the many-body fermion basis `basis`.
+"""
 function many_body_fermion(f::BdGFermion, basis::FermionBasis)
     if f.hole
         return f.amp * basis[f.id]
@@ -284,8 +329,16 @@ function isbdgmatrix(H, Δ, Hd, Δd)
     return true
 end
 
+"""
+    struct BdGMatrix <: AbstractMatrix
+
+BdGMatrix represents a Bogoliubov-de Gennes (BdG) matrix, which is a block matrix used to describe non-interacting superconducting systems. It consists of four blocks: H, Δ, -conj(Δ), and -conj(H), where H is a Hermitian matrix and Δ is an antisymmetric matrix.
+
+# Fields
+- `H`: The Hermitian block of the BdG matrix.
+- `Δ`: The antisymmetric block of the BdG matrix.
+"""
 struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
-    # [H Δ; -conj(Δ) -conj(H)]
     H::SH # Hermitian
     Δ::SΔ # Antisymmetric
     function BdGMatrix(H::SH, Δ::SΔ; check=true) where {SH,SΔ}
@@ -295,7 +348,6 @@ struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
             isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
         end
         T = promote_type(eltype(H), eltype(Δ))
-        # S = promote_type(typeof(H), typeof(Δ))
         new{T,SH,SΔ}(H, Δ)
     end
 end
@@ -354,6 +406,11 @@ Base.size(A::BdGMatrix) = 2 .* size(A.H)
     end
 end
 
+"""
+    bdg_to_skew(B::BdGMatrix; check=true)
+
+Convert a BdGMatrix to a skew-Hermitian matrix. If `check` is true, it checks that the result is skew-Hermitian.
+"""
 function bdg_to_skew(B::BdGMatrix; check=true)
     H = B.H
     Δ = B.Δ
@@ -373,6 +430,11 @@ function bdg_to_skew(B::BdGMatrix; check=true)
 end
 bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; check); check)
 
+"""
+    skew_to_bdg(A::AbstractMatrix)
+
+Convert a skew-symmetric matrix `A` to a BdGMatrix.
+"""
 function skew_to_bdg(A::AbstractMatrix)
     N = div(size(A, 1), 2)
     T = complex(eltype(A))
@@ -385,6 +447,11 @@ function skew_to_bdg(A::AbstractMatrix)
     return BdGMatrix(H, Δ)
 end
 
+"""
+    skew_to_bdg(v::AbstractVector)
+
+Use the same transformation that transforms a skew-symmetric matrix to a BdGMatrix to transform a vector `v`.
+"""
 function skew_to_bdg(v::AbstractVector)
     N = div(length(v), 2)
     T = complex(eltype(v))

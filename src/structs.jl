@@ -57,6 +57,11 @@ function rep(f::BdGFermion)
     N = nbr_of_fermions(b)
     sparsevec([indexpos(f, b)], f.amp, 2N)
 end
+"""
+    *(f1::BdGFermion, f2::BdGFermion; symmetrize=true)
+
+Multiply two `BdGFermion` objects `f1` and `f2`. By default, it symmetrizes the result, returning a BdG matrix in the convention used here.
+"""
 function Base.:*(f1::BdGFermion, f2::BdGFermion; symmetrize::Bool=true)
     if symmetrize
         return ((rep(f1') * transpose(rep(f2)) - rep(f2') * transpose(rep(f1)))) * !same_fermion(f1, f2)
