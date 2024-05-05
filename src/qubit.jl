@@ -50,7 +50,7 @@ function QubitBasis(iters...; qn=NoSymmetry())
     labels = Base.product(iters...)
     QubitBasis(labels, symmetry(length(labels), qn))
 end
-QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(iter, qn))
+QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(length(iter), qn))
 symmetry(basis::QubitBasis) = basis.symmetry
 
 
