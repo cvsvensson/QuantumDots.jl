@@ -1,6 +1,19 @@
 struct Lindblad <: AbstractOpenSolver end
 
 
+"""
+    struct LindbladSystem{T,U,DS,V,H,C} <: AbstractOpenSystem
+
+A struct representing a Lindblad open quantum system.
+
+# Fields
+- `total::T`: The total lindblad matrix operator.
+- `unitary::U`: The unitary part of the system.
+- `dissipators::DS`: The dissipators of the system.
+- `vectorizer::V`: The vectorizer used for the system.
+- `hamiltonian::H`: The Hamiltonian of the system.
+- `cache::C`: The cache used for the system.
+"""
 struct LindbladSystem{T,U,DS,V,H,C} <: AbstractOpenSystem
     total::T
     unitary::U
@@ -9,31 +22,71 @@ struct LindbladSystem{T,U,DS,V,H,C} <: AbstractOpenSystem
     hamiltonian::H
     cache::C
 end
+"""
+    struct LindbladCache{KC, MC, SC, OC}
+
+A cache structure used in the Lindblad equation solver.
+
+# Fields
+- `kroncache::KC`: Cache for Kronecker products.
+- `mulcache::MC`: Cache for matrix multiplications.
+- `superopcache::SC`: Cache for superoperators.
+- `opcache::OC`: Cache for operators.
+
+"""
 struct LindbladCache{KC,MC,SC,OC}
     kroncache::KC
     mulcache::MC
     superopcache::SC
     opcache::OC
 end
-function LindbladCache(unitary, hamiltonian)
-    kroncache = Matrix(unitary)
+"""
+    LindbladCache(superoperator, operator)
+
+Constructs a cache for the LindbladSystem.
+"""
+function LindbladCache(superoperator, operator)
+    kroncache = Matrix(superoperator)
     superopcache = deepcopy(kroncache)
-    mulcache = (complex(Matrix(hamiltonian)))
+    mulcache = (complex(Matrix(operator)))
     opcache = deepcopy(mulcache)
     LindbladCache(kroncache, mulcache, superopcache, opcache)
 end
+"""
+    LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads), usecache=false)
+
+Constructs a Lindblad system for simulating open quantum systems.
+
+## Arguments
+- `hamiltonian`: The Hamiltonian of the system.
+- `leads`: An list of operators representing the leads.
+- `vectorizer`: Determines how to vectorize the lindblad equation. Defaults to `default_vectorizer(hamiltonian)`.
+- `rates`: An array of rates for each lead. Defaults to an array of ones with the same length as `leads`.
+- `usecache`: A boolean indicating whether to use a cache. Defaults to `false`.
+"""
 function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads), usecache=false)
     diagham = diagonalize(hamiltonian)
-    # diageigvals = Diagonal(eigenvalues(system))
     commutator_hamiltonian = commutator(hamiltonian, vectorizer)
     unitary = -1im * commutator_hamiltonian
-    # energies = eigenvalues(diagham)
     cache = usecache ? LindbladCache(unitary, hamiltonian) : nothing
     dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, diagham, rate, vectorizer, cache), rate, lead, diagham, vectorizer, cache), leads, rates)
     total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, hamiltonian, cache)
 end
 
+"""
+    struct LindbladDissipator{S,T,L,H,V,C} <: AbstractDissipator
+
+A struct representing a Lindblad dissipator.
+
+# Fields
+- `superop::S`: The superoperator representing the dissipator.
+- `rate::T`: The rate of the dissipator.
+- `lead::L`: The lead associated with the dissipator.
+- `ham::H`: The Hamiltonian associated with the dissipator.
+- `vectorizer::V`: The vectorizer used for vectorization.
+- `cache::C`: The cache used for storing intermediate results.
+"""
 struct LindbladDissipator{S,T,L,H,V,C} <: AbstractDissipator
     superop::S
     rate::T
@@ -59,6 +112,19 @@ end
 function superoperator(lead, diagham, rate, vectorizer, ::Nothing)
     (sum(superoperator(op, diagham, lead.T, lead.μ, rate, vectorizer) for op in lead.jump_in) + sum(superoperator(op, diagham, lead.T, -lead.μ, rate, vectorizer) for op in lead.jump_out))
 end
+"""
+    superoperator(lead_op, diagham, T, μ, rate, vectorizer)
+
+Construct the superoperator associated with the operator `lead_op`. Transforms the operator to the energy basis and includes fermi-Dirac statistics.
+
+# Arguments
+- `lead_op`: The operator representing the lead coupling.
+- `diagham`: The diagonal Hamiltonian.
+- `T`: The temperature.
+- `μ`: The chemical potential.
+- `rate`: The rate of the dissipative process.
+- `vectorizer`: The vectorizer struct.
+"""
 function superoperator(lead_op, diagham, T, μ, rate, vectorizer)
     op = ratetransform(lead_op, diagham, T, μ)
     return dissipator(op, rate, vectorizer)
@@ -161,6 +227,11 @@ end
 # function dissipator_linearmap(L, rate, ::KronVectorizer)
 #     rate * (conj(L) ⊗ L - 1 / 2 * kronsum(transpose(L' * L), L' * L))
 # end
+"""
+    dissipator(L, rate, kv::KronVectorizer)
+
+Constructs the dissipator associated to the jump operator `L`.
+"""
 function dissipator(L, rate, kv::KronVectorizer)
     kroncache = kron(transpose(L'), L)
     out = deepcopy(kroncache)
