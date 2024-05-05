@@ -207,13 +207,15 @@ end
 
 Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
 """
-function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis) where {T}
-    N = nbr_of_fermions(b)
+function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, labels=keys(b)) where {T}
+    N = length(labels)
     hoppings = zeros(T, N, N)
     pairings = zeros(T, N, N)
     hoppings2 = zeros(T, N, N)
     pairings2 = zeros(T, N, N)
-    for (n, (f1, f2)) in enumerate(Base.product(b.dict, b.dict))
+    for (n, (l1, l2)) in enumerate(Base.product(labels, labels))
+        f1 = b[l1]
+        f2 = b[l2]
         pairings[n] += tr(ρ * f1 * f2)
         pairings2[n] += tr(ρ * f1' * f2')# -conj(pairings[n])#
         hoppings[n] += tr(ρ * f1' * f2)
