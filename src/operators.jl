@@ -1,24 +1,40 @@
 """
-    jwstring(site,focknbr)
+    jwstring(site, focknbr)
     
 Count the number of fermions to the right of site.
 """
 jwstring(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
 
 
-function removefermion(digitposition, statefocknbr) 
+"""
+    removefermion(digitposition, statefocknbr)
+
+Return (newfocknbr, fermionstatistics) where `newfocknbr` is the state obtained by removing a fermion at `digitposition` from `statefocknbr` and `fermionstatistics` is the phase from the Jordan-Wigner string, or 0 if the operation is not allowed.
+"""
+function removefermion(digitposition, statefocknbr)
     cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
-    allowed = !iszero(cdag & statefocknbr) 
+    allowed = !iszero(cdag & statefocknbr)
     fermionstatistics = jwstring(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed * fermionstatistics
 end
 
+"""
+    parityoperator(basis::AbstractBasis)
+
+Return the parity operator of `basis`.
+"""
 function parityoperator(basis::AbstractBasis)
     mat = spzeros(Int, 2^length(basis), 2^length(basis))
     _fill!(mat, fs -> (fs, parity(fs)), basis.symmetry)
     return mat
 end
+
+"""
+    numberoperator(basis::FermionBasis)
+
+Return the number operator of `basis`.
+"""
 function numberoperator(basis::FermionBasis)
     mat = spzeros(Int, 2^length(basis), 2^length(basis))
     _fill!(mat, fs -> (fs, fermionnumber(fs)), basis.symmetry)
