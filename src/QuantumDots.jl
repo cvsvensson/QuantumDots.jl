@@ -13,7 +13,7 @@ import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization
 export qns, Z2, QArray, Z2Symmetry, QNIndex, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
-export partial_trace
+export partial_trace, one_particle_density_matrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem
 export NormalLead, CombinedLead
 export QubitBasis
