@@ -49,8 +49,16 @@ Base.:(==)(a::U1, b::U1) = a.val == b.val
 qnsize(::U1Symmetry{N}) where {N} = 2^N
 
 
-function symmetry(labels, qn)
-    M = length(labels)
+"""
+    symmetry(M::Int, qn)
+
+Constructs an `AbelianFockSymmetry` object that represents the symmetry of a many-body fermionic system. 
+
+# Arguments
+- `M::Int`: The number of fermions in the system.
+- `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
+"""
+function symmetry(M::Int, qn)
     qntooldinds = group(ind -> qn(ind - 1), 1:2^M)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)
@@ -63,10 +71,16 @@ function symmetry(labels, qn)
     qntofockstates = map(oldinds -> oldinds .- 1, qntooldinds)
     AbelianFockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
 end
+symmetry(M::Int, ::NoSymmetry) = NoSymmetry()
 
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
+"""
+    fermion_sparse_matrix(fermion_number, totalsize, sym)
+
+Constructs a sparse matrix of size `totalsize` representing a fermionic operator at bit position `fermion_number` in a many-body fermionic system with symmetry `sym`. 
+"""
 function fermion_sparse_matrix(fermion_number, totalsize, sym)
     mat = spzeros(Int, totalsize, totalsize)
     _fill!(mat, fs -> removefermion(fermion_number, fs), sym)
@@ -74,6 +88,11 @@ function fermion_sparse_matrix(fermion_number, totalsize, sym)
 end
 
 
+"""
+    blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis)
+
+Construct a BlockDiagonal version of `m` using the symmetry of `basis`. No checking is done to ensure this is a faithful representation.
+"""
 blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis) = blockdiagonal(m, basis.symmetry)
 blockdiagonal(::Type{T}, m::AbstractMatrix, basis::AbstractManyBodyBasis) where {T} = blockdiagonal(T, m, basis.symmetry)
 
@@ -106,6 +125,11 @@ function nextfockstate_with_same_number(v)
     t = (v | (v - 1)) + 1
     t | (((div((t & -t), (v & -v))) >> 1) - 1)
 end
+"""
+    fockstates(M, n)
+
+Generate a list of Fock states with `n` occupied fermions in a system with `M` different fermions.
+"""
 function fockstates(M, n)
     v::Int = focknbr_from_bits(ntuple(i -> true, n))
     maxv = v * 2^(M - n)

@@ -46,8 +46,11 @@ Base.show(io::IO, b::QubitBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "Qubit
 Base.iterate(b::QubitBasis) = iterate(b.dict)
 Base.iterate(b::QubitBasis, state) = iterate(b.dict, state)
 Base.length(::QubitBasis{M}) where {M} = M
-QubitBasis(iters...; qn=NoSymmetry()) = QubitBasis(Base.product(iters...), symmetry(Base.product(iters...), qn))
-QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(iter, qn))
+function QubitBasis(iters...; qn=NoSymmetry())
+    labels = Base.product(iters...)
+    QubitBasis(labels, symmetry(length(labels), qn))
+end
+QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(length(iter), qn))
 symmetry(basis::QubitBasis) = basis.symmetry
 
 
@@ -70,5 +73,5 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sy
 end
 
 function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
-    map(op->real(tr(ρ*basis[label, op])), [:X, :Y, :Z])/2^length(basis)
+    map(op -> real(tr(ρ * basis[label, op])), [:X, :Y, :Z]) / 2^length(basis)
 end

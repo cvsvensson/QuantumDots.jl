@@ -10,11 +10,37 @@ fermionnumber(fs::Int) = count_ones(fs)
 fermionnumber(fs::Int, mask) = count_ones(fs & mask)
 fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, labels)))
 
-siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
-siteindex(id, b::AbstractBasis) = siteindex(id, labels(b))
-siteindices(ids, b::AbstractBasis) = map(id -> siteindex(id, b), ids)#::Int
-siteindices(ids, labels) = map(id -> siteindex(id, labels), ids)#::Int
+"""
+    siteindex(id, labels)
 
+Find the index of the first occurrence of `id` in `labels`.
+"""
+siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
+"""
+    siteindex(id, b::AbstractBasis)
+
+Find the index of the first occurrence of `id` in the labels in basis `b`.
+"""
+siteindex(id, b::AbstractBasis) = siteindex(id, labels(b))
+
+"""
+    siteindices(ids, b::AbstractBasis)
+
+Return the site indices corresponding to the given `ids` in the labels of the basis `b`.
+"""
+siteindices(ids, b::AbstractBasis) = map(id -> siteindex(id, b), ids)
+"""
+    siteindices(ids, b::AbstractBasis)
+
+Return the site indices corresponding to the given `ids` in the labels.
+"""
+siteindices(ids, labels) = map(id -> siteindex(id, labels), ids)
+
+"""
+    tensor(v::AbstractVector, b::AbstractBasis)
+
+Return a tensor representation of the vector `v` in the basis `b`, with one index for each site.
+"""
 function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
     M = length(b)
     @assert length(v) == 2^M
@@ -39,14 +65,31 @@ function _phase_factor(focknbr1, focknbr2, i)::Int
     _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
 end
 
+"""
+    partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis)
+
+Compute the partial trace of a matrix `v`, leaving the subsystem defined by the basis `bsub`.
+"""
 partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = partial_trace(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
 
 partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
+
+"""
+    partial_trace(m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+
+Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. `sym` determines the ordering of the basis states.
+"""
 function partial_trace(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
     N = length(labels)
     mout = zeros(T, 2^N, 2^N)
     partial_trace!(mout, m, labels, b, sym)
 end
+
+"""
+    partial_trace!(mout, m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+
+Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
+"""
 function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))

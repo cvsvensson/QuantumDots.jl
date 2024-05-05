@@ -34,6 +34,16 @@ Base.eltype(d::AbstractDissipator) = eltype(Matrix(d))
 SciMLBase.islinear(d::AbstractDissipator) = true
 
 ##
+"""
+    struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
+
+A struct representing a diagonalized Hamiltonian.
+
+# Fields
+- `values`: The eigenvalues of the Hamiltonian.
+- `vectors`: The eigenvectors of the Hamiltonian.
+- `original`: The original Hamiltonian.
+"""
 struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
     values::Vals
     vectors::Vecs
@@ -54,6 +64,11 @@ SciMLBase.islinear(d::AbstractOpenSystem) = true
 
 abstract type AbstractOpenSolver end
 
+"""
+    normalized_steady_state_rhs(A)
+
+For a linear operator `A`, whose last row represents the normalization condition, return the rhs of the equation `A * x = b` where `x` is the normalized steady-state and `b` the vector with all zeros except for the last element which is 1.
+"""
 function normalized_steady_state_rhs(A)
     n = size(A, 2)
     b = zeros(eltype(A), n)
@@ -105,11 +120,34 @@ function remove_high_energy_states(ham::DiagonalizedHamiltonian, ΔE)
 end
 
 
+"""
+    ratetransform(op, diagham::DiagonalizedHamiltonian, T, μ)
+
+Transform `op` with a Fermi-Dirac distribution at temperature `T` and chemical potential `μ`.
+
+# Arguments
+- `op`: The operator to be transformed.
+- `diagham::DiagonalizedHamiltonian`: The diagonalized Hamiltonian.
+- `T`: The temperature.
+- `μ`: The chemical potential.
+"""
 function ratetransform(op, diagham::DiagonalizedHamiltonian, T, μ)
     op2 = changebasis(op, diagham)
     op3 = ratetransform(op2, diagham.values, T, μ)
     return changebasis(op3, diagham')
 end
+
+"""
+    ratetransform(op,  energies::AbstractVector, T, μ)
+
+Transform `op` in the energy basis with a Fermi-Dirac distribution at temperature `T` and chemical potential `μ`.
+
+# Arguments
+- `op`: The operator to be transformed.
+- `energies::AbstractVector`: The energies.
+- `T`: The temperature.
+- `μ`: The chemical potential.
+"""
 ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
 
 function ratetransform!(out, op, diagham::DiagonalizedHamiltonian, T, μ)

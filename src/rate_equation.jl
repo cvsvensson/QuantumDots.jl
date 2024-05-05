@@ -22,6 +22,16 @@ struct PauliDissipator{L,W,I,D,HD} <: AbstractDissipator
 end
 Base.Matrix(d::PauliDissipator) = d.total_master_matrix
 
+"""
+    PauliDissipator(ham, lead; change_lead_basis=true)
+
+Constructs the Pauli dissipator for a given Hamiltonian and lead.
+
+# Arguments
+- `ham`: The Hamiltonian.
+- `lead`: The leads.
+- `change_lead_basis`: A boolean indicating whether to change the lead basis to the energy basis. Default is `true`.
+"""
 function PauliDissipator(ham::H, lead; change_lead_basis=true) where {H<:DiagonalizedHamiltonian}
     energies = ham.values
     lead = change_lead_basis ? changebasis(lead, ham) : lead
@@ -48,6 +58,11 @@ function identity_density_matrix(system::PauliSystem)
     fill(one(eltype(A)), size(A, 2))
 end
 
+"""
+    PauliSystem(ham, leads)
+
+Constructs a PauliSystem object from a Hamiltonian and a set of leads.
+"""
 PauliSystem(ham, leads) = PauliSystem(diagonalize(ham), leads)
 function PauliSystem(H::DiagonalizedHamiltonian, leads)
     ds = map(l -> PauliDissipator(H, l), leads)

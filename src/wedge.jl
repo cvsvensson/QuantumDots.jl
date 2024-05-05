@@ -1,3 +1,8 @@
+"""
+    wedge(b1::FermionBasis, b2::FermionBasis)
+
+Compute the wedge product of two `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
+"""
 function wedge(b1::FermionBasis, b2::FermionBasis)
     newlabels = vcat(collect(keys(b1)), collect(keys(b2)))
     if length(unique(newlabels)) != length(newlabels)
@@ -24,6 +29,18 @@ end
 
 #TODO: specialize for ::NoSymmetry, where kron and parity operator can be used
 #TODO: Try first permuting, then kron, then permuting back
+"""
+    wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
+
+Compute the wedge product of two vectors `v1` and `v2` in the fermion basis `b1` and `b2`, respectively. Return a vector in the fermion basis `b3`.
+
+# Arguments
+- `v1::AbstractVector`: The first vector.
+- `b1::FermionBasis`: The fermion basis for `v1`.
+- `v2::AbstractVector`: The second vector.
+- `b2::FermionBasis`: The fermion basis for `v2`.
+- `b3::FermionBasis`: The fermion basis for the resulting vector. Defaults to the wedge product of `b1` and `b2`.
+"""
 function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     check_wedge_basis_compatibility(b1, b2, b3)
@@ -36,6 +53,18 @@ function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{
     end
     return v3
 end
+"""
+    wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
+
+Compute the wedge product of two matrices `m1` and `m2` with respect to the fermion bases `b1` and `b2`, respectively. Return a matrix in the fermion basis `b3`, which defaults to the wedge product of `b1` and `b2`.
+
+# Arguments
+- `m1::AbstractMatrix{T1}`: The first matrix.
+- `b1::FermionBasis{M1}`: The fermion basis associated with `m1`.
+- `m2::AbstractMatrix{T2}`: The second matrix.
+- `b2::FermionBasis{M2}`: The fermion basis associated with `m2`.
+- `b3::FermionBasis`: The fermion basis associated with the resulting matrix. (optional)
+"""
 function wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     check_wedge_basis_compatibility(b1, b2, b3)
