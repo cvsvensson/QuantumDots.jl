@@ -71,6 +71,7 @@ function symmetry(M::Int, qn)
     qntofockstates = map(oldinds -> oldinds .- 1, qntooldinds)
     AbelianFockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
 end
+symmetry(M::Int, ::NoSymmetry) = NoSymmetry()
 
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]

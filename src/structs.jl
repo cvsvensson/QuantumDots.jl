@@ -33,7 +33,6 @@ Base.iterate(b::FermionBasis) = iterate(b.dict)
 Base.iterate(b::FermionBasis, state) = iterate(b.dict, state)
 Base.length(::FermionBasis{M}) where {M} = M
 symmetry(b::FermionBasis) = b.symmetry
-symmetry(labels, ::NoSymmetry) = NoSymmetry()
 function FermionBasis(iters...; qn=NoSymmetry())
     labels = Base.product(iters...)
     FermionBasis(labels, symmetry(length(labels), qn))
