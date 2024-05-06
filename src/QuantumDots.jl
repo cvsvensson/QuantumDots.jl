@@ -11,7 +11,7 @@ using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization
-export qns, Z2, QArray, Z2Symmetry, QNIndex, pretty_print
+export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export partial_trace, one_particle_density_matrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem
@@ -36,7 +36,6 @@ include("vectorizers.jl")
 include("lindblad.jl")
 include("lazy_lindblad.jl")
 include("hamiltonians.jl")
-include("QArray.jl")
 include("bdg.jl")
 include("rate_equation.jl")
 include("khatri_rao.jl")
