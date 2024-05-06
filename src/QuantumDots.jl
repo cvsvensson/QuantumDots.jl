@@ -13,11 +13,9 @@ import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, 
 export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
-export partial_trace, one_particle_density_matrix
-export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem
-export NormalLead, CombinedLead
+export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
+export partial_trace, wedge
 export QubitBasis
-export wedge
 
 
 function fastgenerator end
