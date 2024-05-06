@@ -20,11 +20,9 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
-UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [extensions]
 QuantumDotsSymbolicsExt = "Symbolics"
-QuantumDotsUnicodePlotsExt = "UnicodePlots"
 
 [compat]
 AbstractDifferentiation = "0.6"
