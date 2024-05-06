@@ -4,7 +4,6 @@ using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
 import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
-using UnicodePlots
 Random.seed!(1234)
 
 
@@ -540,9 +539,6 @@ end
     majcoeffsbdg = QuantumDots.majorana_coefficients(qps[5])
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
-
-    @test_nowarn QuantumDots.visualize(qp)
-    @test_nowarn QuantumDots.majvisualize(qp)
 
     m = rand(10, 10)
     @test !QuantumDots.isantisymmetric(m)

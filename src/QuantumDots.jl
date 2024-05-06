@@ -23,8 +23,6 @@ export wedge
 function fastgenerator end
 function fastblockdiagonal end
 function TSL_generator end
-function visualize end
-function majvisualize end
 
 include("structs.jl")
 include("fock.jl")
