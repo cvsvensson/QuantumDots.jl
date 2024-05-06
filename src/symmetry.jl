@@ -10,45 +10,6 @@ blockinds(i::Integer, sizes) = sizestoinds(sizes)[i]
 sizestoinds(sizes) = accumulate((a, b) -> last(a) .+ (1:b), sizes, init=0:0)::Vector{UnitRange{Int}}
 abstract type AbstractQuantumNumber end
 
-struct QNIndex{T}
-    qn::T
-    ind::Int
-end
-qn(qnind::QNIndex) = qnind.qn
-ind(qnind::QNIndex) = qnind.ind
-
-struct Z2Symmetry{N} end
-qns(::Z2Symmetry) = (Z2(false), Z2(true))
-struct Z2 <: AbstractQuantumNumber
-    val::Bool
-end
-
-struct U1Symmetry{N} end
-qns(::U1Symmetry{N}) where {N} = ntuple(n -> U1(n - 1), N)
-struct U1 <: AbstractQuantumNumber
-    val::Integer
-end
-
-
-focktoqnind(fs, sym::Z2Symmetry) = indtoqnind(fs + 1, sym)
-qnindtoind(qnind::QNIndex{Z2}, ::Z2Symmetry{N}) where {N} = qnind.ind + (qnind.qn.val ? 2^(N - 1) : 0)
-indtoqnind(ind, ::Z2Symmetry{N}) where {N} = ind < 2^(N - 1) ? QNIndex(Z2(false), ind) : QNIndex(Z2(true), ind - 2^(N - 1))
-blocksize(::Z2, ::Z2Symmetry{N}) where {N} = 2^(N - 1)
-Base.:(==)(a::Z2, b::Z2) = a.val == b.val
-qnsize(::Z2Symmetry{N}) where {N} = 2^N
-
-
-focktoqnind(fs, sym::U1Symmetry) = indtoqnind(fs + 1, sym)
-qnindtoind(qnind::QNIndex{U1}, ::U1Symmetry{N}) where {N} = sum(binomial(N, m) for m in 0:qn(qnind).val-1; init=0) + ind(qnind)
-function indtoqnind(ind, ::U1Symmetry{N}) where {N}
-    qn = count_ones(ind - 1)
-    return QNIndex(U1(qn), ind - sum(binomial(N, m) for m in 0:qn-1; init=0))
-end
-blocksize(n::U1, ::U1Symmetry{N}) where {N} = binomial(N, n.val)
-Base.:(==)(a::U1, b::U1) = a.val == b.val
-qnsize(::U1Symmetry{N}) where {N} = 2^N
-
-
 """
     symmetry(M::Int, qn)
 

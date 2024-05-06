@@ -4,7 +4,6 @@ using Symbolics
 using OrdinaryDiffEq
 using LinearSolve
 import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
-using UnicodePlots
 Random.seed!(1234)
 
 
@@ -541,9 +540,6 @@ end
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
     @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
 
-    @test_nowarn QuantumDots.visualize(qp)
-    @test_nowarn QuantumDots.majvisualize(qp)
-
     m = rand(10, 10)
     @test !QuantumDots.isantisymmetric(m)
     @test !QuantumDots.isbdgmatrix(m, m, m, m)
@@ -595,39 +591,6 @@ end
         @test hpbdgm ≈ hermitianpart!(bdgm)
     end
 
-end
-
-@testset "QN" begin
-    function testsym(sym)
-        qnsv = [(qn,) for qn in qns(sym)]
-        blocksv = [rand(QuantumDots.blocksize(qn, sym)) .- 1 / 2 for qn in qns(sym)]
-        v = QArray(qnsv, blocksv, (sym,))
-
-        qnmat = collect(Base.product(qns(sym), qns(sym)))
-        dind = diagind(qnmat)
-        qnsm = vec(qnmat)
-        blocksm = [rand(QuantumDots.blocksize(qn1, sym), QuantumDots.blocksize(qn2, sym)) .- 1 / 2 for (qn1, qn2) in qnsm]
-        m = QuantumDots.QArray(qnsm, blocksm, (sym, sym))
-        md = QuantumDots.QArray(qnsm[dind], blocksm[dind], (sym, sym))
-
-        ma = Array(m)
-        va = Array(v)
-        mda = Array(md)
-
-        @test size(v) == size(va)
-        @test size(m) == size(ma)
-        @test Array(m * v) ≈ ma * va
-        @test Array(md * v) ≈ mda * va
-
-        @test v' * v ≈ va' * va
-        @test v' * (m * v) ≈ (v' * m) * v ≈ va' * ma * va
-
-        @test all([ind == QuantumDots.qnindtoind(QuantumDots.indtoqnind(ind, sym), sym) for ind in eachindex(va)])
-    end
-    testsym(Z2Symmetry{1}())
-    testsym(Z2Symmetry{4}())
-    testsym(QuantumDots.U1Symmetry{1}())
-    testsym(QuantumDots.U1Symmetry{5}())
 end
 
 @testset "Kitaev" begin
