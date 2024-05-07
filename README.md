@@ -52,7 +52,7 @@ Using diagonalize on a matrix of type BdGMatrix enforces particle-hole symmetry 
 
 * QubitBasis and time evolution is demonstrated in [qubit_dephasing](https://github.com/cvsvensson/QuantumDots.jl/tree/main/examples/qubit_dephasing.ipynb).
 
-* Simulation of Majorana braiding with noisy gates is demonstrated in [majorana_braiding](https://github.com/cvsvensson/QuantumDots.jl/tree/main/examples/braiding.ipynb).
+* Simulation of Majorana braiding demonstrated in [majorana_braiding](https://github.com/cvsvensson/QuantumDots.jl/tree/main/examples/braiding_schrödinger.ipynb) and [majorana_braiding_noisy](https://github.com/cvsvensson/QuantumDots.jl/tree/main/examples/braiding_heisenberg_noisy.ipynb).
 
 * Most functionalities of the package are demonstrated in the [tests](https://github.com/cvsvensson/QuantumDots.jl/tree/main/test/runtests.jl).
 
