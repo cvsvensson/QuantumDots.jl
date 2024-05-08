@@ -26,8 +26,6 @@ temperature(lead::NormalLead) = lead.T
 
 abstract type AbstractDissipator end
 Base.:*(d::AbstractDissipator, v::AbstractVector) = Matrix(d) * v
-LinearAlgebra.mul!(v, d::AbstractDissipator, u) = mul!(v, Matrix(d), u)
-LinearAlgebra.mul!(v, d::AbstractDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
 Base.size(d::AbstractDissipator, i) = size(Matrix(d), i)
 Base.size(d::AbstractDissipator) = size(Matrix(d))
 Base.eltype(d::AbstractDissipator) = eltype(Matrix(d))

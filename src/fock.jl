@@ -111,11 +111,11 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
     return mout
 end
 
-function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
+function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
     rightindices::NTuple{N - NL,Int} = Tuple(setdiff(ntuple(identity, N), leftindices))
-    Matrix(t, leftindices, rightindices)
+    reshape_to_matrix(t, leftindices, rightindices)
 end
-function Base.Matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rightindices::NTuple{NR,Int}) where {N,NL,NR}
+function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rightindices::NTuple{NR,Int}) where {N,NL,NR}
     @assert NL + NR == N
     tperm = permutedims(t, (leftindices..., rightindices...))
     lsize = prod(i -> size(tperm, i), leftindices, init=1)
@@ -126,5 +126,5 @@ end
 function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
     linds = siteindices(leftlabels, b)
     t = tensor(v, b)
-    svd(Matrix(t, linds))
+    svd(reshape_to_matrix(t, linds))
 end
