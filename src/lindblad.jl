@@ -251,6 +251,8 @@ measure(rho, op, ls::AbstractOpenSystem) = map(d -> measure(rho, op, d, ls), ls.
 
 Base.Matrix(d::LindbladDissipator) = d.superop
 Base.Matrix(L::LindbladSystem) = L.total
+LinearAlgebra.mul!(v, d::LindbladDissipator, u) = mul!(v, Matrix(d), u)
+LinearAlgebra.mul!(v, d::LindbladDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
 
 measure(rho, op, dissipator::AbstractDissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 
