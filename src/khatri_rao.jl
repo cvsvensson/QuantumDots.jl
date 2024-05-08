@@ -109,6 +109,10 @@ function khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal, kv::KhatriRaoVectorize
     end
 end
 
-khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(one(A), A, blocksizes) - khatri_rao_lazy(transpose(A), one(A), blocksizes)
-khatri_rao_commutator(A, blocksizes) = khatri_rao(one(A), A, blocksizes) - khatri_rao(transpose(A), one(A), blocksizes)
+khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(kr_one(A), A, blocksizes) - khatri_rao_lazy(transpose(A), kr_one(A), blocksizes)
+khatri_rao_commutator(A, blocksizes) = khatri_rao(kr_one(A), A, blocksizes) - khatri_rao(transpose(A), kr_one(A), blocksizes)
 khatri_rao_commutator(A::BlockDiagonal{<:Any,<:Diagonal}, blocksizes) = khatri_rao_commutator(Diagonal(A), blocksizes)
+
+kr_one(m::BlockDiagonal) = BlockDiagonal(kr_one.(blocks(m)))
+kr_one(m) = Eye{eltype(m)}(size(m, 1))
+# Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))

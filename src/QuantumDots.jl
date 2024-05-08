@@ -6,6 +6,7 @@ using Dictionaries
 using StaticArrays
 using SkewLinearAlgebra
 import AbstractDifferentiation as AD
+using FillArrays: Eye
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
@@ -41,8 +42,5 @@ include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
 include("wedge.jl")
-
-Base.one(m::BlockDiagonal) = BlockDiagonal(one.(blocks(m)))
-Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))
 
 end
