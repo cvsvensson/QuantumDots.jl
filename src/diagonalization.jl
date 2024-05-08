@@ -34,12 +34,13 @@ function eigen!_blockwise(B::BlockDiagonal, args...; kwargs...)
     vectors = [e.vectors for e in eigens]
     vcat(values...), BlockDiagonal(vectors)
 end
-BlockDiagonals.blocks(m::AbstractMatrix) = [m]
 
+_blocks(m::AbstractMatrix) = [m]
+_blocks(m::BlockDiagonal) = blocks(m)
 function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
     vals = eig.values
     vecs = eig.vectors
-    bvecs = blocks(vecs)
+    bvecs = _blocks(vecs)
     sizes = size.(bvecs, 1)
     blockinds = map(i -> eachindex(vals)[i], sizestoinds(sizes))
     if full
