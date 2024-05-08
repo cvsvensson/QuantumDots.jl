@@ -86,15 +86,15 @@ function khatri_rao!(KR, L1, L2, inds, finalinds)
     return KR
 end
 
-function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, blocksizes) where {T1,T2}
-    inds = sizestoinds(blocksizes)
+function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, kv::KhatriRaoVectorizer) where {T1,T2}
+    inds = kv.inds
     T = promote_type(T1, T2)
-    indsd = sizestoinds(blocksizes .^ 2)
-    d = zeros(T, sum(abs2, blocksizes))
-    for i in eachindex(blocksizes)
-        l1 = Diagonal(@view(L1.diag[inds[i]]))
-        l2 = Diagonal(@view(L2.diag[inds[i]]))
-        kron!(Diagonal(@view(d[indsd[i]])), l1, l2)
+    indsout = kv.vectorinds
+    d = zeros(T, last(kv.cumsumsquared))
+    for (inds, indsout) in zip(inds, indsout)
+        l1 = Diagonal(@view(L1.diag[inds]))
+        l2 = Diagonal(@view(L2.diag[inds]))
+        kron!(Diagonal(@view(d[indsout])), l1, l2)
     end
     return Diagonal(d)
 end
@@ -115,4 +115,3 @@ khatri_rao_commutator(A::BlockDiagonal{<:Any,<:Diagonal}, blocksizes) = khatri_r
 
 kr_one(m::BlockDiagonal) = BlockDiagonal(kr_one.(blocks(m)))
 kr_one(m) = Eye{eltype(m)}(size(m, 1))
-# Base.zero(m::BlockDiagonal) = BlockDiagonal(zero.(blocks(m)))

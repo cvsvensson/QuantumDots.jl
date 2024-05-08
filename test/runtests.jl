@@ -1046,6 +1046,17 @@ end
           Matrix(QuantumDots.khatri_rao_lazy(m, bdm, kv)) ≈
           Matrix(QuantumDots.khatri_rao_lazy(bdm, bdm, kv)) ≈
           Matrix(QuantumDots.khatri_rao_lazy(bdm, m, kv))
+
+    d = Diagonal(m)
+    @test QuantumDots.khatri_rao(d, d, QuantumDots.KhatriRaoVectorizer(fill(1, size(d, 1)))) ≈ d^2
+
+    @test QuantumDots.khatri_rao_commutator(m, kv) ≈ QuantumDots.khatri_rao_commutator(bdm, kv)
+    id = I(size(m, 1))
+    @test QuantumDots.khatri_rao_commutator(m, kv) ≈
+          QuantumDots.khatri_rao(id, m, kv) - QuantumDots.khatri_rao(transpose(m), id, kv) ≈
+          QuantumDots.khatri_rao_commutator(bdm, kv) ≈
+          QuantumDots.khatri_rao(id, bdm, kv) - QuantumDots.khatri_rao(transpose(bdm), id, kv)
+
 end
 
 @testset "TSL" begin
