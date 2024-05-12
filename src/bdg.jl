@@ -217,17 +217,15 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, lab
     N = length(labels)
     hoppings = zeros(T, N, N)
     pairings = zeros(T, N, N)
-    hoppings2 = zeros(T, N, N)
-    pairings2 = zeros(T, N, N)
     for (n, (l1, l2)) in enumerate(Base.product(labels, labels))
         f1 = b[l1]
         f2 = b[l2]
         pairings[n] += tr(ρ * f1 * f2)
-        pairings2[n] += tr(ρ * f1' * f2')# -conj(pairings[n])#
         hoppings[n] += tr(ρ * f1' * f2)
-        hoppings2[n] += tr(ρ * f1 * f2')
     end
-    return [hoppings pairings2; pairings hoppings2]
+    pairings = (pairings - transpose(pairings)) / 2
+    hoppings = hermitianpart!(hoppings)
+    return [hoppings -conj(pairings); pairings I-conj(hoppings)]
 end
 
 """
