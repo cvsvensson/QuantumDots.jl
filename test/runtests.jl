@@ -205,7 +205,7 @@ end
     @test reduced_density_matrix ≈ QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1))
     @test QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1)) ≈ reverse(QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
     @test reduced_density_matrix2 ≈ QuantumDots.many_body_density_matrix(G2, FermionBasis(1:2))
-    @test reduced_density_matrix3 ≈ QuantumDots.many_body_density_matrix(G3, c)
+    @test isapprox(reduced_density_matrix3, QuantumDots.many_body_density_matrix(G3, c); atol=1e-14)
     @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, FermionBasis(1:2))
 
 end
