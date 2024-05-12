@@ -106,7 +106,13 @@ function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
     return ρ
 end
 const DEFAULT_PH_CUTOFF = 1e-12
-enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF) = enforce_ph_symmetry(F.values, F.vectors; cutoff)
+function enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF)
+    if isreal(F.values)
+        enforce_ph_symmetry(real(F.values), F.vectors; cutoff)
+    else
+        throw(ArgumentError("Eigenvalues must be real"))
+    end
+end
 """
     quasiparticle_adjoint(v::AbstractVector)
 
@@ -414,10 +420,12 @@ end
 Convert a BdGMatrix to a skew-Hermitian matrix. If `check` is true, it checks that the result is skew-Hermitian.
 """
 function bdg_to_skew(B::BdGMatrix; check=true)
-    H = B.H
-    Δ = B.Δ
-    N = div(size(B, 1), 2)
-    A = zeros(real(eltype(B)), 2N, 2N)
+    bdg_to_skew(B.H, B.Δ; check)
+end
+function bdg_to_skew(H::AbstractMatrix, Δ::AbstractMatrix; check=true)
+    N = size(H, 1)
+    T = real(promote_type(eltype(H), eltype(Δ)))
+    A = zeros(T, 2N, 2N)
     for i in 1:N, j in 1:N
         A[i, j] = imag(H[i, j] + Δ[i, j])
         A[i+N, j] = real(H[i, j] + Δ[i, j])
@@ -438,6 +446,9 @@ bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; 
 Convert a skew-symmetric matrix `A` to a BdGMatrix.
 """
 function skew_to_bdg(A::AbstractMatrix)
+    BdGMatrix(_skew_to_bdg(A))
+end
+function _skew_to_bdg(A::AbstractMatrix)
     N = div(size(A, 1), 2)
     T = complex(eltype(A))
     H = zeros(T, N, N)
@@ -446,7 +457,7 @@ function skew_to_bdg(A::AbstractMatrix)
         H[i, j] = (A[i+N, j] - A[i, j+N] + 1im * (A[i, j] + A[i+N, j+N])) / 2
         Δ[i, j] = (A[i+N, j] + A[i, j+N] + 1im * (A[i, j] - A[i+N, j+N])) / 2
     end
-    return BdGMatrix(H, Δ)
+    return H, Δ
 end
 
 """
@@ -495,4 +506,30 @@ diagonalize(A::BdGMatrix) = diagonalize(A, NormalEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
+end
+
+
+function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
+    f(e) = log((e + 1 / 2) / (1 / 2 - e))
+    vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
+    H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
+    N = div(size(H, 1), 2)
+    _H = H[1:N, 1:N]
+    Δ = H[1:N, N+1:2N]
+    @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    @assert Δ ≈ -transpose(Δ)
+    @assert Δ ≈ -conj(H[N+1:2N, 1:N])
+    Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
+    rho = exp(Hmb)
+    return rho / tr(rho)
+end
+
+function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
+    many_body_hamiltonian(H.H, H.Δ, c)
+end
+function many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
+    N = size(H, 1)
+    sum((H[i, j] * c[i]' * c[j] - conj(H[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end

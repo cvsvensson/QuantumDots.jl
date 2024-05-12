@@ -15,7 +15,7 @@ export bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parame
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
-export partial_trace, wedge
+export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
 
 
