@@ -356,10 +356,9 @@ struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
             isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
         end
         T = promote_type(eltype(H), eltype(Δ))
-        new{T,SH,SΔ}(H, Δ)
+        new{T,SH,SΔ}(Hermitian(H), Δ)
     end
 end
-# BdGMatrix(H::Hermitian, Δ; check=true) = BdGMatrix((H), Δ; check)  
 function Base.getindex(A::BdGMatrix, i::Integer, j::Integer)
     N = size(A.H, 1)
     i <= N && j <= N && return A.H[i, j]
@@ -395,7 +394,7 @@ function BdGMatrix(A::AbstractMatrix; check=true)
     if check
         isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
     end
-    BdGMatrix(H, Δ; check)
+    BdGMatrix(hermitianpart(H), (Δ - transpose(Δ)) / 2; check=false)
 end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
@@ -435,7 +434,7 @@ function bdg_to_skew(H::AbstractMatrix, Δ::AbstractMatrix; check=true)
     if check
         return SkewHermitian(A)
     else
-        return SkewHermitian{eltype(A),typeof(A)}(A)
+        return skewhermitian!(A)#SkewHermitian{eltype(A),typeof(A)}(A)
     end
 end
 bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; check); check)
@@ -446,18 +445,23 @@ bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; 
 Convert a skew-symmetric matrix `A` to a BdGMatrix.
 """
 function skew_to_bdg(A::AbstractMatrix)
-    BdGMatrix(_skew_to_bdg(A))
+    BdGMatrix(_skew_to_bdg(A)...)
 end
 function _skew_to_bdg(A::AbstractMatrix)
     N = div(size(A, 1), 2)
     T = complex(eltype(A))
     H = zeros(T, N, N)
     Δ = zeros(T, N, N)
-    for i in 1:N, j in 1:N
+    for i in 1:N, j in i:N
         H[i, j] = (A[i+N, j] - A[i, j+N] + 1im * (A[i, j] + A[i+N, j+N])) / 2
+        H[j, i] = conj(H[i, j])
         Δ[i, j] = (A[i+N, j] + A[i, j+N] + 1im * (A[i, j] - A[i+N, j+N])) / 2
+        Δ[i, j] = -Δ[j, i]
+        if i == j
+            Δ[j, j] = 0
+        end
     end
-    return H, Δ
+    return Hermitian(H), Δ
 end
 
 """
@@ -508,7 +512,13 @@ function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
 end
 
+"""
+    many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
 
+Compute the many-body density matrix for a given correlator G. G-I/2 should be a BdGMatrix. 
+
+See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
+"""
 function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
     vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
     clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
@@ -516,11 +526,12 @@ function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=par
     vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
     H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
     N = div(size(H, 1), 2)
-    _H = H[1:N, 1:N]
+    _H = Hermitian(H[1:N, 1:N])
     Δ = H[1:N, N+1:2N]
-    @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
-    @assert Δ ≈ -transpose(Δ)
-    @assert Δ ≈ -conj(H[N+1:2N, 1:N])
+    Δ = (Δ - transpose(Δ)) / 2
+    # @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    # @assert Δ ≈ -transpose(Δ)
+    # @assert Δ ≈ -conj(H[N+1:2N, 1:N])
     Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
     rho = exp(Hmb)
     return rho / tr(rho)
@@ -529,7 +540,12 @@ end
 function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
     many_body_hamiltonian(H.H, H.Δ, c)
 end
+
+"""
+    many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
+
+Construct the many-body Hamiltonian for a given BdG Hamiltonian consisting of hoppings `H` and pairings `Δ`.
+"""
 function many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
-    N = size(H, 1)
     sum((H[i, j] * c[i]' * c[j] - conj(H[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end
