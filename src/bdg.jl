@@ -225,7 +225,7 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, lab
     end
     pairings = (pairings - transpose(pairings)) / 2
     hoppings = hermitianpart!(hoppings)
-    return [hoppings -conj(pairings); pairings I*tr(ρ) -conj(hoppings)]
+    return [hoppings -conj(pairings); pairings (I*tr(ρ)-conj(hoppings))]
 end
 
 """
@@ -512,7 +512,8 @@ end
 
 
 function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
-    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    G = remove_trace(G)
+    vals, vecs = diagonalize(BdGMatrix(G; check=false), alg)
     clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
     f(e) = log((e + 1 / 2) / (1 / 2 - e))
     vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
@@ -529,15 +530,17 @@ function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn
     return rho / tr(rho)
 end
 
+remove_trace(A) = A - tr(A)I / size(A, 1)
 """
     many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
 
-Compute the many-body density matrix for a given correlator G. G-I/2 should be a BdGMatrix. 
+Compute the many-body density matrix for a given correlator G. The traceless version of G should be a BdGMatrix. 
 
 See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
 """
 function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
-    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    G = remove_trace(G)
+    vals, vecs = diagonalize(BdGMatrix(G; check=false), alg)
     cbdg = FermionBdGBasis(c)
     qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
     mbqps = map(qp -> many_body_fermion(qp, c), qps)
