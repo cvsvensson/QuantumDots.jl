@@ -202,11 +202,16 @@ end
     reduced_density_matrix2 = partial_trace(gs, (1, 2), c)
     reduced_density_matrix3 = partial_trace(gs, (1, 2, 3), c)
     reduced_density_matrix13 = partial_trace(gs, (1, 3), c)
-    @test reduced_density_matrix ≈ QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1))
-    @test QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1)) ≈ reverse(QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
-    @test reduced_density_matrix2 ≈ QuantumDots.many_body_density_matrix(G2, FermionBasis(1:2))
+    c1 = FermionBasis(1:1)
+    c12 = FermionBasis(1:2)
+    @test reduced_density_matrix ≈ QuantumDots.many_body_density_matrix(G1, c1)
+    @test QuantumDots.many_body_density_matrix(G1, c1) ≈ reverse(QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
+    @test reduced_density_matrix2 ≈ QuantumDots.many_body_density_matrix(G2, c12) ≈
+          QuantumDots.many_body_density_matrix_exp(G2, c12)
+    @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, c12) ≈
+          QuantumDots.many_body_density_matrix_exp(G13, c12)
+    @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, c12)
     @test reduced_density_matrix3 ≈ QuantumDots.many_body_density_matrix(G3, c)
-    @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, FermionBasis(1:2))
 
 end
 
