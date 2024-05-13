@@ -454,7 +454,7 @@ function _skew_to_bdg(A::AbstractMatrix)
         H[i, j] = (A[i+N, j] - A[i, j+N] + 1im * (A[i, j] + A[i+N, j+N])) / 2
         H[j, i] = conj(H[i, j])
         Δ[i, j] = (A[i+N, j] + A[i, j+N] + 1im * (A[i, j] - A[i+N, j+N])) / 2
-        Δ[i, j] = -Δ[j, i]
+        Δ[j, i] = -Δ[i, j]
         if i == j
             Δ[j, j] = 0
         end
@@ -510,6 +510,25 @@ function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
 end
 
+
+function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
+    f(e) = log((e + 1 / 2) / (1 / 2 - e))
+    vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
+    H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
+    N = length(vals2)
+    _H = Hermitian(H[1:N, 1:N])
+    Δ = H[1:N, N+1:2N]
+    Δ = (Δ - transpose(Δ)) / 2
+    # @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    # @assert Δ ≈ -transpose(Δ)
+    # @assert Δ ≈ -conj(H[N+1:2N, 1:N])
+    Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
+    rho = exp(Hmb)
+    return rho / tr(rho)
+end
+
 """
     many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
 
@@ -523,17 +542,20 @@ function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=par
     f(e) = log((e + 1 / 2) / (1 / 2 - e))
     vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
     H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
-    N = div(size(H, 1), 2)
-    _H = Hermitian(H[1:N, 1:N])
-    Δ = H[1:N, N+1:2N]
-    Δ = (Δ - transpose(Δ)) / 2
+    # N = div(size(H, 1), 2)
+    # _H = Hermitian(H[1:N, 1:N])
+    # Δ = H[1:N, N+1:2N]
+    # Δ = (Δ - transpose(Δ)) / 2
     # @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
     # @assert Δ ≈ -transpose(Δ)
     # @assert Δ ≈ -conj(H[N+1:2N, 1:N])
-    Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
-    rho = exp(Hmb)
+    cbdg = FermionBdGBasis(c)
+    qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
+    mbqps = map(qp -> many_body_fermion(qp, c), qps)
+    rho = prod((I + (exp(e) - 1) * Matrix(qp' * qp)) / (exp(e) + 1) for (e, qp) in zip(vals2, mbqps))
     return rho / tr(rho)
 end
+FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(keys(c))
 
 function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
     many_body_hamiltonian(H.H, H.Δ, c)
