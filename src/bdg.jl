@@ -225,7 +225,7 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, lab
     end
     pairings = (pairings - transpose(pairings)) / 2
     hoppings = hermitianpart!(hoppings)
-    return [hoppings -conj(pairings); pairings I-conj(hoppings)]
+    return [hoppings -conj(pairings); pairings I*tr(ρ) -conj(hoppings)]
 end
 
 """
