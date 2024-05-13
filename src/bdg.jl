@@ -209,7 +209,7 @@ end
 
 
 """
-    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis)
+    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis, labels=keys(b))
 
 Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
 """
