@@ -1,7 +1,7 @@
 name = "QuantumDots"
 uuid = "312194fd-fec5-4b07-ba1c-a40d7013a56a"
 authors = ["Viktor Svensson, William Samuelson"]
-version = "0.9.1"
+version = "0.9.2"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
@@ -35,7 +35,7 @@ FillArrays = "1"
 LinearMaps = "3"
 Reexport = "1"
 SciMLBase = "1, 2"
-SkewLinearAlgebra = "0.1"
+SkewLinearAlgebra = "0.1, 1"
 SparseArrays = "1"
 SplitApplyCombine = "1"
 StaticArrays = "1"

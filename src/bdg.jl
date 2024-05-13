@@ -106,7 +106,13 @@ function one_particle_density_matrix(U::AbstractMatrix{T}) where {T}
     return ρ
 end
 const DEFAULT_PH_CUTOFF = 1e-12
-enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF) = enforce_ph_symmetry(F.values, F.vectors; cutoff)
+function enforce_ph_symmetry(F::Eigen; cutoff=DEFAULT_PH_CUTOFF)
+    if isreal(F.values)
+        enforce_ph_symmetry(real(F.values), F.vectors; cutoff)
+    else
+        throw(ArgumentError("Eigenvalues must be real"))
+    end
+end
 """
     quasiparticle_adjoint(v::AbstractVector)
 
@@ -203,7 +209,7 @@ end
 
 
 """
-    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis)
+    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis, labels=keys(b))
 
 Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
 """
@@ -211,17 +217,15 @@ function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, lab
     N = length(labels)
     hoppings = zeros(T, N, N)
     pairings = zeros(T, N, N)
-    hoppings2 = zeros(T, N, N)
-    pairings2 = zeros(T, N, N)
     for (n, (l1, l2)) in enumerate(Base.product(labels, labels))
         f1 = b[l1]
         f2 = b[l2]
         pairings[n] += tr(ρ * f1 * f2)
-        pairings2[n] += tr(ρ * f1' * f2')# -conj(pairings[n])#
         hoppings[n] += tr(ρ * f1' * f2)
-        hoppings2[n] += tr(ρ * f1 * f2')
     end
-    return [hoppings pairings2; pairings hoppings2]
+    pairings = (pairings - transpose(pairings)) / 2
+    hoppings = hermitianpart!(hoppings)
+    return [hoppings -conj(pairings); pairings I-conj(hoppings)]
 end
 
 """
@@ -350,10 +354,9 @@ struct BdGMatrix{T,SH,SΔ} <: AbstractMatrix{T}
             isantisymmetric(Δ) || throw(ArgumentError("Δ must be antisymmetric"))
         end
         T = promote_type(eltype(H), eltype(Δ))
-        new{T,SH,SΔ}(H, Δ)
+        new{T,SH,SΔ}(Hermitian(H), Δ)
     end
 end
-# BdGMatrix(H::Hermitian, Δ; check=true) = BdGMatrix((H), Δ; check)  
 function Base.getindex(A::BdGMatrix, i::Integer, j::Integer)
     N = size(A.H, 1)
     i <= N && j <= N && return A.H[i, j]
@@ -389,7 +392,7 @@ function BdGMatrix(A::AbstractMatrix; check=true)
     if check
         isbdgmatrix(H, Δ, Hd, Δd) || throw(ArgumentError("A must be a BdGMatrix"))
     end
-    BdGMatrix(H, Δ; check)
+    BdGMatrix(hermitianpart(H), (Δ - transpose(Δ)) / 2; check=false)
 end
 Base.size(A::BdGMatrix, i) = 2size(A.H, i)
 Base.size(A::BdGMatrix) = 2 .* size(A.H)
@@ -414,10 +417,12 @@ end
 Convert a BdGMatrix to a skew-Hermitian matrix. If `check` is true, it checks that the result is skew-Hermitian.
 """
 function bdg_to_skew(B::BdGMatrix; check=true)
-    H = B.H
-    Δ = B.Δ
-    N = div(size(B, 1), 2)
-    A = zeros(real(eltype(B)), 2N, 2N)
+    bdg_to_skew(B.H, B.Δ; check)
+end
+function bdg_to_skew(H::AbstractMatrix, Δ::AbstractMatrix; check=true)
+    N = size(H, 1)
+    T = real(promote_type(eltype(H), eltype(Δ)))
+    A = zeros(T, 2N, 2N)
     for i in 1:N, j in 1:N
         A[i, j] = imag(H[i, j] + Δ[i, j])
         A[i+N, j] = real(H[i, j] + Δ[i, j])
@@ -427,7 +432,7 @@ function bdg_to_skew(B::BdGMatrix; check=true)
     if check
         return SkewHermitian(A)
     else
-        return SkewHermitian{eltype(A),typeof(A)}(A)
+        return skewhermitian!(A)#SkewHermitian{eltype(A),typeof(A)}(A)
     end
 end
 bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; check); check)
@@ -438,15 +443,23 @@ bdg_to_skew(bdgham::AbstractMatrix; check=true) = bdg_to_skew(BdGMatrix(bdgham; 
 Convert a skew-symmetric matrix `A` to a BdGMatrix.
 """
 function skew_to_bdg(A::AbstractMatrix)
+    BdGMatrix(_skew_to_bdg(A)...)
+end
+function _skew_to_bdg(A::AbstractMatrix)
     N = div(size(A, 1), 2)
     T = complex(eltype(A))
     H = zeros(T, N, N)
     Δ = zeros(T, N, N)
-    for i in 1:N, j in 1:N
+    for i in 1:N, j in i:N
         H[i, j] = (A[i+N, j] - A[i, j+N] + 1im * (A[i, j] + A[i+N, j+N])) / 2
+        H[j, i] = conj(H[i, j])
         Δ[i, j] = (A[i+N, j] + A[i, j+N] + 1im * (A[i, j] - A[i+N, j+N])) / 2
+        Δ[j, i] = -Δ[i, j]
+        if i == j
+            Δ[j, j] = 0
+        end
     end
-    return BdGMatrix(H, Δ)
+    return Hermitian(H), Δ
 end
 
 """
@@ -495,4 +508,53 @@ diagonalize(A::BdGMatrix) = diagonalize(A, NormalEigenAlg(DEFAULT_PH_CUTOFF))
 function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     es, ops = eigen(bdg_to_skew(A))
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
+end
+
+
+function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
+    f(e) = log((e + 1 / 2) / (1 / 2 - e))
+    vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
+    H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
+    N = length(vals2)
+    _H = Hermitian(H[1:N, 1:N])
+    Δ = H[1:N, N+1:2N]
+    Δ = (Δ - transpose(Δ)) / 2
+    @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    @assert Δ ≈ -transpose(Δ)
+    @assert Δ ≈ -conj(H[N+1:2N, 1:N])
+    Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
+    rho = exp(Hmb)
+    return rho / tr(rho)
+end
+
+"""
+    many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+
+Compute the many-body density matrix for a given correlator G. G-I/2 should be a BdGMatrix. 
+
+See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
+"""
+function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+    vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
+    cbdg = FermionBdGBasis(c)
+    qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
+    mbqps = map(qp -> many_body_fermion(qp, c), qps)
+    rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
+    return rho
+end
+FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(keys(c))
+
+function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
+    many_body_hamiltonian(H.H, H.Δ, c)
+end
+
+"""
+    many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
+
+Construct the many-body Hamiltonian for a given BdG Hamiltonian consisting of hoppings `H` and pairings `Δ`.
+"""
+function many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
+    sum((H[i, j] * c[i]' * c[j] - conj(H[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end

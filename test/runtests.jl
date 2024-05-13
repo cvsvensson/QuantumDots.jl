@@ -181,16 +181,38 @@ end
     @test one_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
     @test one_particle_density_matrix(rho, c, [1, 2]) ≈ Diagonal([0, 0, 1, 1])
 
-    get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + 0.01c[3]' * c[3] + (c[1]' * c[2]' + hc))
+    get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + 0.01c[3]' * c[3] + (c[1]' * c[2]' + 0.5 * c[2]' * c[3]' + hc))
     H = Matrix(get_ham(c))
-    Hbdg = get_ham(cbdg)
+    Hbdg = BdGMatrix(get_ham(cbdg))
     gs = first(eachcol(diagonalize(H).vectors))
-    opdm_bdg = one_particle_density_matrix(diagonalize(Hbdg).vectors)
+    opdm_bdg = one_particle_density_matrix(diagonalize(Hbdg)[2])
     opdm = one_particle_density_matrix(gs * gs', c)
     @test opdm ≈ opdm_bdg
 
-    @test norm(partial_trace(gs, (1,), c)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(opdm_bdg[[1, 1 + N], [1, 1 + N]])
-    @test (one_particle_density_matrix(gs * gs', c, (1, 2))) ≈ (opdm_bdg[[1, 2, 1 + N, 2 + N], [1, 2, 1 + N, 2 + N]])
+    @test (H - tr(H) * I / size(H, 1)) ≈ QuantumDots.many_body_hamiltonian(Hbdg, c)
+    G1 = opdm_bdg[[1, 1 + N], [1, 1 + N]]
+    G2 = (opdm_bdg[[1, 2, 1 + N, 2 + N], [1, 2, 1 + N, 2 + N]])
+    G3 = (opdm_bdg[[1, 2, 3, 1 + N, 2 + N, 3 + N], [1, 2, 3, 1 + N, 2 + N, 3 + N]])
+    G13 = (opdm_bdg[[1, 3, 1 + N, 3 + N], [1, 3, 1 + N, 3 + N]])
+    @test norm(partial_trace(gs, (1,), c)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(G1)
+    @test one_particle_density_matrix(gs * gs', c, (1, 2)) ≈ G2
+    @test one_particle_density_matrix(gs * gs', c, (1, 2, 3)) == one_particle_density_matrix(gs * gs', c) ≈ G3
+
+    reduced_density_matrix = partial_trace(gs, (1,), c)
+    reduced_density_matrix2 = partial_trace(gs, (1, 2), c)
+    reduced_density_matrix3 = partial_trace(gs, (1, 2, 3), c)
+    reduced_density_matrix13 = partial_trace(gs, (1, 3), c)
+    c1 = FermionBasis(1:1)
+    c12 = FermionBasis(1:2)
+    @test reduced_density_matrix ≈ QuantumDots.many_body_density_matrix(G1, c1)
+    @test QuantumDots.many_body_density_matrix(G1, c1) ≈ reverse(QuantumDots.many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
+    @test reduced_density_matrix2 ≈ QuantumDots.many_body_density_matrix(G2, c12) ≈
+          QuantumDots.many_body_density_matrix_exp(G2, c12)
+    @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, c12) ≈
+          QuantumDots.many_body_density_matrix_exp(G13, c12)
+    @test reduced_density_matrix13 ≈ QuantumDots.many_body_density_matrix(G13, c12)
+    @test reduced_density_matrix3 ≈ QuantumDots.many_body_density_matrix(G3, c)
+
 end
 
 @testset "Wedge" begin
