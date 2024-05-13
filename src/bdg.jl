@@ -521,9 +521,9 @@ function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn
     _H = Hermitian(H[1:N, 1:N])
     Δ = H[1:N, N+1:2N]
     Δ = (Δ - transpose(Δ)) / 2
-    # @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
-    # @assert Δ ≈ -transpose(Δ)
-    # @assert Δ ≈ -conj(H[N+1:2N, 1:N])
+    @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    @assert Δ ≈ -transpose(Δ)
+    @assert Δ ≈ -conj(H[N+1:2N, 1:N])
     Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
     rho = exp(Hmb)
     return rho / tr(rho)
@@ -538,22 +538,12 @@ See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
 """
 function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
     vals, vecs = diagonalize(BdGMatrix(G - I / 2; check=false), alg)
-    clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
-    f(e) = log((e + 1 / 2) / (1 / 2 - e))
-    vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
-    H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
-    # N = div(size(H, 1), 2)
-    # _H = Hermitian(H[1:N, 1:N])
-    # Δ = H[1:N, N+1:2N]
-    # Δ = (Δ - transpose(Δ)) / 2
-    # @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
-    # @assert Δ ≈ -transpose(Δ)
-    # @assert Δ ≈ -conj(H[N+1:2N, 1:N])
     cbdg = FermionBdGBasis(c)
     qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
     mbqps = map(qp -> many_body_fermion(qp, c), qps)
-    rho = prod((I + (exp(e) - 1) * Matrix(qp' * qp)) / (exp(e) + 1) for (e, qp) in zip(vals2, mbqps))
-    return rho / tr(rho)
+    # rho = prod((I + (exp(e) - 1) * Matrix(qp' * qp)) / (exp(e) + 1) for (e, qp) in zip(vals2, mbqps))
+    rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
+    return rho
 end
 FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(keys(c))
 
