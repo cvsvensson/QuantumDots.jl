@@ -541,7 +541,6 @@ function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=par
     cbdg = FermionBdGBasis(c)
     qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
     mbqps = map(qp -> many_body_fermion(qp, c), qps)
-    # rho = prod((I + (exp(e) - 1) * Matrix(qp' * qp)) / (exp(e) + 1) for (e, qp) in zip(vals2, mbqps))
     rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
     return rho
 end
