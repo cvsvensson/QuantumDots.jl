@@ -301,7 +301,7 @@ end
 
         β = 0.7
         rho1 = exp(-β * H1)
-        rmul!(rho1, 1 / tr(rho1))
+        rmul!(rho1, 1 / tr(rho1))chec
         rho2 = exp(-β * H2)
         rmul!(rho2, 1 / tr(rho2))
         rho3 = exp(-β * H3)
@@ -313,6 +313,9 @@ end
         @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
+
+        # Test BD1_hamiltonian
+
     end
 
     #Test basis compatibility
