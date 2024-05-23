@@ -207,7 +207,7 @@ end
     @test reduced_density_matrix ≈ many_body_density_matrix(G1, c1)
     @test many_body_density_matrix(G1, c1) ≈ reverse(many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
     @test reduced_density_matrix2 ≈ many_body_density_matrix(G2, c12) ≈
-    QuantumDots.many_body_density_matrix_exp(G2, c12)
+          QuantumDots.many_body_density_matrix_exp(G2, c12)
     @test reduced_density_matrix13 ≈ many_body_density_matrix(G13, c12) ≈
           QuantumDots.many_body_density_matrix_exp(G13, c12)
     @test reduced_density_matrix13 ≈ many_body_density_matrix(G13, c12)
@@ -313,6 +313,29 @@ end
         @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
         @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
+
+        # Test BD1_hamiltonian
+        b1 = FermionBasis(1:2, (:↑, :↓); qn)
+        b2 = FermionBasis(3:4, (:↑, :↓); qn)
+        b12 = FermionBasis(1:4, (:↑, :↓); qn)
+        b12w = wedge(b1, b2)
+        θ1 = 0.5
+        θ2 = 0.2
+        params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
+        params2 = (; μ=1, t=0.1, Δ=1.0, V=0, θ=parameter(θ2, :diff), ϕ=5.0, h=1.0, U=10.0, Δ1=-1.0)
+        params12 = (; μ=[params1.μ, params1.μ, params2.μ, params2.μ], t=[params1.t, 0, params2.t, 0], Δ=[params1.Δ, params1.Δ, params2.Δ, params2.Δ], V=[params1.V, 0, params2.V, 0], θ=[0, θ1, 0, θ2], ϕ=[params1.ϕ, params1.ϕ, params2.ϕ, params2.ϕ], h=[params1.h, params1.h, params2.h, params2.h], U=[params1.U, params1.U, params2.U, params2.U], Δ1=[params1.Δ1, 0, params2.Δ1, 0])
+        H1 = QuantumDots.BD1_hamiltonian(b1; params1...)
+        H2 = QuantumDots.BD1_hamiltonian(b2; params2...)
+        H12w = wedge(H1, b1, one(H2), b2, b12w) + wedge(one(H1), b1, H2, b2, b12w)
+        H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
+
+        v12w = wedge(eigvecs(Matrix(H1))[:, 1], b1, eigvecs(Matrix(H2))[:, 1], b2, b12w)
+        v12 = eigvecs(H12)[:, 1]
+        v12ww = eigvecs(H12w)[:, 1]
+        sort(abs.(v12w)) - sort(abs.(v12))
+        @test sum(abs, v12w) ≈ sum(abs, v12)
+        @test sum(abs, v12w) ≈ sum(abs, v12ww)
+        @test diff(eigvals(H12w)) ≈ diff(eigvals(H12))
     end
 
     #Test basis compatibility

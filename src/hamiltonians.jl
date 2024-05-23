@@ -112,10 +112,11 @@ getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     M = nbr_of_fermions(c)
-    @assert length(cell(1, c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
+    spatial_indices = first_labels(c)
+    @assert length(cell(first(spatial_indices), c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M, 2)
-    h1s = (_BD1_1site(cell(j, c); μ=getvalue(μ, j, N), h=getvalue(h, j, N), Δ=getvalue(Δ, j, N), U=getvalue(U, j, N)) for j in 1:N)
-    h2s = (_BD1_2site(cell(j, c), cell(mod1(j + 1, N), c); t=getvalue(t, j, N; size=2), Δ1=getvalue(Δ1, j, N; size=2), V=getvalue(V, j, N; size=2), θϕ1=(getvalue(θ, j, N), getvalue(ϕ, j, N)), θϕ2=(getvalue(θ, mod1(j + 1, N), N), getvalue(ϕ, mod1(j + 1, N), N))) for j in 1:N)
+    h1s = (_BD1_1site(cell(l, c); μ=getvalue(μ, j, N), h=getvalue(h, j, N), Δ=getvalue(Δ, j, N), U=getvalue(U, j, N)) for (j, l) in enumerate(spatial_indices))
+    h2s = (_BD1_2site(cell(l, c), cell(spatial_indices[mod1(j + 1, N)], c); t=getvalue(t, j, N; size=2), Δ1=getvalue(Δ1, j, N; size=2), V=getvalue(V, j, N; size=2), θϕ1=(getvalue(θ, j, N), getvalue(ϕ, j, N)), θϕ2=(getvalue(θ, mod1(j + 1, N), N), getvalue(ϕ, mod1(j + 1, N), N))) for (j, l) in pairs(IndexLinear(), spatial_indices))
     return sum(h1s) + sum(h2s)
 end
 
