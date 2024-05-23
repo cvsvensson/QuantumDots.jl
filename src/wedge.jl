@@ -59,13 +59,13 @@ end
 Compute the wedge product of two matrices `m1` and `m2` with respect to the fermion bases `b1` and `b2`, respectively. Return a matrix in the fermion basis `b3`, which defaults to the wedge product of `b1` and `b2`.
 
 # Arguments
-- `m1::AbstractMatrix{T1}`: The first matrix.
+- `m1::Union{AbstractMatrix{T1}, UniformScaling{T1}}`: The first matrix.
 - `b1::FermionBasis{M1}`: The fermion basis associated with `m1`.
-- `m2::AbstractMatrix{T2}`: The second matrix.
+- `m2::Union{AbstractMatrix{T2}, UniformScaling{T2}}`: The second matrix.
 - `b2::FermionBasis{M2}`: The fermion basis associated with `m2`.
 - `b3::FermionBasis`: The fermion basis associated with the resulting matrix. (optional)
 """
-function wedge(m1::AbstractMatrix{T1}, b1::FermionBasis{M1}, m2::AbstractMatrix{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
+function wedge(m1::Union{AbstractMatrix{T1}, UniformScaling{T1}}, b1::FermionBasis{M1}, m2::Union{AbstractMatrix{T2}, UniformScaling{T2}}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     check_wedge_basis_compatibility(b1, b2, b3)
     T3 = promote_type(T1, T2)
