@@ -289,8 +289,11 @@ end
         vals2, vecs2 = eigen(H2)
         H3 = Matrix(0.5b3[1]' * b3[1] - 0.1b3[2]' * b3[2] + 0.3b3[3]' * b3[3] + (b3[2]' * b3[3] + hc))
         vals3, vecs3 = eigen(H3)
-        H3w = wedge(H1, b1, one(H2), b2, b3) + wedge(one(H1), b1, H2, b2, b3)
+
+        # test wedging with I (UniformScaling)
+        H3w = wedge(H1, b1, I, b2, b3) + wedge(I, b1, H2, b2, b3)
         @test H3w == H3
+        @test wedge(I, b1, I, b2, b3) == one(H3)
 
         vals3w = map(sum, Base.product(vals1, vals2)) |> vec
         p = sortperm(vals3w)
@@ -326,7 +329,8 @@ end
         params12 = (; μ=[params1.μ, params1.μ, params2.μ, params2.μ], t=[params1.t, 0, params2.t, 0], Δ=[params1.Δ, params1.Δ, params2.Δ, params2.Δ], V=[params1.V, 0, params2.V, 0], θ=[0, θ1, 0, θ2], ϕ=[params1.ϕ, params1.ϕ, params2.ϕ, params2.ϕ], h=[params1.h, params1.h, params2.h, params2.h], U=[params1.U, params1.U, params2.U, params2.U], Δ1=[params1.Δ1, 0, params2.Δ1, 0])
         H1 = QuantumDots.BD1_hamiltonian(b1; params1...)
         H2 = QuantumDots.BD1_hamiltonian(b2; params2...)
-        H12w = wedge(H1, b1, one(H2), b2, b12w) + wedge(one(H1), b1, H2, b2, b12w)
+
+        H12w = wedge(H1, b1, I, b2, b12w) + wedge(I, b1, H2, b2, b12w)
         H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
 
         v12w = wedge(eigvecs(Matrix(H1))[:, 1], b1, eigvecs(Matrix(H2))[:, 1], b2, b12w)
