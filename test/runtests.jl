@@ -1,13 +1,12 @@
-using QuantumDots
-using Test, LinearAlgebra, SparseArrays, Random, BlockDiagonals
-using Symbolics
-using OrdinaryDiffEq
-using LinearSolve
-import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
-Random.seed!(1234)
+#using QuantumDots
+#using Test, LinearAlgebra, Random, BlockDiagonals
 
+using TestItemRunner
+@run_package_tests
 
-@testset "Parameters" begin
+@testitem "Parameters" begin
+    using Random
+    Random.seed!(1234)
     N = 4
     ph = parameter(1)
     ph2 = parameter(1; closed=true)
@@ -36,7 +35,8 @@ Random.seed!(1234)
     end
 end
 
-@testset "CAR" begin
+@testitem "CAR" begin
+    using LinearAlgebra
     for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
         c = FermionBasis(1:2; qn)
         @test c[1] * c[1] == 0I
@@ -46,7 +46,10 @@ end
     end
 end
 
-@testset "Fock" begin
+@testitem "Fock" begin
+    using Random
+    Random.seed!(1234)
+
     N = 6
     focknumber = 20 # = 16+4 = 00101
     fbits = bits(focknumber, N)
@@ -100,7 +103,9 @@ end
 
 end
 
-@testset "Basis" begin
+@testitem "Basis" begin
+    using SparseArrays, LinearAlgebra, Random
+    Random.seed!(1234)
     N = 2
     B = FermionBasis(1:N)
     @test QuantumDots.nbr_of_fermions(B) == N
@@ -215,7 +220,10 @@ end
 
 end
 
-@testset "Wedge" begin
+@testitem "Wedge" begin
+    using Random, LinearAlgebra
+    Random.seed!(1234)
+
     for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
         b1 = FermionBasis(1:1; qn)
         b2 = FermionBasis(1:3; qn)
@@ -351,7 +359,10 @@ end
     @test_throws ArgumentError wedge(rand(4, 4), b1, rand(4, 4), b2, b3)
 end
 
-@testset "QubitBasis" begin
+@testitem "QubitBasis" begin
+    using SparseArrays, Random, LinearAlgebra
+    Random.seed!(1234)
+
     N = 2
     B = QubitBasis(1:N)
     @test length(B) == N
@@ -419,8 +430,10 @@ end
     bilinear_equality(c, QubitBasis(((1, :b), (1, :a))), ρ)
 end
 
-@testset "BdG" begin
-    using QuantumDots.SkewLinearAlgebra
+@testitem "BdG" begin
+    using QuantumDots.SkewLinearAlgebra, LinearAlgebra, Random, SparseArrays
+    Random.seed!(1234)
+
     N = 2
     labels = 1:N
     μ1 = rand()
@@ -642,7 +655,10 @@ end
 
 end
 
-@testset "Kitaev" begin
+@testitem "Kitaev" begin
+    using Random, LinearAlgebra, BlockDiagonals
+    Random.seed!(1234)
+
     N = 4
     c = FermionBasis(1:N)
     ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
@@ -704,7 +720,8 @@ end
     @test v2 ≈ vcat(zero(eigsectors[1].vectors[:, 1]), eigsectors[2].vectors[:, 1])
 end
 
-@testset "Parity and number operator" begin
+@testitem "Parity and number operator" begin
+    using SparseArrays, LinearAlgebra
     function get_ops(qn)
         N = 2
         a = FermionBasis(1:N; qn)
@@ -735,7 +752,8 @@ end
 end
 
 
-@testset "BlockDiagonal" begin
+@testitem "BlockDiagonal" begin
+    using SparseArrays, LinearAlgebra, BlockDiagonals
     N = 2
     a = FermionBasis(1:N; qn=QuantumDots.parity)
     ham0 = a[1]' * a[1] + π * a[2]' * a[2]
@@ -750,7 +768,8 @@ end
 end
 
 
-@testset "build_function" begin
+@testitem "build_function" begin
+    using Symbolics, BlockDiagonals
     N = 2
     bases = [FermionBasis(1:N), FermionBasis(1:N; qn=QuantumDots.parity), FermionBdGBasis(1:N)]
     @variables x
@@ -769,7 +788,10 @@ end
     @test all(newhams .≈ cache)
 end
 
-@testset "Fast generated hamiltonians" begin
+@testitem "Fast generated hamiltonians" begin
+    using Random, LinearAlgebra
+    Random.seed!(1234)
+
     N = 5
     params = rand(3)
     hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_fermions(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
@@ -846,7 +868,10 @@ end
 
 end
 
-@testset "rotations" begin
+@testitem "rotations" begin
+    using Random
+    Random.seed!(1234)
+
     N = 2
     b = FermionBasis(1:N, (:↑, :↓))
     standard_hopping = QuantumDots.hopping(1, b[1, :↑], b[2, :↑]) + QuantumDots.hopping(1, b[1, :↓], b[2, :↓])
@@ -877,7 +902,12 @@ end
 end
 
 
-@testset "transport" begin
+@testitem "transport" begin
+    using OrdinaryDiffEq, LinearSolve, Random, LinearAlgebra
+    import AbstractDifferentiation as AD
+    using ForwardDiff, FiniteDifferences
+    Random.seed!(1234)
+
     function test_qd_transport(qn)
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
@@ -885,7 +915,6 @@ end
         # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
         # qn = QuantumDots.parity
-        Random.seed!(1234)
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -954,7 +983,7 @@ end
 
         cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
         cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
-        cmpauli3 = conductance_matrix(1e-4, pauli)
+        cmpauli3 = conductance_matrix(1e-5, pauli)
 
         @test norm(cmpauli - cmpauli2) < 1e-3
         @test norm(cmpauli - cmpauli3) < 1e-3
@@ -1076,7 +1105,10 @@ end
     @test conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
 end
 
-@testset "Khatri-Rao" begin
+@testitem "Khatri-Rao" begin
+    using Random, BlockDiagonals, LinearAlgebra
+    Random.seed!(1234)
+
     bdm = BlockDiagonal([rand(2, 2), rand(3, 3), rand(5, 5)])
     bz = size.(blocks(bdm), 1)
     kv = QuantumDots.KhatriRaoVectorizer(bz)
@@ -1112,7 +1144,10 @@ end
 
 end
 
-@testset "TSL" begin
+@testitem "TSL" begin
+    using Random, Symbolics, BlockDiagonals
+    Random.seed!(1234)
+
     p = (; zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
     tsl, tsl!, m, c = QuantumDots.TSL_generator()
     @test c isa FermionBasis{6}
