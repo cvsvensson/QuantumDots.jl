@@ -18,7 +18,6 @@ export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, Pau
 export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
 
-
 function fastgenerator end
 function fastblockdiagonal end
 function TSL_generator end
@@ -42,5 +41,20 @@ include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
 include("wedge.jl")
+
+
+
+import PrecompileTools
+
+PrecompileTools.@compile_workload begin
+    c1 = FermionBasis(1:1)
+    c2 = FermionBasis(1:1, (:s,); qn=QuantumDots.parity)
+    blockdiagonal(c2[1, :s], c2)
+    c3 = FermionBasis(2:2; qn=QuantumDots.fermionnumber)
+    vals, vecs = eigen(Matrix(c1[1]' * c1[1]))
+    partial_trace(vecs[1, :], (1,), c1)
+    cbdg = FermionBdGBasis(1:1, (:s,))
+    diagonalize(BdGMatrix(cbdg[1, :s]' * cbdg[1, :s]))
+end
 
 end
