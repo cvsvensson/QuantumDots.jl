@@ -42,13 +42,11 @@ function majoranas(qp::QuasiParticle)
 end
 
 Base.keys(b::FermionBdGBasis) = keys(b.position)
-labels(b::FermionBdGBasis) = keys(b).values
 Base.keys(qp::QuasiParticle) = keys(qp.weights)
-labels(qp::QuasiParticle) = keys(qp).values
 basis(qp::QuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
     N = nbr_of_fermions(basis)
-    labels(basis)[1:Int(ceil(N / 2))]
+    collect(keys(basis))[1:Int(ceil(N / 2))]
 end
 function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(f)))
     md1, md2 = majorana_densities(f, labels)
@@ -547,7 +545,7 @@ function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=par
     rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
     return rho
 end
-FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(keys(c))
+FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(collect(keys(c)))
 
 function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
     many_body_hamiltonian(H.H, H.Δ, c)

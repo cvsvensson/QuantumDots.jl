@@ -11,14 +11,14 @@ function lower_qubit(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed
 end
 
-struct QubitBasis{M,S,T,Sym} <: AbstractManyBodyBasis
-    dict::Dictionary{S,T}
+struct QubitBasis{M,D,Sym} <: AbstractManyBodyBasis
+    dict::D
     symmetry::Sym
     function QubitBasis(qubits, sym::Sym) where {Sym<:AbstractSymmetry}
         M = length(qubits)
-        S = eltype(qubits)
         reps = ntuple(n -> qubit_sparse_matrix(n, 2^M, sym), M)
-        new{M,S,eltype(reps),Sym}(Dictionary(qubits, reps), sym)
+        d = OrderedDict(zip(qubits, reps))
+        new{M,typeof(d),Sym}(d, sym)
     end
 end
 Base.getindex(b::QubitBasis, i) = b.dict[i]
@@ -40,11 +40,10 @@ qns(b::QubitBasis) = qns(b.symmetry)
 
 
 Base.keys(b::QubitBasis) = keys(b.dict)
-labels(b::QubitBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::QubitBasis) = show(io, b)
-Base.show(io::IO, b::QubitBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "QubitBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
-Base.iterate(b::QubitBasis) = iterate(b.dict)
-Base.iterate(b::QubitBasis, state) = iterate(b.dict, state)
+Base.show(io::IO, b::QubitBasis{M,D,Sym}) where {M,D,Sym} = print(io, "QubitBasis{$M,$D,$Sym}:\nkeys = ", keys(b))
+Base.iterate(b::QubitBasis) = iterate(values(b.dict))
+Base.iterate(b::QubitBasis, state) = iterate(values(b.dict), state)
 Base.length(::QubitBasis{M}) where {M} = M
 function QubitBasis(iters...; qn=NoSymmetry())
     labels = Base.product(iters...)
