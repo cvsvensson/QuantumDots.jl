@@ -1,6 +1,6 @@
 function majorana_coefficients(ψ1, ψ2, c::FermionBasis)
-    a = map(f -> ψ1' * f * ψ2, values(c.dict))
-    b = map(f -> ψ1' * f' * ψ2, values(c.dict))
+    a = map(f -> ψ1' * f * ψ2, values(c))
+    b = map(f -> ψ1' * f' * ψ2, values(c))
     w = a .+ b
     z = 1im .* (a .- b)
     return w, z
