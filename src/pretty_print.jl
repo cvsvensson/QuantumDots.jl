@@ -58,5 +58,5 @@ qns(sym::AbelianFockSymmetry) = Tuple(keys(sym.qntoinds))
 
 qntoinds(qn, b::Union{FermionBasis,QubitBasis}) = qntoinds(qn, symmetry(b))
 qntoinds(qn, sym::AbelianFockSymmetry) = sym.qntoinds[qn]
-qntoinds(::Nothing, ::QubitBasis{M,<:Any,<:Any,NoSymmetry}) where {M} = 1:2^M
-qntoinds(::Nothing, ::FermionBasis{M,<:Any,<:Any,NoSymmetry}) where {M} = 1:2^M
+qntoinds(::Nothing, ::QubitBasis{M,<:Any,NoSymmetry}) where {M} = 1:2^M
+qntoinds(::Nothing, ::FermionBasis{M,<:Any,NoSymmetry}) where {M} = 1:2^M

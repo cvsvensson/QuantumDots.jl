@@ -21,7 +21,7 @@ siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
 
 Find the index of the first occurrence of `id` in the labels in basis `b`.
 """
-siteindex(id, b::AbstractBasis) = siteindex(id, labels(b))
+siteindex(id, b::AbstractBasis) = siteindex(id, collect(keys(b)))
 
 """
     siteindices(ids, b::AbstractBasis)
