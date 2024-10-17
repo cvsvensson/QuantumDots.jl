@@ -54,11 +54,11 @@ function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(
 end
 
 """
-    majorana_coefficients(f::QuasiParticle, labels=labels(basis(f)))
+    majorana_coefficients(f::QuasiParticle, labels=collect(keys((basis(f))))
 
 Compute the Majorana coefficients for a given `QuasiParticle` object `f`. Returns two dictionaries, for the two types of Majorana operators.
 """
-function majorana_coefficients(f::QuasiParticle, labels=labels(basis(f)))
+function majorana_coefficients(f::QuasiParticle, labels=collect(keys(basis(f))))
     x = map(l -> f[l, :h] + f[l, :p], labels)
     y = map(l -> 1im * (f[l, :h] - f[l, :p]), labels)
     return Dictionary(labels, x),
