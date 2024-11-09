@@ -10,27 +10,27 @@ struct NoSymmetry <: AbstractSymmetry end
 Fermion basis for representing many-body fermions.
 
 ## Fields
-- `dict::Dictionary{S,T}`: A dictionary that maps fermion labels to a representation of the fermion.
+- `dict::OrderedDict`: A dictionary that maps fermion labels to a representation of the fermion.
 - `symmetry::Sym`: The symmetry of the basis.
 """
-struct FermionBasis{M,S,T,Sym} <: AbstractManyBodyBasis
-    dict::Dictionary{S,T}
+struct FermionBasis{M,D,Sym} <: AbstractManyBodyBasis
+    dict::D
     symmetry::Sym
     function FermionBasis(fermions, sym::Sym) where {Sym<:AbstractSymmetry}
         M = length(fermions)
-        S = eltype(fermions)
+        # S = eltype(fermions)
         reps = ntuple(n -> fermion_sparse_matrix(n, 2^M, sym), M)
-        new{M,S,eltype(reps),Sym}(Dictionary(fermions, reps), sym)
+        d = OrderedDict(zip(fermions, reps))
+        new{M,typeof(d),Sym}(d, sym)
     end
 end
 Base.getindex(b::FermionBasis, i) = b.dict[i]
 Base.getindex(b::FermionBasis, args...) = b.dict[args]
 Base.keys(b::FermionBasis) = keys(b.dict)
-labels(b::FermionBasis) = keys(b).values
 Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io, b)
-Base.show(io::IO, b::FermionBasis{M,S,T,Sym}) where {M,S,T,Sym} = print(io, "FermionBasis{$M,$S,$T,$Sym}:\nkeys = ", keys(b))
-Base.iterate(b::FermionBasis) = iterate(b.dict)
-Base.iterate(b::FermionBasis, state) = iterate(b.dict, state)
+Base.show(io::IO, b::FermionBasis{M,D,Sym}) where {M,D,Sym} = print(io, "FermionBasis{$M,$D,$Sym}:\nkeys = ", keys(b))
+Base.iterate(b::FermionBasis) = iterate(values(b.dict))
+Base.iterate(b::FermionBasis, state) = iterate(values(b.dict), state)
 Base.length(::FermionBasis{M}) where {M} = M
 symmetry(b::FermionBasis) = b.symmetry
 function FermionBasis(iters...; qn=NoSymmetry())

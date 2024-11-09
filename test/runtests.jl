@@ -667,8 +667,8 @@ end
     p = parityoperator(c)
     v1, v2 = eachcol(vecs[:, 1:2])
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
-    w = [dot(v1, f + f', v2) for f in c.dict]
-    z = [dot(v1, (f' - f), v2) for f in c.dict]
+    w = [dot(v1, f + f', v2) for f in c]
+    z = [dot(v1, (f' - f), v2) for f in c]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
     w, z = QuantumDots.majorana_coefficients(v1, v2, c)
     mps = QuantumDots.majorana_polarization(w, z, 1:2)
@@ -703,8 +703,8 @@ end
     v1 = vecs[:, 1]
     v2 = vecs[:, 1+size(vecs.blocks[1], 1)]
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
-    w = [dot(v1, f + f', v2) for f in c.dict]
-    z = [dot(v1, (f' - f), v2) for f in c.dict]
+    w = [dot(v1, f + f', v2) for f in c]
+    z = [dot(v1, (f' - f), v2) for f in c]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
     w, z = QuantumDots.majorana_coefficients(v1, v2, c)
     mps = QuantumDots.majorana_polarization(w, z, 1:2)

@@ -5,6 +5,7 @@ using SplitApplyCombine: group
 using Dictionaries
 using StaticArrays
 using SkewLinearAlgebra
+import OrderedCollections: OrderedDict
 import AbstractDifferentiation as AD
 using FillArrays: Eye
 
