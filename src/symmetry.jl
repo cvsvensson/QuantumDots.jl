@@ -123,6 +123,7 @@ struct FermionConservation <: AbstractSymmetry end
 struct FermionSubsetConservation{M} <: AbstractSymmetry
     mask::M
 end
+FermionSubsetConservation(::Nothing) = NoSymmetry()
 FermionConservation(labels, all_labels) = FermionSubsetConservation(focknbr_from_site_indices(siteindices(labels, all_labels)))
 (qn::FermionSubsetConservation)(fs) = fermionnumber(fs, qn.mask)
 (qn::FermionConservation)(fs) = fermionnumber(fs)
@@ -161,6 +162,23 @@ struct ParityConservation <: AbstractSymmetry end
     qn = FermionConservation() * ParityConservation()
     c = FermionBasis(labels; qn)
     @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
-    qn = prod(FermionConservation([l],labels) for l in labels)
+    qn = prod(FermionConservation([l], labels) for l in labels)
     @test all(FermionBasis(labels; qn).symmetry.qntoblocksizes .== 1)
+end
+
+IndexConservation(index, all_labels) = FermionConservation(filter(label -> index in label || index == label, all_labels), all_labels)
+@testitem "IndexConservation" begin
+    labels = 1:4
+    qn = IndexConservation(1, labels)
+    qn2 = FermionConservation(1:1, labels)
+    c = FermionBasis(labels; qn)
+    c2 = FermionBasis(labels; qn=qn2)
+    @test all(c == c2 for (c, c2) in zip(c, c2))
+
+    spatial_labels = 1:10
+    spin_labels = (:↑, :↓)
+    all_labels = collect(Base.product(spatial_labels, spin_labels))[:]
+    qn = IndexConservation(:↑, all_labels) * IndexConservation(:↓, all_labels)
+    c = FermionBasis(all_labels; qn)
+    @test all(c.symmetry.qntoblocksizes .== 1)
 end
