@@ -151,6 +151,7 @@ end
 Base.:*(sym1::AbstractSymmetry, sym2::AbstractSymmetry) = ProductSymmetry((sym1, sym2))
 Base.:*(sym1::AbstractSymmetry, sym2::ProductSymmetry) = ProductSymmetry((sym1, sym2.symmetries...))
 Base.:*(sym1::ProductSymmetry, sym2::AbstractSymmetry) = ProductSymmetry((sym1.symmetries..., sym2))
+Base.:*(sym1::ProductSymmetry, sym2::ProductSymmetry) = ProductSymmetry((sym1.symmetries..., sym2.symmetries...))
 
 struct ParityConservation <: AbstractSymmetry end
 (qn::ParityConservation)(fs) = parity(fs)
@@ -160,4 +161,6 @@ struct ParityConservation <: AbstractSymmetry end
     qn = FermionConservation() * ParityConservation()
     c = FermionBasis(labels; qn)
     @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
+    qn = prod(FermionConservation([l],labels) for l in labels)
+    @test all(FermionBasis(labels; qn).symmetry.qntoblocksizes .== 1)
 end
