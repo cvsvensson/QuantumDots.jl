@@ -86,7 +86,7 @@ struct FermionAdd{C,D}
         end
     end
 end
-
+Base.:(==)(a::FermionAdd, b::FermionAdd) = a.coeff == b.coeff && a.dict == b.dict
 const SM = Union{FermionSym,FermionMul}
 const SMA = Union{FermionSym,FermionMul,FermionAdd}
 
@@ -223,6 +223,13 @@ end
     @fermion f
     f1 = f[:a]
     f2 = f[:b]
+    f3 = f[1, :↑]
+    @test_nowarn display(f1)
+    @test_nowarn display(f3)
+    @test_nowarn display(1 * f1)
+    @test_nowarn display(2 * f3)
+    @test_nowarn display(1 + f1)
+    @test_nowarn display(1 + f3)
     @test iszero(f1 - f1)
     @test iszero(f1 * f1)
     @test f1 * f2 isa QuantumDots.FermionMul
@@ -243,6 +250,7 @@ end
     @test f1' * f1 isa QuantumDots.FermionMul
     @test f1 * f1' isa QuantumDots.FermionAdd
 
+    @test 1 + (f1 + f2) == 1 + f1 + f2 == f1 + f2 + 1 == f1 + 1 + f2 == 1 * f1 + f2 + 1 == f1 + 0.5 * f2 + 1 + (0 * f1 + 0.5 * f2)
     @test iszero((2 * f1) * (2 * f1))
     @test iszero((2 * f1)^2)
     @test (2 * f2) * (2 * f1) == -4 * f1 * f2
@@ -254,7 +262,7 @@ end
 
     @test (1 * f1) * f2 == f1 * f2
     @test (1 * f1) * (1 * f2) == f1 * f2
-    @test f1 * (1 * f2) == f1 * f2
+    @test f1 * f2 == f1 * (1 * f2) == f1 * f2
 end
 
 
