@@ -8,6 +8,7 @@ macro fermion(x)
     :($(esc(x)) = SymbolicFermionBasis($(Expr(:quote, x))))
 end
 Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f.name)
+Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f.name)
 struct FermionSym{L}
     creation::Bool
     label::L
@@ -15,7 +16,14 @@ struct FermionSym{L}
 end
 Base.adjoint(x::FermionSym) = FermionSym(!x.creation, x.label, x.name)
 Base.iszero(x::FermionSym) = false
-Base.show(io::IO, x::FermionSym) = (print(io, x.name, x.creation ? "†" : ""); Base.show_delim_array(io, x.label, "[", ",", "]", false))
+function Base.show(io::IO, x::FermionSym)
+    print(io, x.name, x.creation ? "†" : "")
+    if Base.isiterable(typeof(x.label))
+        Base.show_delim_array(io, x.label, "[", ",", "]", false)
+    else
+        print(io, "[", x.label, "]")
+    end
+end
 function Base.isless(a::FermionSym, b::FermionSym)
     if a.creation == b.creation
         a.label < b.label
@@ -26,21 +34,19 @@ end
 Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.name == b.name
 Base.hash(a::FermionSym, h::UInt) = hash(hash(a.creation, hash(a.label, hash(a.name, h))))
 
-struct FermionMul
-    coeff
-    factors
-    function FermionMul(coeff, factors)
+struct FermionMul{C,F<:FermionSym}
+    coeff::C
+    factors::Vector{F}
+    function FermionMul(coeff::C, factors) where {C}
         if iszero(coeff)
             0
         elseif length(factors) == 0
             coeff
-        elseif length(factors) == 1 && isone(coeff)
-            factors[1]
         else
             if !issorted(factors) || !sorted_noduplicates(factors)
                 throw(ArgumentError("Factors must be sorted"))
             end
-            new(coeff, factors)
+            new{C,eltype(factors)}(coeff, factors)
         end
     end
 end
@@ -59,22 +65,24 @@ end
 Base.iszero(x::FermionMul) = iszero(x.coeff)
 
 Base.:(==)(a::FermionMul, b::FermionMul) = a.coeff == b.coeff && a.factors == b.factors
+Base.:(==)(a::FermionMul, b::FermionSym) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
+Base.:(==)(b::FermionSym, a::FermionMul) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
 Base.hash(a::FermionMul, h::UInt) = hash(hash(a.coeff, hash(a.factors, h)))
 FermionMul(f::FermionMul) = f
 FermionMul(f::FermionSym) = FermionMul(1, [f])
 
-struct FermionAdd
-    coeff
-    dict
-    function FermionAdd(coeff, dict)
+struct FermionAdd{C,D}
+    coeff::C
+    dict::D
+    function FermionAdd(coeff::C, dict::D) where {C,D}
         if length(dict) == 0
             coeff
         elseif length(dict) == 1 && iszero(coeff)
             k, v = first(dict)
-            FermionMul(v, [k])
+            v * k
         else
             all(isone(_coeff(k)) for (k, v) in dict)
-            new(coeff, dict)
+            new{C,D}(coeff, dict)
         end
     end
 end
@@ -243,7 +251,53 @@ end
     @test iszero(f1 * (f1 + f2) * f1)
     @test (f1 * (f1 + f2)) == f1 * f2
     @test (2nf1 - 1) * (2nf1 - 1) == 1
+
+    @test (1 * f1) * f2 == f1 * f2
+    @test (1 * f1) * (1 * f2) == f1 * f2
+    @test f1 * (1 * f2) == f1 * f2
 end
 
 
 ##
+_labels(a::FermionMul) = [s.label for s in a.factors]
+
+function SparseArrays.sparse(op::FermionMul{C}, labels, outstates, instates) where {C}
+    outfocks = Int[]
+    ininds_final = Int[]
+    amps = C[]
+    digitpositions = reverse(siteindices(_labels(op), labels))
+    daggers = reverse([s.creation for s in op.factors])
+    for (n, f) in enumerate(instates)
+        newfockstate, amp = togglefermions(digitpositions, daggers, f)
+        if !iszero(amp)
+            push!(outfocks, newfockstate)
+            push!(amps, amp * op.coeff)
+            push!(ininds_final, n)
+        end
+    end
+    inds = indexin(outfocks, outstates)
+    return sparse(inds, ininds_final, amps, length(outstates), length(instates))
+end
+function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates)
+    op.coeff * I + sum(sparse(op, labels, outstates, instates) for op in terms(op))
+end
+SparseArrays.sparse(op::FermionSym, labels, outstates, instates) = sparse(FermionMul(1, [op]), labels, outstates, instates)
+
+@testitem "SparseFermion" begin
+    using SparseArrays
+    @fermion f
+    N = 2
+    labels = 1:N
+    fmb = FermionBasis(labels)
+    get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)
+    @test all(get_mat(f[l]) == fmb[l] for l in labels)
+    @test all(get_mat(f[l]') == fmb[l]' for l in labels)
+    @test all(get_mat(f[l]') == get_mat(f[l])' for l in labels)
+    @test all(get_mat(f[l]'') == get_mat(f[l]) for l in labels)
+    @test all(get_mat(f[l]' * f[l]) == get_mat(f[l])' * get_mat(f[l]) for l in labels)
+    @test all(get_mat(f[l]' * f[l]) == fmb[l]' * fmb[l] for l in labels)
+
+    newmat = get_mat(sum(f[l]' * f[l] for l in labels))
+    mat = sum(fmb[l]' * fmb[l] for l in labels)
+    @test newmat == mat
+end
