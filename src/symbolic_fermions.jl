@@ -1,5 +1,4 @@
 
-##
 struct SymbolicFermionBasis
     name::Symbol
 end
@@ -66,7 +65,7 @@ Base.iszero(x::FermionMul) = iszero(x.coeff)
 
 Base.:(==)(a::FermionMul, b::FermionMul) = a.coeff == b.coeff && a.factors == b.factors
 Base.:(==)(a::FermionMul, b::FermionSym) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
-Base.:(==)(b::FermionSym, a::FermionMul) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
+Base.:(==)(b::FermionSym, a::FermionMul) = a == b
 Base.hash(a::FermionMul, h::UInt) = hash(hash(a.coeff, hash(a.factors, h)))
 FermionMul(f::FermionMul) = f
 FermionMul(f::FermionSym) = FermionMul(1, [f])
@@ -140,8 +139,6 @@ function Base.:^(a::FermionMul, x::Integer)
 end
 _coeff(a::FermionSym) = 1
 _coeff(a::FermionMul) = a.coeff
-_factors(a::FermionSym) = [a]
-_factors(a::FermionMul) = a.factors
 Base.:*(x::Number, a::FermionSym) = iszero(x) ? 0 : FermionMul(x, [a])
 Base.:*(x::Number, a::FermionMul) = iszero(x) ? 0 : FermionMul(x * a.coeff, a.factors)
 Base.:*(x::Number, a::FermionAdd) = iszero(x) ? 0 : FermionAdd(x * a.coeff, Dict(k => v * x for (k, v) in collect(a.dict)))
@@ -218,7 +215,6 @@ function _merge!(f::F, d, others...; filter=x -> false) where {F}
     acc
 end
 
-##
 @testitem "SymbolicFermions" begin
     @fermion f
     f1 = f[:a]
@@ -262,10 +258,9 @@ end
     @test (1 * f1) * f2 == f1 * f2
     @test (1 * f1) * (1 * f2) == f1 * f2
     @test f1 * f2 == f1 * (1 * f2) == f1 * f2
+    @test f1 - 1 == (1 * f1) - 1 == (0.5 + f1) - 1.5
 end
 
-
-##
 _labels(a::FermionMul) = [s.label for s in a.factors]
 SparseArrays.sparse(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:FermionSym}, labels, instates::AbstractVector) = sparse(op, labels, instates, instates)
 SparseArrays.sparse(op::Union{<:FermionMul,<:FermionSym}, labels, outstates, instates::AbstractVector) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
@@ -286,7 +281,6 @@ function sparsetuple(op::FermionMul{C}, labels, outstates, instates; fock_to_out
             push!(ininds_final, n)
         end
     end
-    # indsout::Vector{Int} = indexin(outfocks, outstates)
     indsout = map(i -> fock_to_outind[i], outfocks)
     return (indsout, ininds_final, amps)
 end
