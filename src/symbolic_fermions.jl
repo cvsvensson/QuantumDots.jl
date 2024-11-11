@@ -254,8 +254,7 @@ end
     @test iszero((2 * f1) * (2 * f1))
     @test iszero((2 * f1)^2)
     @test (2 * f2) * (2 * f1) == -4 * f1 * f2
-
-    @test f1 == (f1 * (f1 + 1))
+    @test f1 == (f1 * (f1 + 1)) == (f1 + 1) * f1
     @test iszero(f1 * (f1 + f2) * f1)
     @test (f1 * (f1 + f2)) == f1 * f2
     @test (2nf1 - 1) * (2nf1 - 1) == 1
