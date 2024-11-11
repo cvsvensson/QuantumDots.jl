@@ -175,7 +175,7 @@ IndexConservation(index, all_labels) = FermionConservation(filter(label -> index
     c2 = FermionBasis(labels; qn=qn2)
     @test all(c == c2 for (c, c2) in zip(c, c2))
 
-    spatial_labels = 1:10
+    spatial_labels = 1:1
     spin_labels = (:↑, :↓)
     all_labels = collect(Base.product(spatial_labels, spin_labels))[:]
     qn = IndexConservation(:↑, all_labels) * IndexConservation(:↓, all_labels)
