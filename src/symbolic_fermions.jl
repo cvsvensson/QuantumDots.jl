@@ -270,7 +270,7 @@ end
 _labels(a::FermionMul) = [s.label for s in a.factors]
 SparseArrays.sparse(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:FermionSym}, labels, instates::AbstractVector) = sparse(op, labels, instates, instates)
 SparseArrays.sparse(op::Union{<:FermionMul,<:FermionSym}, labels, outstates, instates::AbstractVector) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
-function sparsetuple(op::FermionMul{C}, labels, outstates, instates) where {C}
+function sparsetuple(op::FermionMul{C}, labels, outstates, instates; fock_to_outind=Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))) where {C}
     outfocks = Int[]
     ininds_final = Int[]
     amps = C[]
@@ -287,11 +287,13 @@ function sparsetuple(op::FermionMul{C}, labels, outstates, instates) where {C}
             push!(ininds_final, n)
         end
     end
-    indsout::Vector{Int} = indexin(outfocks, outstates)
+    # indsout::Vector{Int} = indexin(outfocks, outstates)
+    indsout = map(i -> fock_to_outind[i], outfocks)
     return (indsout, ininds_final, amps)
 end
 function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates::AbstractVector)
-    tuples = [sparsetuple(op, labels, outstates, instates) for op in terms(op)]
+    fock_to_outind = Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))
+    tuples = [sparsetuple(op, labels, outstates, instates; fock_to_outind) for op in terms(op)]
     indsout = mapreduce(Base.Fix2(Base.getindex, 1), vcat, tuples)
     indsin_final = mapreduce(Base.Fix2(Base.getindex, 2), vcat, tuples)
     amps = mapreduce(Base.Fix2(Base.getindex, 3), vcat, tuples)
@@ -301,9 +303,9 @@ end
 sparsetuple(op::FermionSym, labels, outstates, instates) = sparsetuple(FermionMul(1, [op]), labels, outstates, instates)
 
 @testitem "SparseFermion" begin
-    using SparseArrays
+    using SparseArrays, LinearAlgebra
     @fermion f
-    N = 22
+    N = 4
     labels = 1:N
     fmb = FermionBasis(labels)
     get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)

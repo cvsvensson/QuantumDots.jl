@@ -11,28 +11,29 @@ sizestoinds(sizes) = accumulate((a, b) -> last(a) .+ (1:b), sizes, init=0:0)::Ve
 abstract type AbstractQuantumNumber end
 
 """
-    symmetry(M::Int, qn)
+    symmetry(fockstates, qn)
 
 Constructs an `AbelianFockSymmetry` object that represents the symmetry of a many-body fermionic system. 
 
 # Arguments
-- `M::Int`: The number of fermions in the system.
+- `fockstates`: The fockstates to iterate over
 - `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
 """
-function symmetry(M::Int, qn)
-    qntooldinds = group(ind -> qn(ind - 1), 1:2^M)
+function symmetry(fockstates::AbstractVector, qn)
+    oldinds = eachindex(fockstates)
+    qntooldinds = group(ind -> qn(fockstates[ind]), oldinds)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)
     blocksizes = map(length, qntooldinds)
-    newindfromold = map(first, sort(collect(enumerate(oldindfromnew)), by=last))
-    indtofockdict = oldindfromnew .- 1
+    newindfromold = map(first, sort!(collect(enumerate(oldindfromnew)), by=last))
+    indtofockdict = map(i -> fockstates[i], oldindfromnew)
     indtofock(ind) = indtofockdict[ind]
-    focktoinddict = Dictionary(0:(2^M-1), newindfromold)
+    focktoinddict = Dictionary(fockstates, newindfromold)
     qntoinds = map(oldinds -> map(oldind -> newindfromold[oldind], oldinds), qntooldinds)
-    qntofockstates = map(oldinds -> oldinds .- 1, qntooldinds)
+    qntofockstates = map(oldinds -> fockstates[oldinds], qntooldinds)
     AbelianFockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
 end
-symmetry(M::Int, ::NoSymmetry) = NoSymmetry()
+symmetry(fs::AbstractVector, ::NoSymmetry) = NoSymmetry()
 
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
@@ -55,7 +56,7 @@ function fermion_sparse_matrix(fermion_number, totalsize, sym)
         newfockstate, amp = removefermion(fermion_number, f)
         if !iszero(amp)
             push!(amps, amp)
-            push!(ininds_final, n)
+            push!(ininds_final, focktoind(f, sym))
             push!(outinds, focktoind(newfockstate, sym))
         end
     end
@@ -116,4 +117,47 @@ function fockstates(M, n)
         count += 1
     end
     states
+end
+
+struct FermionConservation <: AbstractSymmetry end
+struct FermionSubsetConservation{M} <: AbstractSymmetry
+    mask::M
+end
+FermionConservation(labels, all_labels) = FermionSubsetConservation(focknbr_from_site_indices(siteindices(labels, all_labels)))
+(qn::FermionSubsetConservation)(fs) = fermionnumber(fs, qn.mask)
+(qn::FermionConservation)(fs) = fermionnumber(fs)
+
+@testitem "ConservedFermions" begin
+    labels = 1:4
+    conservedlabels = 1:4
+    qn = FermionConservation(conservedlabels, labels)
+    c1 = FermionBasis(labels; qn)
+    c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
+    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
+    c1 = FermionBasis(labels)
+    c2 = FermionBasis(labels; qn=FermionConservation((), labels))
+    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
+
+    conservedlabels = 2:2
+    qn = FermionConservation(conservedlabels, labels)
+    c1 = FermionBasis(labels; qn)
+    @test all(c1.symmetry.qntoblocksizes .== 2^(length(labels) - length(conservedlabels)))
+end
+
+struct ProductSymmetry{T} <: AbstractSymmetry
+    symmetries::T
+end
+(qn::ProductSymmetry)(fs) = map(sym -> sym(fs), qn.symmetries)
+Base.:*(sym1::AbstractSymmetry, sym2::AbstractSymmetry) = ProductSymmetry((sym1, sym2))
+Base.:*(sym1::AbstractSymmetry, sym2::ProductSymmetry) = ProductSymmetry((sym1, sym2.symmetries...))
+Base.:*(sym1::ProductSymmetry, sym2::AbstractSymmetry) = ProductSymmetry((sym1.symmetries..., sym2))
+
+struct ParityConservation <: AbstractSymmetry end
+(qn::ParityConservation)(fs) = parity(fs)
+
+@testitem "ProductSymmetry" begin
+    labels = 1:4
+    qn = FermionConservation() * ParityConservation()
+    c = FermionBasis(labels; qn)
+    @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
 end

@@ -47,9 +47,9 @@ Base.iterate(b::QubitBasis, state) = iterate(values(b.dict), state)
 Base.length(::QubitBasis{M}) where {M} = M
 function QubitBasis(iters...; qn=NoSymmetry())
     labels = Base.product(iters...)
-    QubitBasis(labels, symmetry(length(labels), qn))
+    QubitBasis(labels, symmetry(0:2^length(labels)-1, qn))
 end
-QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(length(iter), qn))
+QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(0:2^length(iter)-1, qn))
 symmetry(basis::QubitBasis) = basis.symmetry
 
 

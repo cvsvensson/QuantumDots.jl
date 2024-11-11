@@ -35,9 +35,9 @@ Base.length(::FermionBasis{M}) where {M} = M
 symmetry(b::FermionBasis) = b.symmetry
 function FermionBasis(iters...; qn=NoSymmetry())
     labels = Base.product(iters...)
-    FermionBasis(labels, symmetry(length(labels), qn))
+    FermionBasis(labels, symmetry(0:2^length(labels)-1, qn))
 end
-FermionBasis(iter; qn=NoSymmetry()) = FermionBasis(iter, symmetry(length(iter), qn))
+FermionBasis(iter; qn=NoSymmetry()) = FermionBasis(iter, symmetry(0:2^length(iter)-1, qn))
 nbr_of_fermions(::FermionBasis{M}) where {M} = M
 
 

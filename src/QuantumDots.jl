@@ -20,6 +20,7 @@ export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, Pau
 export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
 export @fermion
+export FermionConservation, NoSymmetry, ParityConservation
 
 function fastgenerator end
 function fastblockdiagonal end
