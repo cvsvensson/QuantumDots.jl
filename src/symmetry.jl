@@ -47,6 +47,9 @@ function fermion_sparse_matrix(fermion_number, totalsize, sym)
     amps = Int[]
     ininds_final = Int[]
     outinds = Int[]
+    sizehint!(amps, totalsize)
+    sizehint!(ininds_final, totalsize)
+    sizehint!(outinds, totalsize)
     for n in ininds
         f = indtofock(n, sym)
         newfockstate, amp = removefermion(fermion_number, f)

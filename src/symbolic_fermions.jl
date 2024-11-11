@@ -265,6 +265,9 @@ function SparseArrays.sparse(op::FermionMul{C}, labels, outstates, instates) whe
     outfocks = Int[]
     ininds_final = Int[]
     amps = C[]
+    sizehint!(outfocks, length(instates))
+    sizehint!(ininds_final, length(instates))
+    sizehint!(amps, length(instates))
     digitpositions = reverse(siteindices(_labels(op), labels))
     daggers = reverse([s.creation for s in op.factors])
     for (n, f) in enumerate(instates)
@@ -275,8 +278,8 @@ function SparseArrays.sparse(op::FermionMul{C}, labels, outstates, instates) whe
             push!(ininds_final, n)
         end
     end
-    inds = indexin(outfocks, outstates)
-    return sparse(inds, ininds_final, amps, length(outstates), length(instates))
+    indsout = indexin(outfocks, outstates)
+    return sparse(indsout, ininds_final, amps, length(outstates), length(instates))
 end
 function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates)
     op.coeff * I + sum(sparse(op, labels, outstates, instates) for op in terms(op))
@@ -286,7 +289,7 @@ SparseArrays.sparse(op::FermionSym, labels, outstates, instates) = sparse(Fermio
 @testitem "SparseFermion" begin
     using SparseArrays
     @fermion f
-    N = 2
+    N = 4
     labels = 1:N
     fmb = FermionBasis(labels)
     get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)
