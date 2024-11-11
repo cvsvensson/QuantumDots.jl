@@ -64,7 +64,7 @@ function togglefermions(digitpositions, daggers, focknbr)
     allowed = true
     fermionstatistics = 1
     for (digitpos, dagger) in zip(digitpositions, daggers)
-        op = 2^(digitpos - 1)
+        op = 1 << (digitpos - 1) #2^(digitpos - 1) but faster
         if dagger
             newfocknbr = op | focknbr
             # Check if there already was a fermion at the site.
