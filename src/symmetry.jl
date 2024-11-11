@@ -43,9 +43,20 @@ focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 Constructs a sparse matrix of size `totalsize` representing a fermionic operator at bit position `fermion_number` in a many-body fermionic system with symmetry `sym`. 
 """
 function fermion_sparse_matrix(fermion_number, totalsize, sym)
-    mat = spzeros(Int, totalsize, totalsize)
-    _fill!(mat, fs -> removefermion(fermion_number, fs), sym)
-    mat
+    ininds = 1:totalsize
+    amps = Int[]
+    ininds_final = Int[]
+    outinds = Int[]
+    for n in ininds
+        f = indtofock(n, sym)
+        newfockstate, amp = removefermion(fermion_number, f)
+        if !iszero(amp)
+            push!(amps, amp)
+            push!(ininds_final, n)
+            push!(outinds, focktoind(newfockstate, sym))
+        end
+    end
+    return sparse(outinds, ininds_final, amps, totalsize, totalsize)
 end
 
 
