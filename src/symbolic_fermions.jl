@@ -250,7 +250,7 @@ end
     @test f1' * f1 isa QuantumDots.FermionMul
     @test f1 * f1' isa QuantumDots.FermionAdd
 
-    @test 1 + (f1 + f2) == 1 + f1 + f2 == f1 + f2 + 1 == f1 + 1 + f2 == 1 * f1 + f2 + 1 == f1 + 0.5 * f2 + 1 + (0 * f1 + 0.5 * f2)
+    @test 1 + (f1 + f2) == 1 + f1 + f2 == f1 + f2 + 1 == f1 + 1 + f2 == 1 * f1 + f2 + 1 == f1 + 0.5 * f2 + 1 + (0 * f1 + 0.5 * f2) == (0.5 + 0.5 * f1 + 0.2 * f2) + 0.5 + (0.5 * f1 + 0.8 * f2) == (1 + f1' + (1 * f2)')'
     @test iszero((2 * f1) * (2 * f1))
     @test iszero((2 * f1)^2)
     @test (2 * f2) * (2 * f1) == -4 * f1 * f2
@@ -268,8 +268,8 @@ end
 
 ##
 _labels(a::FermionMul) = [s.label for s in a.factors]
-SparseArrays.sparse(op::Union{<:FermionMul,<:FermionAdd,<:FermionSym}, labels, instates) = sparse(op, labels, instates, instates)
-SparseArrays.sparse(op::Union{<:FermionMul,<:FermionSym}, labels, outstates, instates) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
+SparseArrays.sparse(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:FermionSym}, labels, instates::AbstractVector) = sparse(op, labels, instates, instates)
+SparseArrays.sparse(op::Union{<:FermionMul,<:FermionSym}, labels, outstates, instates::AbstractVector) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
 function sparsetuple(op::FermionMul{C}, labels, outstates, instates) where {C}
     outfocks = Int[]
     ininds_final = Int[]
@@ -290,7 +290,7 @@ function sparsetuple(op::FermionMul{C}, labels, outstates, instates) where {C}
     indsout::Vector{Int} = indexin(outfocks, outstates)
     return (indsout, ininds_final, amps)
 end
-function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates)
+function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates::AbstractVector)
     tuples = [sparsetuple(op, labels, outstates, instates) for op in terms(op)]
     indsout = mapreduce(Base.Fix2(Base.getindex, 1), vcat, tuples)
     indsin_final = mapreduce(Base.Fix2(Base.getindex, 2), vcat, tuples)
@@ -303,7 +303,7 @@ sparsetuple(op::FermionSym, labels, outstates, instates) = sparsetuple(FermionMu
 @testitem "SparseFermion" begin
     using SparseArrays
     @fermion f
-    N = 2
+    N = 22
     labels = 1:N
     fmb = FermionBasis(labels)
     get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)
@@ -318,4 +318,5 @@ sparsetuple(op::FermionSym, labels, outstates, instates) = sparsetuple(FermionMu
     mat = sum(fmb[l]' * fmb[l] for l in labels)
     @test newmat == mat
 
+    @test all(sparse(sum(f[l]' * f[l] for l in labels), labels, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 end
