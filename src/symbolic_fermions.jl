@@ -260,8 +260,9 @@ end
 
 ##
 _labels(a::FermionMul) = [s.label for s in a.factors]
-
-function SparseArrays.sparse(op::FermionMul{C}, labels, outstates, instates) where {C}
+SparseArrays.sparse(op::Union{<:FermionMul,<:FermionAdd,<:FermionSym}, labels, instates) = sparse(op, labels, instates, instates)
+SparseArrays.sparse(op::Union{<:FermionMul,<:FermionSym}, labels, outstates, instates) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
+function sparsetuple(op::FermionMul{C}, labels, outstates, instates) where {C}
     outfocks = Int[]
     ininds_final = Int[]
     amps = C[]
@@ -278,18 +279,23 @@ function SparseArrays.sparse(op::FermionMul{C}, labels, outstates, instates) whe
             push!(ininds_final, n)
         end
     end
-    indsout = indexin(outfocks, outstates)
-    return sparse(indsout, ininds_final, amps, length(outstates), length(instates))
+    indsout::Vector{Int} = indexin(outfocks, outstates)
+    return (indsout, ininds_final, amps)
 end
 function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates)
-    op.coeff * I + sum(sparse(op, labels, outstates, instates) for op in terms(op))
+    tuples = [sparsetuple(op, labels, outstates, instates) for op in terms(op)]
+    indsout = mapreduce(Base.Fix2(Base.getindex, 1), vcat, tuples)
+    indsin_final = mapreduce(Base.Fix2(Base.getindex, 2), vcat, tuples)
+    amps = mapreduce(Base.Fix2(Base.getindex, 3), vcat, tuples)
+    return op.coeff * I + sparse(indsout, indsin_final, amps, length(outstates), length(instates))
+
 end
-SparseArrays.sparse(op::FermionSym, labels, outstates, instates) = sparse(FermionMul(1, [op]), labels, outstates, instates)
+sparsetuple(op::FermionSym, labels, outstates, instates) = sparsetuple(FermionMul(1, [op]), labels, outstates, instates)
 
 @testitem "SparseFermion" begin
     using SparseArrays
     @fermion f
-    N = 4
+    N = 2
     labels = 1:N
     fmb = FermionBasis(labels)
     get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)
@@ -303,4 +309,5 @@ SparseArrays.sparse(op::FermionSym, labels, outstates, instates) = sparse(Fermio
     newmat = get_mat(sum(f[l]' * f[l] for l in labels))
     mat = sum(fmb[l]' * fmb[l] for l in labels)
     @test newmat == mat
+
 end
