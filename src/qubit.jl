@@ -14,11 +14,15 @@ end
 struct QubitBasis{M,D,Sym} <: AbstractManyBodyBasis
     dict::D
     symmetry::Sym
-    function QubitBasis(qubits, sym::Sym) where {Sym<:AbstractSymmetry}
-        M = length(qubits)
-        reps = ntuple(n -> qubit_sparse_matrix(n, 2^M, sym), M)
-        d = OrderedDict(zip(qubits, reps))
-        new{M,typeof(d),Sym}(d, sym)
+    function QubitBasis(iters...; qn = NoSymmetry(), kwargs...) 
+        labels = handle_labels(iters...)
+        M = length(labels)
+        labelled_symmetry = instantiate(qn, labels)
+        fockstates = get(kwargs, :fockstates, 0:2^M-1)
+        sym_concrete = focksymmetry(fockstates, labelled_symmetry)
+        reps = ntuple(n -> qubit_sparse_matrix(n, length(fockstates), sym_concrete), M)
+        d = OrderedDict(zip(labels, reps))
+        new{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
     end
 end
 Base.getindex(b::QubitBasis, i) = b.dict[i]
@@ -45,11 +49,6 @@ Base.show(io::IO, b::QubitBasis{M,D,Sym}) where {M,D,Sym} = print(io, "QubitBasi
 Base.iterate(b::QubitBasis) = iterate(values(b.dict))
 Base.iterate(b::QubitBasis, state) = iterate(values(b.dict), state)
 Base.length(::QubitBasis{M}) where {M} = M
-function QubitBasis(iters...; qn=NoSymmetry())
-    labels = Base.product(iters...)
-    QubitBasis(labels, symmetry(0:2^length(labels)-1, qn))
-end
-QubitBasis(iter; qn=NoSymmetry()) = QubitBasis(iter, symmetry(0:2^length(iter)-1, qn))
 symmetry(basis::QubitBasis) = basis.symmetry
 
 

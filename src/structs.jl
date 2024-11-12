@@ -16,13 +16,17 @@ Fermion basis for representing many-body fermions.
 struct FermionBasis{M,D,Sym} <: AbstractManyBodyBasis
     dict::D
     symmetry::Sym
-    function FermionBasis(labels, sym::Sym, fockstates=0:2^length(labels)-1) where {Sym<:AbstractSymmetry}
+    function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
+        labels = handle_labels(iters...)
+        fockstates = get(kwargs, :fockstates, 0:2^length(labels)-1)
         M = length(labels)
-        sym_concrete = instantiate(sym, labels)
-        sym_more_concrete = symmetry(fockstates, sym_concrete)
-        reps = ntuple(n -> fermion_sparse_matrix(n, 2^M, sym_more_concrete), M)
+        println(labels)
+        labelled_symmetry = instantiate(qn, labels)
+        sym_concrete = focksymmetry(fockstates, labelled_symmetry)
+        # sym_more_concrete = symmetry(fockstates, sym_concrete)
+        reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
         d = OrderedDict(zip(labels, reps))
-        new{M,typeof(d),typeof(sym_more_concrete)}(d, sym_more_concrete)
+        new{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
     end
 end
 Base.getindex(b::FermionBasis, i) = b.dict[i]
@@ -34,12 +38,9 @@ Base.iterate(b::FermionBasis) = iterate(values(b.dict))
 Base.iterate(b::FermionBasis, state) = iterate(values(b.dict), state)
 Base.length(::FermionBasis{M}) where {M} = M
 symmetry(b::FermionBasis) = b.symmetry
-function FermionBasis(iters...; qn=NoSymmetry())
-    labels = Base.product(iters...)
-    fockstates = 0:2^length(iter)-1
-    FermionBasis(labels, qn, fockstates)
-end
-FermionBasis(iter; qn=NoSymmetry(), fockstates=0:2^length(iter)-1) = FermionBasis(iter, qn, fockstates)
+
+handle_labels(iter, iters...) = Base.product(iter, iters...)
+handle_labels(iter) = iter
 nbr_of_fermions(::FermionBasis{M}) where {M} = M
 
 

@@ -11,7 +11,7 @@ sizestoinds(sizes) = accumulate((a, b) -> last(a) .+ (1:b), sizes, init=0:0)::Ve
 abstract type AbstractQuantumNumber end
 
 """
-    symmetry(fockstates, qn)
+    focksymmetry(fockstates, qn)
 
 Constructs an `AbelianFockSymmetry` object that represents the symmetry of a many-body fermionic system. 
 
@@ -19,7 +19,7 @@ Constructs an `AbelianFockSymmetry` object that represents the symmetry of a man
 - `fockstates`: The fockstates to iterate over
 - `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
 """
-function symmetry(fockstates::AbstractVector, qn)
+function focksymmetry(fockstates::AbstractVector, qn)
     oldinds = eachindex(fockstates)
     qntooldinds = group(ind -> qn(fockstates[ind]), oldinds)
     sortkeys!(qntooldinds)
@@ -33,9 +33,8 @@ function symmetry(fockstates::AbstractVector, qn)
     qntofockstates = map(oldinds -> fockstates[oldinds], qntooldinds)
     AbelianFockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
 end
-symmetry(::AbstractVector, ::NoSymmetry) = NoSymmetry()
+focksymmetry(::AbstractVector, ::NoSymmetry) = NoSymmetry()
 instantiate(::NoSymmetry, labels) = NoSymmetry()
-instantiate(sym::AbelianFockSymmetry, labels) = sym
 indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
@@ -130,7 +129,7 @@ end
 FermionSubsetConservation(::Nothing) = NoSymmetry()
 FermionConservation(labels, all_labels) = FermionSubsetConservation(focknbr_from_site_indices(siteindices(labels, all_labels)))
 FermionConservation(labels) = UninstantiatedFermionSubsetConservation(labels)
-instantiate(qn::UninstantiatedFermionSubsetConservation, all_labels) = FermionConservation(qn.labels, all_labels)
+instantiate(qn::UninstantiatedFermionSubsetConservation, labels) = FermionConservation(qn.labels, labels)
 instantiate(qn::FermionSubsetConservation, labels) = qn
 instantiate(qn::FermionConservation, labels) = qn
 
@@ -145,11 +144,11 @@ instantiate(qn::FermionConservation, labels) = qn
     c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
     @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
     c1 = FermionBasis(labels)
-    c2 = FermionBasis(labels; qn=FermionConservation((), labels))
+    c2 = FermionBasis(labels; qn=FermionConservation(()))
     @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
 
     conservedlabels = 2:2
-    qn = FermionConservation(conservedlabels, labels)
+    qn = FermionConservation(conservedlabels)
     c1 = FermionBasis(labels; qn)
     @test all(c1.symmetry.qntoblocksizes .== 2^(length(labels) - length(conservedlabels)))
 end
@@ -197,3 +196,5 @@ IndexConservation(index, all_labels) = FermionConservation(filter(label -> index
     c = FermionBasis(all_labels; qn)
     @test all(c.symmetry.qntoblocksizes .== 1)
 end
+
+instantiate(f::F, labels) where {F} = f
