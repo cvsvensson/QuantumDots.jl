@@ -1,19 +1,25 @@
-
 struct SymbolicFermionBasis
     name::Symbol
+    universe::UInt64
 end
 
-macro fermion(x)
-    :($(esc(x)) = SymbolicFermionBasis($(Expr(:quote, x))))
+macro fermions(xs...)
+    universe = hash(xs)
+    defs = map(xs) do x
+        :($(esc(x)) = SymbolicFermionBasis($(Expr(:quote, x)), $universe))
+    end
+    Expr(:block, defs...,
+        :(tuple($(map(x -> esc(x), xs)...))))
 end
-Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f.name)
-Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f.name)
+Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f.name, f.universe)
+Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f.name, f.universe)
 struct FermionSym{L}
     creation::Bool
     label::L
     name::Symbol
+    universe::UInt
 end
-Base.adjoint(x::FermionSym) = FermionSym(!x.creation, x.label, x.name)
+Base.adjoint(x::FermionSym) = FermionSym(!x.creation, x.label, x.name, x.universe)
 Base.iszero(x::FermionSym) = false
 function Base.show(io::IO, x::FermionSym)
     print(io, x.name, x.creation ? "†" : "")
@@ -24,28 +30,30 @@ function Base.show(io::IO, x::FermionSym)
     end
 end
 function Base.isless(a::FermionSym, b::FermionSym)
-    if a.creation == b.creation
-        a.label < b.label
+    if a.universe !== b.universe
+        a.universe < b.universe
+    elseif a.creation == b.creation
+        a.name == b.name && return a.label < b.label
+        a.name < b.name
     else
         a.creation > b.creation
     end
 end
-Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.name == b.name
+Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.name == b.name && a.universe == b.universe
 Base.hash(a::FermionSym, h::UInt) = hash(hash(a.creation, hash(a.label, hash(a.name, h))))
 
 struct FermionMul{C,F<:FermionSym}
     coeff::C
     factors::Vector{F}
+    ordered::Bool
     function FermionMul(coeff::C, factors) where {C}
         if iszero(coeff)
             0
         elseif length(factors) == 0
             coeff
         else
-            if !issorted(factors) || !sorted_noduplicates(factors)
-                throw(ArgumentError("Factors must be sorted"))
-            end
-            new{C,eltype(factors)}(coeff, factors)
+            ordered = issorted(factors) && sorted_noduplicates(factors)
+            new{C,eltype(factors)}(coeff, factors, ordered)
         end
     end
 end
@@ -69,7 +77,6 @@ Base.:(==)(b::FermionSym, a::FermionMul) = a == b
 Base.hash(a::FermionMul, h::UInt) = hash(hash(a.coeff, hash(a.factors, h)))
 FermionMul(f::FermionMul) = f
 FermionMul(f::FermionSym) = FermionMul(1, [f])
-
 struct FermionAdd{C,D}
     coeff::C
     dict::D
@@ -116,12 +123,16 @@ Base.:-(a::Number, b::SMA) = a + (-b)
 Base.:-(a::SMA, b::Number) = a + (-b)
 Base.:-(a::SMA, b::SMA) = a + (-b)
 Base.:-(a::SMA) = -1 * a
-function terms(a::FermionAdd)
+function fermionterms(a::FermionAdd)
     [v * k for (k, v) in pairs(a.dict)]
 end
-function Base.:+(a::FermionAdd, b::FermionAdd)
-    a.coeff + foldr((f, b) -> f + b, terms(a); init=b)
+function allterms(a::FermionAdd)
+    [a.coeff, [v * k for (k, v) in pairs(a.dict)]...]
 end
+function Base.:+(a::FermionAdd, b::FermionAdd)
+    a.coeff + foldr((f, b) -> f + b, fermionterms(a); init=b)
+end
+Base.:^(a::Union{FermionMul,FermionAdd}, b) = Base.power_by_squaring(a, b)
 
 function Base.:^(a::FermionSym, b)
     if b isa Number && iszero(b)
@@ -134,9 +145,6 @@ function Base.:^(a::FermionSym, b)
         throw(ArgumentError("Invalid exponent $b"))
     end
 end
-function Base.:^(a::FermionMul, x::Integer)
-    prod(a for _ in 1:x)
-end
 _coeff(a::FermionSym) = 1
 _coeff(a::FermionMul) = a.coeff
 Base.:*(x::Number, a::FermionSym) = iszero(x) ? 0 : FermionMul(x, [a])
@@ -144,15 +152,28 @@ Base.:*(x::Number, a::FermionMul) = iszero(x) ? 0 : FermionMul(x * a.coeff, a.fa
 Base.:*(x::Number, a::FermionAdd) = iszero(x) ? 0 : FermionAdd(x * a.coeff, Dict(k => v * x for (k, v) in collect(a.dict)))
 Base.:*(a::SMA, x::Number) = x * a
 
-function Base.:*(a::FermionSym, b::FermionSym)
+Base.:*(a::FermionSym, b::FermionSym) = ordered_prod(a, b)
+function ordered_prod(a::FermionSym, b::FermionSym)
     if a == b
         0
     elseif a < b
         FermionMul(1, [a, b])
     elseif a > b
-        FermionMul(-1, [b, a]) + Int(a.label == b.label)
+        FermionMul((-1)^(a.universe == b.universe), [b, a]) + Int(a.name == b.name && a.label == b.label && a.universe == b.universe)
+    else
+        throw(ArgumentError("Don't know how to multiply $a * $b"))
     end
 end
+unordered_prod(a::FermionSym, b::FermionSym) = FermionMul(1, [a, b])
+unordered_prod(a::FermionMul, b::FermionAdd) = b.coeff * a + sum(unordered_prod(a, f) for f in fermionterms(b))
+unordered_prod(a::FermionAdd, b::FermionMul) = a.coeff * b + sum(unordered_prod(f, b) for f in fermionterms(a))
+unordered_prod(a::FermionAdd, b::FermionAdd) = sum(unordered_prod(f, g) for f in allterms(a), g in allterms(b))
+unordered_prod(a::FermionMul, b::FermionMul) = FermionMul(a.coeff * b.coeff, [a.factors..., b.factors...])
+unordered_prod(a, b, xs...) = foldl(*, xs; init=(*)(a, b))
+unordered_prod(x::Number, a::SMA) = x * a
+unordered_prod(a::SMA, x::Number) = x * a
+unordered_prod(x::Number, y::Number) = x * y
+
 function sorted_noduplicates(v)
     I = eachindex(v)
     for i in I[1:end-1]
@@ -160,35 +181,46 @@ function sorted_noduplicates(v)
     end
     return true
 end
-function Base.:*(a::FermionSym, bs::FermionMul)
-    coeff = bs.coeff
-    ind = searchsortedfirst(bs.factors, a)
-    inds = searchsorted(bs.factors, a)
-    inds_conj = searchsorted(bs.factors, a')
-    annihilation = if (length(inds) > 0 && length(inds_conj) > 0 && inds_conj[1] < inds[1])
-        FermionMul(coeff * (-1)^(inds_conj[1] + 1),
-            [bs.factors[1:inds_conj[1]-1]..., bs.factors[inds_conj[1]+1:end]...])
-    else
-        0
-    end
-    insertion = if length(inds) == 0
-        FermionMul(coeff * (-1)^(ind + 1),
-            [bs.factors[1:ind-1]..., a, bs.factors[ind:end]...])
-    else
-        0
-    end
-    return annihilation + insertion
-end
-Base.:*(as::FermionMul, b::FermionSym) = (b' * as')'
-Base.:*(as::FermionMul, bs::FermionMul) = as.coeff * foldr(*, as.factors; init=bs)
 
+ordering_product(ordered_leftmul::Number, right_mul) = ordered_leftmul * order_mul(right_mul)
+bubble_sort(a::FermionAdd) = a.coeff + sum(bubble_sort(f) for f in fermionterms(a))
+
+function bubble_sort(a::FermionMul)
+    if a.ordered || length(a.factors) == 1
+        return a
+    end
+    swapped = true
+    muloraddvec::Union{Number,SMA} = a
+
+    swapped = false
+    i = first(eachindex(a.factors)) - 1
+    while !swapped && i < length(eachindex(a.factors)) - 1
+        i += 1
+        if a.factors[i] > a.factors[i+1] || (a.factors[i] == a.factors[i+1])
+            swapped = true
+            product = a.factors[i] * a.factors[i+1]
+            left_factors = FermionMul(a.coeff, a.factors[1:i-1])
+            right_factors = FermionMul(1, a.factors[i+2:end])
+            muloraddvec = unordered_prod(left_factors, product, right_factors)
+        end
+    end
+     bubble_sort(muloraddvec)
+end
+bubble_sort(a::Number) = a
+
+order_mul(a::FermionMul) = bubble_sort(a)
+order_mul(x::Number) = x
+
+Base.:*(a::FermionSym, bs::FermionMul) = (1 * a) * bs
+Base.:*(as::FermionMul, b::FermionSym) = (b' * as')'
+Base.:*(as::FermionMul, bs::FermionMul) = order_mul(unordered_prod(as, bs)) 
 Base.adjoint(x::FermionMul) = adjoint(x.coeff) * foldr(*, reverse(adjoint.(x.factors)))
 Base.:*(a::FermionAdd, b::SM) = (b' * a')'
 function Base.:*(a::SM, b::FermionAdd)
-    a * b.coeff + sum(a * f for f in terms(b))
+    a * b.coeff + sum(a * f for f in fermionterms(b))
 end
 function Base.:*(a::FermionAdd, b::FermionAdd)
-    a.coeff * b + sum(f * b for f in terms(a))
+    a.coeff * b + sum(f * b for f in fermionterms(a))
 end
 
 Base.adjoint(x::FermionAdd) = FermionAdd(adjoint(x.coeff), Dict(adjoint(f) => c for (f, c) in collect(x.dict)))
@@ -216,10 +248,22 @@ function _merge!(f::F, d, others...; filter=x -> false) where {F}
 end
 
 @testitem "SymbolicFermions" begin
-    @fermion f
+    @fermions f c
+    @fermions b
     f1 = f[:a]
     f2 = f[:b]
     f3 = f[1, :↑]
+
+    # Test canonical commutation relations
+    @test f1' * f1 + f1 * f1' == 1
+    @test iszero(f1 * f2 + f2 * f1)
+    @test iszero(f1' * f2 + f2 * f1')
+
+    # c anticommutes with f
+    @test iszero(f1' * c[1] + c[1] * f1')
+    # b commutes with f
+    @test iszero(f1' * b[1] - b[1] * f1')
+
     @test_nowarn display(f1)
     @test_nowarn display(f3)
     @test_nowarn display(1 * f1)
@@ -286,7 +330,7 @@ function sparsetuple(op::FermionMul{C}, labels, outstates, instates; fock_to_out
 end
 function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates::AbstractVector)
     fock_to_outind = Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))
-    tuples = [sparsetuple(op, labels, outstates, instates; fock_to_outind) for op in terms(op)]
+    tuples = [sparsetuple(op, labels, outstates, instates; fock_to_outind) for op in fermionterms(op)]
     indsout = mapreduce(Base.Fix2(Base.getindex, 1), vcat, tuples)
     indsin_final = mapreduce(Base.Fix2(Base.getindex, 2), vcat, tuples)
     amps = mapreduce(Base.Fix2(Base.getindex, 3), vcat, tuples)
@@ -297,7 +341,7 @@ sparsetuple(op::FermionSym, labels, outstates, instates) = sparsetuple(FermionMu
 
 @testitem "SparseFermion" begin
     using SparseArrays, LinearAlgebra
-    @fermion f
+    @fermions f
     N = 4
     labels = 1:N
     fmb = FermionBasis(labels)
