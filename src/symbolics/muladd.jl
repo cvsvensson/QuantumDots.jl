@@ -227,8 +227,8 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
 
     @test all(sparse(sum(f[l]' * f[l] for l in labels), labels, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
-    @test all(instantiate(f[l], fmb) == fmb[l] for l in labels)
-    @test all(instantiate(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(QuantumDots.instantiate(f[l], fmb) == fmb[l] for l in labels)
+    @test all(QuantumDots.instantiate(f[l]', fmb) == fmb[l]' for l in labels)
 end
 
 ## Convert to expression
