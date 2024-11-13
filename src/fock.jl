@@ -15,7 +15,7 @@ fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_in
 
 Find the index of the first occurrence of `id` in `labels`.
 """
-siteindex(id, labels) = findfirst(x -> x == id, labels)::Int
+siteindex(id, labels)::Int = findfirst(x -> x == id, labels)
 """
     siteindex(id, b::AbstractBasis)
 

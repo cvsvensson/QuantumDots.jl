@@ -8,6 +8,7 @@ using SkewLinearAlgebra
 import OrderedCollections: OrderedDict
 import AbstractDifferentiation as AD
 using FillArrays: Eye
+using TestItems
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
@@ -18,6 +19,8 @@ export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
 export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
+export @fermions, @majoranas
+export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 
 function fastgenerator end
 function fastblockdiagonal end
@@ -42,7 +45,9 @@ include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
 include("wedge.jl")
-
+include("symbolics/muladd.jl")
+include("symbolics/symbolic_fermions.jl")
+include("symbolics/symbolic_majoranas.jl")
 
 
 import PrecompileTools
