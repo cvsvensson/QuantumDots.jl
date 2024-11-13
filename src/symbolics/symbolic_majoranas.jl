@@ -61,7 +61,7 @@ function ordered_prod(a::MajoranaSym, b::MajoranaSym)
         throw(ArgumentError("Don't know how to multiply $a * $b"))
     end
 end
-evaluate(a::MajoranaSym, f::AbstractBasis) = f[a.label]
+instantiate(a::MajoranaSym, f::AbstractBasis) = f[a.label]
 
 
 @testitem "MajoranaSym" begin

@@ -19,7 +19,7 @@ export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
 export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
-export @fermions, @majoranas, evaluate
+export @fermions, @majoranas, instantiate
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 
 function fastgenerator end

@@ -67,7 +67,7 @@ function Base.:^(a::FermionSym, b)
     end
 end
 
-evaluate(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.label]
+instantiate(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.label]
 
 
 @testitem "SymbolicFermions" begin
