@@ -233,13 +233,15 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
 
     @test all(sparse(sum(f[l]' * f[l] for l in labels), labels, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
-    @test all(QuantumDots.instantiate(f[l], fmb) == fmb[l] for l in labels)
-    @test all(QuantumDots.instantiate(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l]' * f[l], fmb) == fmb[l]'fmb[l] for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l] + f[l]', fmb) == fmb[l] + fmb[l]' for l in labels)
 end
 
 ## Convert to expression
-instantiate(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(instantiate, f), *, a.factors)
-instantiate(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(instantiate, f), +, fermionterms(a))
+eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
+eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 
 #From SymbolicUtils
