@@ -20,7 +20,6 @@ struct FermionBasis{M,D,Sym} <: AbstractManyBodyBasis
         labels = handle_labels(iters...)
         fockstates = get(kwargs, :fockstates, 0:2^length(labels)-1)
         M = length(labels)
-        println(labels)
         labelled_symmetry = instantiate(qn, labels)
         sym_concrete = focksymmetry(fockstates, labelled_symmetry)
         # sym_more_concrete = symmetry(fockstates, sym_concrete)
