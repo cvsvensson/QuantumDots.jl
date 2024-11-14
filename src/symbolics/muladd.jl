@@ -71,8 +71,14 @@ function Base.show(io::IO, x::FermionAdd)
     end
     print_sign(v) = sign(v) == 1 ? print(io, " + ") : print(io, " - ")
     for (n, (k, v)) in enumerate(collect(pairs(x.dict)))
-        print_sign(v)
-        print(io, abs(v) * k)
+        if isreal(v)
+            v = real(v)
+            print_sign(v)
+            print(io, abs(v) * k)
+        else
+            print(io, " + ")
+            print(io, "(", v, ")", k)
+        end
     end
 end
 
@@ -121,7 +127,7 @@ function Base.:*(a::FermionAdd, b::FermionAdd)
     a.coeff * b + sum(f * b for f in fermionterms(a))
 end
 
-Base.adjoint(x::FermionAdd) = FermionAdd(adjoint(x.coeff), Dict(adjoint(f) => adjoint(c) for (f, c) in collect(x.dict)))
+Base.adjoint(x::FermionAdd) = adjoint(x.coeff) + sum(f' for f in fermionterms(x))
 
 
 unordered_prod(a::FermionMul, b::FermionAdd) = b.coeff * a + sum(unordered_prod(a, f) for f in fermionterms(b))
@@ -227,13 +233,15 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
 
     @test all(sparse(sum(f[l]' * f[l] for l in labels), labels, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
-    @test all(QuantumDots.instantiate(f[l], fmb) == fmb[l] for l in labels)
-    @test all(QuantumDots.instantiate(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l]' * f[l], fmb) == fmb[l]'fmb[l] for l in labels)
+    @test all(QuantumDots.eval_in_basis(f[l] + f[l]', fmb) == fmb[l] + fmb[l]' for l in labels)
 end
 
 ## Convert to expression
-instantiate(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(instantiate, f), *, a.factors)
-instantiate(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(instantiate, f), +, fermionterms(a))
+eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
+eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 
 #From SymbolicUtils
