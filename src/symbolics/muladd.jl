@@ -71,8 +71,14 @@ function Base.show(io::IO, x::FermionAdd)
     end
     print_sign(v) = sign(v) == 1 ? print(io, " + ") : print(io, " - ")
     for (n, (k, v)) in enumerate(collect(pairs(x.dict)))
-        print_sign(v)
-        print(io, abs(v) * k)
+        if isreal(v)
+            v = real(v)
+            print_sign(v)
+            print(io, abs(v) * k)
+        else
+            print(io, " + ")
+            print(io, "(", v, ")", k)
+        end
     end
 end
 
@@ -121,7 +127,7 @@ function Base.:*(a::FermionAdd, b::FermionAdd)
     a.coeff * b + sum(f * b for f in fermionterms(a))
 end
 
-Base.adjoint(x::FermionAdd) = FermionAdd(adjoint(x.coeff), Dict(adjoint(f) => adjoint(c) for (f, c) in collect(x.dict)))
+Base.adjoint(x::FermionAdd) = adjoint(x.coeff) + sum(f' for f in fermionterms(x))
 
 
 unordered_prod(a::FermionMul, b::FermionAdd) = b.coeff * a + sum(unordered_prod(a, f) for f in fermionterms(b))
