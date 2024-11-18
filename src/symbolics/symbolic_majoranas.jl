@@ -2,6 +2,24 @@ struct SymbolicMajoranaBasis
     name::Symbol
     universe::UInt64
 end
+
+"""
+    @majoranas a b ...
+
+Create one or more Majorana species with the given names. Indexing into Majorana species
+gives a concrete Majorana. Majoranas in one `@majoranas` block anticommute with each other,
+and commute with Majoranas in other `@majoranas` blocks.
+
+# Examples:
+- `@majoranas a b` creates two species of Majoranas that anticommute:
+    - `a[1] * a[1] + a[1] * a[1] == 1`
+    - `a[1] * b[1] + b[1] * a[1] == 0`
+- `@majoranas a; @majoranas b` creates two species of Majoranas that commute with each other:
+    - `a[1] * a[1] + a[1] * a[1] == 1`
+    - `a[1] * b[1] - b[1] * a[1] == 0`
+
+See also [`@fermions`](@ref), [`QuantumDots.eval_in_basis`](@ref).
+"""
 macro majoranas(xs...)
     universe = hash(xs)
     defs = map(xs) do x

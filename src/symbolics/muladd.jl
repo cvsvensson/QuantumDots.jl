@@ -20,13 +20,30 @@ end
 function Base.show(io::IO, x::FermionMul)
     print_coeff = !isone(x.coeff)
     if print_coeff
-        if isreal(x.coeff)
-            print(io, real(x.coeff))
+        # if isreal(x.coeff)
+        #     print(io, real(x.coeff))
+        # else
+        #     print(io, "(", x.coeff, ")")
+        # end
+        v = x.coeff
+        if isreal(v)
+            neg = v < 0
+            if neg isa Bool
+                if neg
+                    print(io, -real(v))
+                else
+                    print(io, real(v))
+                end
+            else
+                print(io, "(", v, ")")
+            end
         else
-            print(io, "(", x.coeff, ")")
+            print(io, "(", v, ")")
         end
     end
     for (n, x) in enumerate(x.factors)
+        # println(print_coeff)
+        # println(x)
         if print_coeff || n > 1
             print(io, "*")
         end
@@ -69,18 +86,30 @@ function Base.show(io::IO, x::FermionAdd)
             print(io, "(", x.coeff, ")", "I")
         end
     end
-    print_sign(v) = sign(v) == 1 ? print(io, " + ") : print(io, " - ")
+    compact = get(io, :compact, false)
+    print_sign(s) = compact ? print(io, s) : print(io, " ", s, " ")
     for (n, (k, v)) in enumerate(collect(pairs(x.dict)))
         if isreal(v)
-            v = real(v)
-            print_sign(v)
-            print(io, abs(v) * k)
+            neg = v < 0
+            if neg isa Bool
+                if neg
+                    print_sign("-")
+                    print(io, -real(v) * k)
+                else
+                    print_sign("+")
+                    print(io, real(v) * k)
+                end
+            else
+                print_sign("+")
+                print(io, "(", v, ")*", k)
+            end
         else
-            print(io, " + ")
-            print(io, "(", v, ")", k)
+            print_sign("+")
+            print(io, "(", v, ")*", k)
         end
     end
 end
+print_num(io::IO, x) = isreal(x) ? print(io, real(x)) : print(io, "(", x, ")")
 
 Base.:+(a::Number, b::SM) = iszero(a) ? b : FermionAdd(a, to_add(b))
 Base.:+(a::SM, b::Number) = b + a

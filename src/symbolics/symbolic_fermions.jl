@@ -1,8 +1,26 @@
+
 struct SymbolicFermionBasis
     name::Symbol
     universe::UInt64
 end
 
+"""
+    @fermions a b ...
+
+Create one or more fermion species with the given names. Indexing into fermions species
+gives a concrete fermion. Fermions in one `@fermions` block anticommute with each other, 
+and commute with fermions in other `@fermions` blocks.
+
+# Examples:
+- `@fermions a b` creates two species of fermions that anticommute:
+    - `a[1]' * a[1] + a[1] * a[1]' == 1`
+    - `a[1]' * b[1] + b[1] * a[1]' == 0`
+- `@fermions a; @fermions b` creates two species of fermions that commute with each other:
+    - `a[1]' * a[1] + a[1] * a[1]' == 1`
+    - `a[1] * b[1] - b[1] * a[1] == 0`
+
+See also [`@majoranas`](@ref), [`QuantumDots.eval_in_basis`](@ref).
+"""
 macro fermions(xs...)
     universe = hash(xs)
     defs = map(xs) do x
@@ -67,12 +85,26 @@ function Base.:^(a::FermionSym, b)
     end
 end
 
+""" 
+    eval_in_basis(a, f::AbstractBasis)
+
+Evaluate an expression with fermions in a basis `f`. 
+
+# Examples
+```julia
+@fermions a
+f = FermionBasis(1:2)
+QuantumDots.eval_in_basis(a[1]'*a[2] + hc, f)
+```
+"""
 eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.label]
 
 
 @testitem "SymbolicFermions" begin
+    using Symbolics
     @fermions f c
     @fermions b
+    @variables a::Real z::Complex
     f1 = f[:a]
     f2 = f[:b]
     f3 = f[1, :↑]
@@ -93,6 +125,8 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test_nowarn display(2 * f3)
     @test_nowarn display(1 + f1)
     @test_nowarn display(1 + f3)
+    @test_nowarn display(1 + a * f2 - 5 * f1 + 2 * z * f1 * f2)
+
     @test iszero(f1 - f1)
     @test iszero(f1 * f1)
     @test f1 * f2 isa QuantumDots.FermionMul
