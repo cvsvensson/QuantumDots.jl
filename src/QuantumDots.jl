@@ -53,14 +53,19 @@ include("symbolics/symbolic_majoranas.jl")
 import PrecompileTools
 
 PrecompileTools.@compile_workload begin
-    c1 = FermionBasis(1:1)
-    c2 = FermionBasis(1:1, (:s,); qn=QuantumDots.parity)
+    c1 = FermionBasis(1:2)
+    c2 = FermionBasis(1:1, (:s,); qn=ParityConservation())
     blockdiagonal(c2[1, :s], c2)
-    c3 = FermionBasis(2:2; qn=QuantumDots.fermionnumber)
+    c3 = FermionBasis(2:2; qn=FermionConservation())
     vals, vecs = eigen(Matrix(c1[1]' * c1[1]))
     partial_trace(vecs[1, :], (1,), c1)
+    wedge(c1, c2)
     cbdg = FermionBdGBasis(1:1, (:s,))
     diagonalize(BdGMatrix(cbdg[1, :s]' * cbdg[1, :s]))
+    @fermions f
+    QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
+    @majoranas γ
+    (γ[1] * γ[2] + 1 + γ[1])^2
 end
 
 end
