@@ -104,7 +104,7 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     using Symbolics
     @fermions f c
     @fermions b
-    @variables a
+    @variables a::Real z::Complex
     f1 = f[:a]
     f2 = f[:b]
     f3 = f[1, :↑]
@@ -125,7 +125,7 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test_nowarn display(2 * f3)
     @test_nowarn display(1 + f1)
     @test_nowarn display(1 + f3)
-    @test_nowarn display(1 + a * f2 - 5 * f1 + 2 * a * f1 * f2)
+    @test_nowarn display(1 + a * f2 - 5 * f1 + 2 * z * f1 * f2)
 
     @test iszero(f1 - f1)
     @test iszero(f1 * f1)
