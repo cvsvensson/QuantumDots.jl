@@ -30,19 +30,20 @@ function Base.show(io::IO, x::FermionMul)
             neg = v < 0
             if neg isa Bool
                 if neg
-                    print(io, -real(v) * k)
+                    print(io, -real(v))
                 else
-                    print(io, real(v) * k)
+                    print(io, real(v))
                 end
             else
-                print(io, "(", v, ")", k)
+                print(io, "(", v, ")")
             end
         else
-            print(io, "(", v, ")", k)
+            print(io, "(", v, ")")
         end
-
     end
     for (n, x) in enumerate(x.factors)
+        # println(print_coeff)
+        # println(x)
         if print_coeff || n > 1
             print(io, "*")
         end
@@ -87,22 +88,24 @@ function Base.show(io::IO, x::FermionAdd)
     end
     compact = get(io, :compact, false)
     print_sign(s) = compact ? print(io, s) : print(io, " ", s, " ")
-    # print_sign(v) = compact ? (sign(v) == 1 ? print(io, " + ") : print(io, " - ")) : (print(io, "+") : print(io, "-"))
     for (n, (k, v)) in enumerate(collect(pairs(x.dict)))
         if isreal(v)
             neg = v < 0
             if neg isa Bool
                 if neg
+                    print_sign("-")
                     print(io, -real(v) * k)
                 else
+                    print_sign("+")
                     print(io, real(v) * k)
                 end
             else
-                print(io, "(", v, ")", k)
+                print_sign("+")
+                print(io, "(", v, ")*", k)
             end
         else
             print_sign("+")
-            print(io, "(", v, ")", k)
+            print(io, "(", v, ")*", k)
         end
     end
 end
