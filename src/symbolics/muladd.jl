@@ -270,26 +270,20 @@ eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(ev
 eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 ##
-
-TermInterface.head(::FermionMul) = :call
-TermInterface.head(::FermionAdd) = :call
-TermInterface.head(::FermionSym) = :ref
-TermInterface.iscall(::FermionMul) = true
-TermInterface.iscall(::FermionAdd) = true
-TermInterface.iscall(::FermionSym) = false
-TermInterface.isexpr(::FermionMul) = true
-TermInterface.isexpr(::FermionAdd) = true
-TermInterface.isexpr(::FermionSym) = true
+TermInterface.head(::Union{FermionMul,FermionAdd}) = :call
+TermInterface.iscall(::Union{FermionMul,FermionAdd}) = true
+TermInterface.isexpr(::Union{FermionMul,FermionAdd}) = true
+TermInterface.head(::AbstractFermionSym) = :ref
+TermInterface.iscall(::AbstractFermionSym) = false
+TermInterface.isexpr(::AbstractFermionSym) = true
 
 TermInterface.operation(::FermionMul) = (*)
 TermInterface.operation(::FermionAdd) = (+)
 TermInterface.arguments(a::FermionMul) = [a.coeff, a.factors...]
 TermInterface.arguments(a::FermionAdd) = iszero(a.coeff) ? fermionterms(a) : allterms(a)
 TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionterms(a), by=x -> x.factors) : [a.coeff, sort(fermionterms(a); by=x -> x.factors)...]
-TermInterface.children(a::FermionMul) = arguments(a)
-TermInterface.children(a::FermionAdd) = arguments(a)
-TermInterface.sorted_children(a::FermionMul) = sorted_arguments(a)
-TermInterface.sorted_children(a::FermionAdd) = sorted_arguments(a)
+TermInterface.children(a::Union{FermionMul,FermionAdd}) = arguments(a)
+TermInterface.sorted_children(a::Union{FermionMul,FermionAdd}) = sorted_arguments(a)
 
 
 #From SymbolicUtils
