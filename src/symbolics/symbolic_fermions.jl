@@ -160,4 +160,36 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test (1 * f1) * (1 * f2) == f1 * f2
     @test f1 * f2 == f1 * (1 * f2) == f1 * f2
     @test f1 - 1 == (1 * f1) - 1 == (0.5 + f1) - 1.5
+
+    ex = 2 * f1
+    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.children(ex) == [2, ex.factors...]
+    @test QuantumDots.operation(ex) == (*)
+    @test QuantumDots.arguments(ex) == [2, ex.factors...]
+    @test QuantumDots.isexpr(ex)
+    @test QuantumDots.iscall(ex)
+    ex = 2 * f1 + 1
+    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.children(ex) == [1, 2 * f1]
+    @test QuantumDots.operation(ex) == (+)
+    @test QuantumDots.arguments(ex) == [1, 2 * f1]
+    @test QuantumDots.isexpr(ex)
+    @test QuantumDots.iscall(ex)
+
+    ex = f1
+    @test QuantumDots.head(ex) == :ref
+    @test_throws MethodError QuantumDots.operation(ex)
+    @test_throws MethodError QuantumDots.arguments(ex)
+    @test QuantumDots.isexpr(ex)
+    @test !QuantumDots.iscall(ex)
+
+    @test substitute(f1, f1 => f2) == f2
+    @test substitute(f1', f1' => f2) == f2
+    @test substitute(f1', f1 => f2) == f1'
+    @test substitute(f1 + f2, f1 => f2) == 2 * f2
+
+    @test substitute(2 * f1, 2 => 3) == 3 * f1
+    @test iszero(substitute(a * f1 + 1, a => a^2) - (a^2 * f1 + 1))
+    @test iszero(substitute(a * f1 * f2 - f1 + 1 + 0.5 * f2' * f2, f1 => f2) - (a * f2 * f2 - f2 + 1 + 0.5 * f2' * f2))
+    @test iszero(substitute(a * f1 + a + a * f1 * f2 * f1', a => 0))
 end
