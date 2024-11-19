@@ -9,6 +9,7 @@ import OrderedCollections: OrderedDict
 import AbstractDifferentiation as AD
 using FillArrays: Eye
 using TestItems
+using TermInterface
 
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
