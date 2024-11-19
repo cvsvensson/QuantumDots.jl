@@ -20,11 +20,6 @@ end
 function Base.show(io::IO, x::FermionMul)
     print_coeff = !isone(x.coeff)
     if print_coeff
-        # if isreal(x.coeff)
-        #     print(io, real(x.coeff))
-        # else
-        #     print(io, "(", x.coeff, ")")
-        # end
         v = x.coeff
         if isreal(v)
             neg = v < 0
@@ -42,8 +37,6 @@ function Base.show(io::IO, x::FermionMul)
         end
     end
     for (n, x) in enumerate(x.factors)
-        # println(print_coeff)
-        # println(x)
         if print_coeff || n > 1
             print(io, "*")
         end
@@ -78,6 +71,8 @@ const SM = Union{AbstractFermionSym,FermionMul}
 const SMA = Union{AbstractFermionSym,FermionMul,FermionAdd}
 
 function Base.show(io::IO, x::FermionAdd)
+    compact = get(io, :compact, false)
+    args = sorted_arguments(x)
     print_one = !iszero(x.coeff)
     if print_one
         if isreal(x.coeff)
@@ -85,10 +80,12 @@ function Base.show(io::IO, x::FermionAdd)
         else
             print(io, "(", x.coeff, ")", "I")
         end
+        args = args[2:end]
     end
-    compact = get(io, :compact, false)
     print_sign(s) = compact ? print(io, s) : print(io, " ", s, " ")
-    for (n, (k, v)) in enumerate(collect(pairs(x.dict)))
+    for (n, arg) in enumerate(args)
+        k = prod(arg.factors)
+        v = arg.coeff
         if isreal(v)
             neg = v < 0
             if neg isa Bool
@@ -288,7 +285,6 @@ TermInterface.operation(::FermionMul) = (*)
 TermInterface.operation(::FermionAdd) = (+)
 TermInterface.arguments(a::FermionMul) = [a.coeff, a.factors...]
 TermInterface.arguments(a::FermionAdd) = iszero(a.coeff) ? fermionterms(a) : allterms(a)
-# TermInterface.sorted_arguments(a::FermionMul) = [a.coeff, sort(a.factors)]
 TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionterms(a), by=x -> x.factors) : [a.coeff, sort(fermionterms(a); by=x -> x.factors)...]
 TermInterface.children(a::FermionMul) = arguments(a)
 TermInterface.children(a::FermionAdd) = arguments(a)
