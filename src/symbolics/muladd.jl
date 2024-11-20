@@ -48,7 +48,7 @@ Base.iszero(x::FermionMul) = iszero(x.coeff)
 Base.:(==)(a::FermionMul, b::FermionMul) = a.coeff == b.coeff && a.factors == b.factors
 Base.:(==)(a::FermionMul, b::AbstractFermionSym) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
 Base.:(==)(b::AbstractFermionSym, a::FermionMul) = a == b
-Base.hash(a::FermionMul, h::UInt) = hash(hash(a.coeff, hash(a.factors, h)))
+Base.hash(a::FermionMul, h::UInt) = hash(a.coeff, hash(a.factors, h))
 FermionMul(f::FermionMul) = f
 FermionMul(f::AbstractFermionSym) = FermionMul(1, [f])
 struct FermionAdd{C,D}
@@ -67,6 +67,8 @@ struct FermionAdd{C,D}
     end
 end
 Base.:(==)(a::FermionAdd, b::FermionAdd) = a.coeff == b.coeff && a.dict == b.dict
+Base.hash(a::FermionAdd, h::UInt) = hash(a.coeff, hash(a.dict, h))
+
 const SM = Union{AbstractFermionSym,FermionMul}
 const SMA = Union{AbstractFermionSym,FermionMul,FermionAdd}
 
@@ -86,22 +88,24 @@ function Base.show(io::IO, x::FermionAdd)
     for (n, arg) in enumerate(args)
         k = prod(arg.factors)
         v = arg.coeff
+        should_print_sign = (n > 1 || print_one)
         if isreal(v)
+            v = real(v)
             neg = v < 0
             if neg isa Bool
                 if neg
                     print_sign("-")
                     print(io, -real(v) * k)
                 else
-                    print_sign("+")
+                    should_print_sign && print_sign("+")
                     print(io, real(v) * k)
                 end
             else
-                print_sign("+")
+                should_print_sign && print_sign("+")
                 print(io, "(", v, ")*", k)
             end
         else
-            print_sign("+")
+            should_print_sign && print_sign("+")
             print(io, "(", v, ")*", k)
         end
     end
@@ -273,9 +277,6 @@ eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix
 TermInterface.head(::Union{FermionMul,FermionAdd}) = :call
 TermInterface.iscall(::Union{FermionMul,FermionAdd}) = true
 TermInterface.isexpr(::Union{FermionMul,FermionAdd}) = true
-TermInterface.head(::AbstractFermionSym) = :ref
-TermInterface.iscall(::AbstractFermionSym) = false
-TermInterface.isexpr(::AbstractFermionSym) = true
 
 TermInterface.operation(::FermionMul) = (*)
 TermInterface.operation(::FermionAdd) = (+)
@@ -285,6 +286,10 @@ TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionte
 TermInterface.children(a::Union{FermionMul,FermionAdd}) = arguments(a)
 TermInterface.sorted_children(a::Union{FermionMul,FermionAdd}) = sorted_arguments(a)
 
+
+TermInterface.head(::AbstractFermionSym) = :call
+TermInterface.iscall(::AbstractFermionSym) = true
+TermInterface.isexpr(::AbstractFermionSym) = true
 
 #From SymbolicUtils
 _merge(f::F, d, others...; filter=x -> false) where {F} = _merge!(f, Dict{SM,Any}(d), others...; filter=filter)

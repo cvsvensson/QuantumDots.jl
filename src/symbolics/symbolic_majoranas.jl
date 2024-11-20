@@ -28,20 +28,20 @@ macro majoranas(xs...)
     Expr(:block, defs...,
         :(tuple($(map(x -> esc(x), xs)...))))
 end
-Base.getindex(f::SymbolicMajoranaBasis, is...) = MajoranaSym(is, f.name, f.universe)
-Base.getindex(f::SymbolicMajoranaBasis, i) = MajoranaSym(i, f.name, f.universe)
+Base.getindex(f::SymbolicMajoranaBasis, is...) = MajoranaSym(is, f)
+Base.getindex(f::SymbolicMajoranaBasis, i) = MajoranaSym(i, f)
+Base.:(==)(a::SymbolicMajoranaBasis, b::SymbolicMajoranaBasis) = a.name == b.name && a.universe == b.universe
 
-struct MajoranaSym{L} <: AbstractFermionSym
+struct MajoranaSym{L,B} <: AbstractFermionSym
     label::L
-    name::Symbol
-    universe::UInt
+    basis::B
 end
-Base.:(==)(a::MajoranaSym, b::MajoranaSym) = a.label == b.label && a.name == b.name && a.universe == b.universe
-Base.hash(a::MajoranaSym, h::UInt) = hash(hash(a.label, hash(a.name, h)))
-Base.adjoint(x::MajoranaSym) = MajoranaSym(x.label, x.name, x.universe)
+Base.:(==)(a::MajoranaSym, b::MajoranaSym) = a.label == b.label && a.basis == b.basis
+Base.hash(a::MajoranaSym, h::UInt) = hash(a.label, hash(a.basis, h))
+Base.adjoint(x::MajoranaSym) = MajoranaSym(x.label, x.basis)
 Base.iszero(x::MajoranaSym) = false
 function Base.show(io::IO, x::MajoranaSym)
-    print(io, x.name)
+    print(io, x.basis.name)
     if Base.isiterable(typeof(x.label))
         Base.show_delim_array(io, x.label, "[", ",", "]", false)
     else
@@ -49,12 +49,12 @@ function Base.show(io::IO, x::MajoranaSym)
     end
 end
 function Base.isless(a::MajoranaSym, b::MajoranaSym)
-    if a.universe !== b.universe
-        a.universe < b.universe
-    elseif a.name == b.name
+    if a.basis.universe !== b.basis.universe
+        a.basis.universe < b.basis.universe
+    elseif a.basis.name == b.basis.name
         a.label < b.label
     else
-        a.name < b.name
+        a.basis.name < b.basis.name
     end
 end
 function Base.:^(a::MajoranaSym, b)
@@ -74,15 +74,21 @@ function ordered_prod(a::MajoranaSym, b::MajoranaSym)
     elseif a < b
         FermionMul(1, [a, b])
     elseif a > b
-        FermionMul((-1)^(a.universe == b.universe), [b, a]) + Int(a.name == b.name && a.label == b.label && a.universe == b.universe)
+        FermionMul((-1)^(a.basis.universe == b.basis.universe), [b, a]) + Int(a.label == b.label && a.basis == b.basis)
     else
         throw(ArgumentError("Don't know how to multiply $a * $b"))
     end
 end
 eval_in_basis(a::MajoranaSym, f::AbstractBasis) = f[a.label]
 
+TermInterface.operation(::MajoranaSym) = MajoranaSym
+TermInterface.arguments(a::MajoranaSym) = [a.label, a.basis]
+TermInterface.children(a::MajoranaSym) = arguments(a)
 
 @testitem "MajoranaSym" begin
+    using Symbolics
+    @variables a::Real z::Complex
+
     @majoranas γ f
     #test canonical anticommutation relations
     @test γ[1] * γ[1] == 1
@@ -123,4 +129,13 @@ eval_in_basis(a::MajoranaSym, f::AbstractBasis) = f[a.label]
     @test f1 * f2 == f1 * (1 * f2) == f1 * f2
     @test f1 - 1 == (1 * f1) - 1 == (0.5 + f1) - 1.5
 
+    @test substitute(f1, f1 => f2) == f2
+    @test substitute(f1', Dict(f1' => f2)) == f2
+    @test substitute(f1', f1 => f2) == f1'
+
+    @test substitute(γ[1], 1 => 2) == γ[2]
+    @test substitute(γ[:a] * γ[:b] + 1, :a => :b) == 2
+
+    r = (@rule ~x::(x->x isa QuantumDots.AbstractFermionSym) => (~x).basis[(~x).label + 1])
+    r(f[1]) == f[2]
 end
