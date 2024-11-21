@@ -163,14 +163,14 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test f1 - 1 == (1 * f1) - 1 == (0.5 + f1) - 1.5
 
     ex = 2 * f1
-    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.head(ex) == (*)
     @test QuantumDots.children(ex) == [2, ex.factors...]
     @test QuantumDots.operation(ex) == (*)
     @test QuantumDots.arguments(ex) == [2, ex.factors...]
     @test QuantumDots.isexpr(ex)
     @test QuantumDots.iscall(ex)
     ex = 2 * f1 + 1
-    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.head(ex) == (+)
     @test QuantumDots.children(ex) == [1, 2 * f1]
     @test QuantumDots.operation(ex) == (+)
     @test QuantumDots.arguments(ex) == [1, 2 * f1]
@@ -178,7 +178,7 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test QuantumDots.iscall(ex)
 
     ex = f1
-    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.head(ex) <: QuantumDots.FermionSym
     @test QuantumDots.children(ex) == [false, :a, f]
     @test QuantumDots.operation(ex) == QuantumDots.FermionSym
     @test QuantumDots.arguments(ex) == [false, :a, f]

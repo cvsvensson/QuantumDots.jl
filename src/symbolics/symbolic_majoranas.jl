@@ -136,6 +136,6 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
     @test substitute(γ[1], 1 => 2) == γ[2]
     @test substitute(γ[:a] * γ[:b] + 1, :a => :b) == 2
 
-    r = (@rule ~x::(x->x isa QuantumDots.AbstractFermionSym) => (~x).basis[(~x).label + 1])
+    r = (@rule ~x::(x -> x isa QuantumDots.AbstractFermionSym) => (~x).basis[(~x).label+1])
     r(f[1]) == f[2]
 end

@@ -2,6 +2,7 @@ module QuantumDots
 using LinearAlgebra, SparseArrays, LinearMaps, BlockDiagonals
 using SplitApplyCombine: group, sortkeys!
 using Dictionaries: dictionary, Dictionary
+import FillArrays: Eye
 using StaticArrays
 using SkewLinearAlgebra
 import OrderedCollections: OrderedDict

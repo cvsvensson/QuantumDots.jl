@@ -274,7 +274,7 @@ eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(ev
 eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 ##
-TermInterface.head(::Union{FermionMul,FermionAdd}) = :call
+TermInterface.head(a::Union{FermionMul,FermionAdd}) = operation(a)
 TermInterface.iscall(::Union{FermionMul,FermionAdd}) = true
 TermInterface.isexpr(::Union{FermionMul,FermionAdd}) = true
 
@@ -286,10 +286,14 @@ TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionte
 TermInterface.children(a::Union{FermionMul,FermionAdd}) = arguments(a)
 TermInterface.sorted_children(a::Union{FermionMul,FermionAdd}) = sorted_arguments(a)
 
+TermInterface.maketerm(f::FermionMul, head::typeof(*), args, metadata) = *(args...)
+TermInterface.maketerm(f::FermionAdd, head::typeof(+), args, metadata) = +(args...)
 
-TermInterface.head(::AbstractFermionSym) = :call
+TermInterface.head(::T) where T <: AbstractFermionSym = T
 TermInterface.iscall(::AbstractFermionSym) = true
 TermInterface.isexpr(::AbstractFermionSym) = true
+TermInterface.maketerm(f::T, head::T, args, metadata) where T <: AbstractFermionSym = T(args...)
+
 
 #From SymbolicUtils
 _merge(f::F, d, others...; filter=x -> false) where {F} = _merge!(f, Dict{SM,Any}(d), others...; filter=filter)
