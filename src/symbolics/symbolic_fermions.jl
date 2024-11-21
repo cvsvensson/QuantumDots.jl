@@ -29,20 +29,19 @@ macro fermions(xs...)
     Expr(:block, defs...,
         :(tuple($(map(x -> esc(x), xs)...))))
 end
+Base.:(==)(a::SymbolicFermionBasis, b::SymbolicFermionBasis) = a.name == b.name && a.universe == b.universe
+Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f)
+Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f)
 
-Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f.name, f.universe)
-Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f.name, f.universe)
-
-struct FermionSym{L} <: AbstractFermionSym
+struct FermionSym{L,B} <: AbstractFermionSym
     creation::Bool
     label::L
-    name::Symbol
-    universe::UInt
+    basis::B
 end
-Base.adjoint(x::FermionSym) = FermionSym(!x.creation, x.label, x.name, x.universe)
+Base.adjoint(x::FermionSym) = FermionSym(!x.creation, x.label, x.basis)
 Base.iszero(x::FermionSym) = false
 function Base.show(io::IO, x::FermionSym)
-    print(io, x.name, x.creation ? "†" : "")
+    print(io, x.basis.name, x.creation ? "†" : "")
     if Base.isiterable(typeof(x.label))
         Base.show_delim_array(io, x.label, "[", ",", "]", false)
     else
@@ -50,25 +49,27 @@ function Base.show(io::IO, x::FermionSym)
     end
 end
 function Base.isless(a::FermionSym, b::FermionSym)
-    if a.universe !== b.universe
-        a.universe < b.universe
+    if a.basis.universe !== b.basis.universe
+        a.basis.universe < b.basis.universe
     elseif a.creation == b.creation
-        a.name == b.name && return a.label < b.label
-        a.name < b.name
+        a.basis.name == b.basis.name && return a.label < b.label
+        a.basis.name < b.basis.name
     else
         a.creation > b.creation
     end
 end
-Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.name == b.name && a.universe == b.universe
-Base.hash(a::FermionSym, h::UInt) = hash(hash(a.creation, hash(a.label, hash(a.name, h))))
+Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.basis == b.basis
+Base.hash(a::FermionSym, h::UInt) = hash(a.creation, hash(a.label, hash(a.basis)))
 
 function ordered_prod(a::FermionSym, b::FermionSym)
+    a_uni = a.basis.universe
+    b_uni = b.basis.universe
     if a == b
         0
     elseif a < b
         FermionMul(1, [a, b])
     elseif a > b
-        FermionMul((-1)^(a.universe == b.universe), [b, a]) + Int(a.name == b.name && a.label == b.label && a.universe == b.universe)
+        FermionMul((-1)^(a_uni == b_uni), [b, a]) + Int(a.label == b.label && a.basis == b.basis)
     else
         throw(ArgumentError("Don't know how to multiply $a * $b"))
     end
@@ -162,14 +163,14 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test f1 - 1 == (1 * f1) - 1 == (0.5 + f1) - 1.5
 
     ex = 2 * f1
-    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.head(ex) == (*)
     @test QuantumDots.children(ex) == [2, ex.factors...]
     @test QuantumDots.operation(ex) == (*)
     @test QuantumDots.arguments(ex) == [2, ex.factors...]
     @test QuantumDots.isexpr(ex)
     @test QuantumDots.iscall(ex)
     ex = 2 * f1 + 1
-    @test QuantumDots.head(ex) == :call
+    @test QuantumDots.head(ex) == (+)
     @test QuantumDots.children(ex) == [1, 2 * f1]
     @test QuantumDots.operation(ex) == (+)
     @test QuantumDots.arguments(ex) == [1, 2 * f1]
@@ -177,11 +178,12 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test QuantumDots.iscall(ex)
 
     ex = f1
-    @test QuantumDots.head(ex) == :ref
-    @test_throws MethodError QuantumDots.operation(ex)
-    @test_throws MethodError QuantumDots.arguments(ex)
+    @test QuantumDots.head(ex) <: QuantumDots.FermionSym
+    @test QuantumDots.children(ex) == [false, :a, f]
+    @test QuantumDots.operation(ex) == QuantumDots.FermionSym
+    @test QuantumDots.arguments(ex) == [false, :a, f]
     @test QuantumDots.isexpr(ex)
-    @test !QuantumDots.iscall(ex)
+    @test QuantumDots.iscall(ex)
 
     @test substitute(f1, f1 => f2) == f2
     @test substitute(f1', f1' => f2) == f2
@@ -192,4 +194,11 @@ eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.
     @test iszero(substitute(a * f1 + 1, a => a^2) - (a^2 * f1 + 1))
     @test iszero(substitute(a * f1 * f2 - f1 + 1 + 0.5 * f2' * f2, f1 => f2) - (a * f2 * f2 - f2 + 1 + 0.5 * f2' * f2))
     @test iszero(substitute(a * f1 + a + a * f1 * f2 * f1', a => 0))
+
+    @test substitute(f[1], 1 => 2) == f[2]
+    @test substitute(f[:a]' * f[:b] + 1, :a => :b) == f[:b]' * f[:b] + 1
 end
+
+TermInterface.operation(::FermionSym) = FermionSym
+TermInterface.arguments(a::FermionSym) = [a.creation, a.label, a.basis]
+TermInterface.children(a::FermionSym) = arguments(a)

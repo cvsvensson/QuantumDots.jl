@@ -1,13 +1,12 @@
 module QuantumDots
 using LinearAlgebra, SparseArrays, LinearMaps, BlockDiagonals
-using Reexport
-using SplitApplyCombine: group
-using Dictionaries
+using SplitApplyCombine: group, sortkeys!
+using Dictionaries: dictionary, Dictionary
+import FillArrays: Eye
 using StaticArrays
 using SkewLinearAlgebra
 import OrderedCollections: OrderedDict
 import AbstractDifferentiation as AD
-using FillArrays: Eye
 using TestItems
 using TermInterface
 
