@@ -32,7 +32,7 @@ Base.getindex(f::SymbolicMajoranaBasis, is...) = MajoranaSym(is, f)
 Base.getindex(f::SymbolicMajoranaBasis, i) = MajoranaSym(i, f)
 Base.:(==)(a::SymbolicMajoranaBasis, b::SymbolicMajoranaBasis) = a.name == b.name && a.universe == b.universe
 
-struct MajoranaSym{L,B} <: AbstractFermionSym
+struct MajoranaSym{L,B} <: Symbolic{NonCommutative}
     label::L
     basis::B
 end

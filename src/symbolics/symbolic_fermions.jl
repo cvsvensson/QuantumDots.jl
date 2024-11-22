@@ -33,7 +33,7 @@ Base.:(==)(a::SymbolicFermionBasis, b::SymbolicFermionBasis) = a.name == b.name 
 Base.getindex(f::SymbolicFermionBasis, is...) = FermionSym(false, is, f)
 Base.getindex(f::SymbolicFermionBasis, i) = FermionSym(false, i, f)
 
-struct FermionSym{L,B} <: AbstractFermionSym
+struct FermionSym{L,B} <: Symbolic{NonCommutative}
     creation::Bool
     label::L
     basis::B

@@ -63,9 +63,9 @@ PrecompileTools.@compile_workload begin
     cbdg = FermionBdGBasis(1:1, (:s,))
     diagonalize(BdGMatrix(cbdg[1, :s]' * cbdg[1, :s]))
     @fermions f
-    QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
+    # QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
     @majoranas γ
-    (γ[1] * γ[2] + 1 + γ[1])^2
+    # (γ[1] * γ[2] + 1 + γ[1])^2
 end
 
 end
