@@ -903,7 +903,7 @@ end
 
 
 @testitem "transport" begin
-    using OrdinaryDiffEq, LinearSolve, Random, LinearAlgebra
+    using OrdinaryDiffEqTsit5, LinearSolve, Random, LinearAlgebra
     import AbstractDifferentiation as AD
     using ForwardDiff, FiniteDifferences
     Random.seed!(1234)
