@@ -45,9 +45,9 @@ function Base.show(io::IO, x::FermionMul)
 end
 Base.iszero(x::FermionMul) = iszero(x.coeff)
 
-Base.:(==)(a::FermionMul, b::FermionMul) = isequal(a.coeff, b.coeff) && a.factors == b.factors
-Base.:(==)(a::FermionMul, b::AbstractFermionSym) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
-Base.:(==)(b::AbstractFermionSym, a::FermionMul) = a == b
+Base.:(==)(a::FermionMul, b::FermionMul) = isequal(a.coeff, b.coeff) && isequal(a.factors, b.factors)
+Base.:(==)(a::FermionMul, b::AbstractFermionSym) = isone(a.coeff) && length(a.factors) == 1 && isequal(only(a.factors), b)
+Base.:(==)(b::AbstractFermionSym, a::FermionMul) = isequal(a, b)
 Base.hash(a::FermionMul, h::UInt) = hash(a.coeff, hash(a.factors, h))
 FermionMul(f::FermionMul) = f
 FermionMul(f::AbstractFermionSym) = FermionMul(1, [f])
@@ -66,7 +66,7 @@ struct FermionAdd{C,D}
         end
     end
 end
-Base.:(==)(a::FermionAdd, b::FermionAdd) = isequal(a.coeff, b.coeff) && a.dict == b.dict
+Base.:(==)(a::FermionAdd, b::FermionAdd) = isequal(a.coeff, b.coeff) && isequal(a.dict, b.dict)
 Base.hash(a::FermionAdd, h::UInt) = hash(a.coeff, hash(a.dict, h))
 
 const SM = Union{AbstractFermionSym,FermionMul}
@@ -172,7 +172,7 @@ unordered_prod(x::Number, y::Number) = x * y
 function sorted_noduplicates(v)
     I = eachindex(v)
     for i in I[1:end-1]
-        v[i] == v[i+1] && return false
+        isequal(v[i], v[i+1]) && return false
     end
     return true
 end
@@ -192,7 +192,7 @@ function bubble_sort(a::FermionMul)
     i = first(eachindex(a.factors)) - 1
     while !swapped && i < length(eachindex(a.factors)) - 1
         i += 1
-        if a.factors[i] > a.factors[i+1] || (a.factors[i] == a.factors[i+1])
+        if a.factors[i] > a.factors[i+1] || isequal(a.factors[i], a.factors[i+1])
             swapped = true
             product = a.factors[i] * a.factors[i+1]
             left_factors = FermionMul(a.coeff, a.factors[1:i-1])
