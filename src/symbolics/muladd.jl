@@ -45,7 +45,7 @@ function Base.show(io::IO, x::FermionMul)
 end
 Base.iszero(x::FermionMul) = iszero(x.coeff)
 
-Base.:(==)(a::FermionMul, b::FermionMul) = a.coeff == b.coeff && a.factors == b.factors
+Base.:(==)(a::FermionMul, b::FermionMul) = isequal(a.coeff, b.coeff) && a.factors == b.factors
 Base.:(==)(a::FermionMul, b::AbstractFermionSym) = isone(a.coeff) && length(a.factors) == 1 && only(a.factors) == b
 Base.:(==)(b::AbstractFermionSym, a::FermionMul) = a == b
 Base.hash(a::FermionMul, h::UInt) = hash(a.coeff, hash(a.factors, h))
@@ -66,7 +66,7 @@ struct FermionAdd{C,D}
         end
     end
 end
-Base.:(==)(a::FermionAdd, b::FermionAdd) = a.coeff == b.coeff && a.dict == b.dict
+Base.:(==)(a::FermionAdd, b::FermionAdd) = isequal(a.coeff, b.coeff) && a.dict == b.dict
 Base.hash(a::FermionAdd, h::UInt) = hash(a.coeff, hash(a.dict, h))
 
 const SM = Union{AbstractFermionSym,FermionMul}
@@ -286,13 +286,13 @@ TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionte
 TermInterface.children(a::Union{FermionMul,FermionAdd}) = arguments(a)
 TermInterface.sorted_children(a::Union{FermionMul,FermionAdd}) = sorted_arguments(a)
 
-TermInterface.maketerm(::Type{FermionMul}, ::typeof(*), args, metadata) = *(args...)
-TermInterface.maketerm(::Type{FermionAdd}, ::typeof(+), args, metadata) = +(args...)
+TermInterface.maketerm(::Type{<:FermionMul}, ::typeof(*), args, metadata) = *(args...)
+TermInterface.maketerm(::Type{<:FermionAdd}, ::typeof(+), args, metadata) = +(args...)
 
-TermInterface.head(::T) where T <: AbstractFermionSym = T
+TermInterface.head(::T) where {T<:AbstractFermionSym} = T
 TermInterface.iscall(::AbstractFermionSym) = true
 TermInterface.isexpr(::AbstractFermionSym) = true
-TermInterface.maketerm(::Type{T}, head::Type{T}, args, metadata) where T <: AbstractFermionSym = T(args...)
+TermInterface.maketerm(::Type{Q}, head::Type{T}, args, metadata) where {Q<:Union{AbstractFermionSym,<:FermionMul,<:FermionAdd},T<:AbstractFermionSym} = T(args...)
 
 
 #From SymbolicUtils
