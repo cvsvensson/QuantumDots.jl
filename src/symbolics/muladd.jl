@@ -286,13 +286,13 @@ TermInterface.sorted_arguments(a::FermionAdd) = iszero(a.coeff) ? sort(fermionte
 TermInterface.children(a::Union{FermionMul,FermionAdd}) = arguments(a)
 TermInterface.sorted_children(a::Union{FermionMul,FermionAdd}) = sorted_arguments(a)
 
-TermInterface.maketerm(f::FermionMul, head::typeof(*), args, metadata) = *(args...)
-TermInterface.maketerm(f::FermionAdd, head::typeof(+), args, metadata) = +(args...)
+TermInterface.maketerm(::Type{FermionMul}, ::typeof(*), args, metadata) = *(args...)
+TermInterface.maketerm(::Type{FermionAdd}, ::typeof(+), args, metadata) = +(args...)
 
 TermInterface.head(::T) where T <: AbstractFermionSym = T
 TermInterface.iscall(::AbstractFermionSym) = true
 TermInterface.isexpr(::AbstractFermionSym) = true
-TermInterface.maketerm(f::T, head::T, args, metadata) where T <: AbstractFermionSym = T(args...)
+TermInterface.maketerm(::Type{T}, head::Type{T}, args, metadata) where T <: AbstractFermionSym = T(args...)
 
 
 #From SymbolicUtils
