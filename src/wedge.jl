@@ -65,7 +65,7 @@ Compute the wedge product of two matrices `m1` and `m2` with respect to the ferm
 - `b2::FermionBasis{M2}`: The fermion basis associated with `m2`.
 - `b3::FermionBasis`: The fermion basis associated with the resulting matrix. (optional)
 """
-function wedge(m1::Union{AbstractMatrix{T1}, UniformScaling{T1}}, b1::FermionBasis{M1}, m2::Union{AbstractMatrix{T2}, UniformScaling{T2}}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
+function wedge(m1::Union{AbstractMatrix{T1},UniformScaling{T1}}, b1::FermionBasis{M1}, m2::Union{AbstractMatrix{T2},UniformScaling{T2}}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
     M3 = length(b3)
     check_wedge_basis_compatibility(b1, b2, b3)
     T3 = promote_type(T1, T2)
@@ -80,4 +80,36 @@ function wedge(m1::Union{AbstractMatrix{T1}, UniformScaling{T1}}, b1::FermionBas
         end
     end
     return m3
+end
+
+struct PhaseMap
+    phases::Matrix{Int}
+    fockstates::Vector{Int}
+end
+function phase_map(fockstates::AbstractVector, M::Int)
+    phases = zeros(Int, length(fockstates), length(fockstates))
+    for (n1, f1) in enumerate(fockstates)
+        for (n2, f2) in enumerate(fockstates)
+            phases[n1, n2] = phase_factor(f1, f2, M)
+        end
+    end
+    PhaseMap(phases, fockstates)
+end
+phase_map(N::Int) = phase_map(0:2^N-1, N)
+
+(p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
+@testitem "phasemap" begin
+    # see App 2 in https://arxiv.org/pdf/2006.03087
+    ns = 1:4
+    phis = Dict(zip(ns, QuantumDots.phase_map.(ns)))
+    @test all(sum(phis[n].phases .== -1) == (2^n - 2) * 2^n / 2 for n in ns)
+
+    for n in 2
+        c = FermionBasis(1:n)
+        q = QubitBasis(1:n)
+        println(n)
+        display(q[1])
+        display(phis[n](q[1]))
+        display((c[1]))
+    end
 end
