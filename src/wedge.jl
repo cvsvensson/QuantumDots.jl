@@ -86,6 +86,23 @@ struct PhaseMap
     phases::Matrix{Int}
     fockstates::Vector{Int}
 end
+struct LazyPhaseMap{M} <: AbstractMatrix{Int}
+    fockstates::Vector{Int}
+end
+Base.length(p::LazyPhaseMap) = length(p.fockstates)
+Base.ndims(::LazyPhaseMap) = 2
+function Base.size(p::LazyPhaseMap, d::Int)
+    d < 1 && error("arraysize: dimension out of range")
+    d in (1, 2) ? length(p.fockstates) : 1
+end
+Base.size(p::LazyPhaseMap{M}) where {M} = (length(p.fockstates), length(p.fockstates))
+function Base.show(io::IO, p::LazyPhaseMap{M}) where {M}
+    print(io, "LazyPhaseMap{$M}(")
+    show(io, p.fockstates)
+    print(")")
+end
+Base.show(io::IO, ::MIME"text/plain", p::LazyPhaseMap) = show(io, p)
+Base.getindex(p::LazyPhaseMap{M}, n1::Int, n2::Int) where {M} = phase_factor(p.fockstates[n1], p.fockstates[n2], M)
 function phase_map(fockstates::AbstractVector, M::Int)
     phases = zeros(Int, length(fockstates), length(fockstates))
     for (n1, f1) in enumerate(fockstates)
@@ -96,20 +113,40 @@ function phase_map(fockstates::AbstractVector, M::Int)
     PhaseMap(phases, fockstates)
 end
 phase_map(N::Int) = phase_map(0:2^N-1, N)
+LazyPhaseMap(N::Int) = LazyPhaseMap{N}(0:2^N-1)
 
 (p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
+(p::LazyPhaseMap)(op::AbstractMatrix) = p .* op
 @testitem "phasemap" begin
+    using LinearAlgebra
     # see App 2 in https://arxiv.org/pdf/2006.03087
     ns = 1:4
     phis = Dict(zip(ns, QuantumDots.phase_map.(ns)))
+    lazyphis = Dict(zip(ns, QuantumDots.LazyPhaseMap.(ns)))
+    @test all(sum(phis[n].phases .== -1) == (2^n - 2) * 2^n / 2 for n in ns)
     @test all(sum(phis[n].phases .== -1) == (2^n - 2) * 2^n / 2 for n in ns)
 
-    for n in 2
-        c = FermionBasis(1:n)
-        q = QubitBasis(1:n)
-        println(n)
-        display(q[1])
-        display(phis[n](q[1]))
-        display((c[1]))
+    for N in ns
+        c = FermionBasis(1:N)
+        c2 = map(c -> phis[N](c), c)
+        @test phis[N](phis[N](c[1])) == c[1]
+        # c is fermionic
+        @test all([c[n] * c[n2] == -c[n2] * c[n] for n in 1:N, n2 in 1:N])
+        @test all([c[n]' * c[n2] == -c[n2] * c[n]' + I * (n == n2) for n in 1:N, n2 in 1:N])
+        # c2 is hardcore bosons
+        @test all([c2[n] * c2[n2] == c2[n2] * c2[n] for n in 1:N, n2 in 1:N])
+        @test all([c2[n]' * c2[n2] == (-c2[n2] * c2[n]' + I) * (n == n2) + (n !== n2) * (c2[n2] * c2[n]') for n in 1:N, n2 in 1:N])
     end
+
+    c1 = FermionBasis(1:1)
+    c2 = FermionBasis(1:2)
+    p1 = QuantumDots.LazyPhaseMap(1)
+    p2 = QuantumDots.phase_map(2)
+    @test QuantumDots.fermionic_tensor_product((c1[1], I(2)), (p1, p1), p2) == c2[1]
+    @test QuantumDots.fermionic_tensor_product((I(2), c1[1]), (p1, p1), p2) == c2[2]
+
+end
+
+function fermionic_tensor_product(ops, phis, phi)
+    phi(kron(reverse(map((phi, op) -> phi(op), phis, ops))...))
 end
