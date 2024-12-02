@@ -114,7 +114,7 @@ function phase_map(fockstates::AbstractVector, M::Int)
 end
 phase_map(N::Int) = phase_map(0:2^N-1, N)
 LazyPhaseMap(N::Int) = LazyPhaseMap{N}(0:2^N-1)
-
+SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest...) = SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(rest...)
 (p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
 (p::LazyPhaseMap)(op::AbstractMatrix) = p .* op
 @testitem "phasemap" begin
@@ -128,6 +128,8 @@ LazyPhaseMap(N::Int) = LazyPhaseMap{N}(0:2^N-1)
 
     for N in ns
         c = FermionBasis(1:N)
+        q = QubitBasis(1:N)
+        @test all(map((c, q) -> q == phis[N](c), c, q))
         c2 = map(c -> phis[N](c), c)
         @test phis[N](phis[N](c[1])) == c[1]
         # c is fermionic

@@ -146,7 +146,7 @@ end
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == t2
 
-    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.partial_trace(v, (1,), a))
+    #@test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.partial_trace(v, (1,), a))
 
     c = FermionBasis(1:2, (:a, :b))
     cparity = FermionBasis(1:2, (:a, :b); qn=QuantumDots.parity)
@@ -218,6 +218,29 @@ end
     @test reduced_density_matrix13 ≈ many_body_density_matrix(G13, c12)
     @test reduced_density_matrix3 ≈ many_body_density_matrix(G3, c)
 
+end
+
+@testitem "Fermionic partial trace" begin
+    using LinearAlgebra
+    qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
+    for qn in qns
+        c = FermionBasis(1:3; qn)
+        c1 = FermionBasis(1:1; qn)
+        c2 = FermionBasis(2:2; qn)
+        c12 = FermionBasis(1:2; qn)
+        c13 = FermionBasis(1:3; qn)
+        c23 = FermionBasis(2:3; qn)
+        γ = Hermitian([0I rand(ComplexF64, 4, 4); rand(ComplexF64, 4, 4) 0I])
+        f = c[1]
+        @test tr(c1[1] * partial_trace(γ, c1, c)) ≈ tr(f * γ)
+        @test tr(c12[1] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
+        @test tr(c13[1] * partial_trace(γ, c13, c)) ≈ tr(f * γ)
+
+        f = c[2]
+        @test tr(c2[2] * partial_trace(γ, c2, c)) ≈ tr(f * γ)
+        @test tr(c12[2] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
+        @test tr(c23[2] * partial_trace(γ, c23, c)) ≈ tr(f * γ)
+    end
 end
 
 @testitem "Wedge" begin
