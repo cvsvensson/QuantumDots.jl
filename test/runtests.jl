@@ -223,8 +223,14 @@ end
 @testitem "Fermionic trace" begin
     using LinearAlgebra
     N = 4
-    c = FermionBasis(1:3)
-
+    cs = [FermionBasis(n:n) for n in 1:N]
+    c = FermionBasis(1:4)
+    ops = [rand(ComplexF64, 2, 2) for _ in 1:N]
+    op = wedge(ops, cs, c)
+    @test tr(op) ≈ prod(tr, ops)
+    
+    op = wedge(ops, cs[[3, 2, 1, 4]], c)
+    @test tr(op) ≈ prod(tr, ops)
 end
 
 
