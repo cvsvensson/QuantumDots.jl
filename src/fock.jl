@@ -55,14 +55,14 @@ end
 _bit(f, k) = Bool((f >> (k - 1)) & 1)
 function phase_factor(focknbr1, focknbr2, subinds::NTuple)::Int
     bitmask = focknbr_from_site_indices(subinds)
-    prod(i -> (jwstring(i, bitmask & focknbr1) * jwstring(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds)
+    prod(i -> (jwstring_left(i, bitmask & focknbr1) * jwstring_left(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds)
 end
 function phase_factor(focknbr1, focknbr2, N)::Int
     prod(_phase_factor(focknbr1, focknbr2, i) for i in 1:N)
 end
 
 function _phase_factor(focknbr1, focknbr2, i)::Int
-    _bit(focknbr2, i) ? (jwstring(i, focknbr1) * jwstring(i, focknbr2)) : 1
+    _bit(focknbr2, i) ? (jwstring_left(i, focknbr1) * jwstring_left(i, focknbr2)) : 1
 end
 
 """

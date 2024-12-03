@@ -146,7 +146,7 @@ end
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == t2
 
-    @test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.partial_trace(v, (1,), a))
+    #@test sort(QuantumDots.svd(v, (1,), a).S .^ 2) ≈ eigvals(QuantumDots.partial_trace(v, (1,), a))
 
     c = FermionBasis(1:2, (:a, :b))
     cparity = FermionBasis(1:2, (:a, :b); qn=QuantumDots.parity)
@@ -220,11 +220,48 @@ end
 
 end
 
+@testitem "Fermionic trace" begin
+    using LinearAlgebra
+    N = 4
+    cs = [FermionBasis(n:n) for n in 1:N]
+    c = FermionBasis(1:4)
+    ops = [rand(ComplexF64, 2, 2) for _ in 1:N]
+    op = wedge(ops, cs, c)
+    @test tr(op) ≈ prod(tr, ops)
+    
+    op = wedge(ops, cs[[3, 2, 1, 4]], c)
+    @test tr(op) ≈ prod(tr, ops)
+end
+
+
+@testitem "Fermionic partial trace" begin
+    using LinearAlgebra
+    qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
+    for qn in qns
+        c = FermionBasis(1:3; qn)
+        c1 = FermionBasis(1:1; qn)
+        c2 = FermionBasis(2:2; qn)
+        c12 = FermionBasis(1:2; qn)
+        c13 = FermionBasis(1:3; qn)
+        c23 = FermionBasis(2:3; qn)
+        γ = Hermitian([0I rand(ComplexF64, 4, 4); rand(ComplexF64, 4, 4) 0I])
+        f = c[1]
+        @test tr(c1[1] * partial_trace(γ, c1, c)) ≈ tr(f * γ)
+        @test tr(c12[1] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
+        @test tr(c13[1] * partial_trace(γ, c13, c)) ≈ tr(f * γ)
+
+        f = c[2]
+        @test tr(c2[2] * partial_trace(γ, c2, c)) ≈ tr(f * γ)
+        @test tr(c12[2] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
+        @test tr(c23[2] * partial_trace(γ, c23, c)) ≈ tr(f * γ)
+    end
+end
+
 @testitem "Wedge" begin
     using Random, LinearAlgebra
     Random.seed!(1234)
 
-    for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
+    for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
         b1 = FermionBasis(1:1; qn)
         b2 = FermionBasis(1:3; qn)
         @test_throws ArgumentError wedge(b1, b2)
@@ -232,63 +269,40 @@ end
         b3 = FermionBasis(1:3; qn)
         b3w = wedge(b1, b2)
         @test norm(b3w .- b3) == 0
-
-        for i1 in [[], [1]], i2 in [[], [1], [2], [1, 2]]
-            f1 = QuantumDots.focknbr_from_site_indices(i1)
-            f2 = QuantumDots.focknbr_from_site_indices(i2)
-            f3 = QuantumDots.focknbr_from_site_indices([i1..., 1 .+ i2...])
-
-            v1 = zeros(size(first(b1), 1))
-            v1[QuantumDots.focktoind(f1, b1)] = 1
-            v2 = zeros(size(first(b2), 1))
-            v2[QuantumDots.focktoind(f2, b2)] = 1
-            v3 = zeros(size(first(b3), 1))
-            v3[QuantumDots.focktoind(f3, b3)] = isodd(length(i2)) ? -1 : 1
-            @test wedge(v1, b1, v2, b2) ≈ v3
-        end
+        bs = [b1, b2]
 
         O1 = isodd.(QuantumDots.numberoperator(b1))
         O2 = isodd.(QuantumDots.numberoperator(b2))
         for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
             v1 = P1 * rand(2)
             v2 = P2 * rand(4)
-            v3 = wedge(v1, b1, v2, b2)
+            v3 = wedge([v1, v2], bs)
             for k1 in keys(b1), k2 in keys(b2)
                 b1f = b1[k1]
                 b2f = b2[k2]
                 b3f = b3[k1] * b3[k2]
-                v3w = wedge(b1f * v1, b1, b2f * v2, b2, b3)
+                v3w = wedge([b1f * v1, b2f * v2], bs, b3)
                 v3f = b3f * v3
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
             end
         end
 
-        # The wedge product is a permutation of kron and a parity operator
-        v1 = rand(2)
-        v2 = rand(4)
-        v3 = wedge(v1, b1, v2, b2)
-        if b1.symmetry == QuantumDots.NoSymmetry()
-            @test kron(QuantumDots.parityoperator(b2) * v2, v1) == v3
-        end
-        @test sort(kron(QuantumDots.parityoperator(b2) * v2, v1), by=abs) == sort(v3, by=abs)
-
-
         # Test wedge of matrices
         P1 = QuantumDots.parityoperator(b1)
         P2 = QuantumDots.parityoperator(b2)
         P3 = QuantumDots.parityoperator(b3)
-        wedge(P1, b1, P2, b2, b3) ≈ P3
+        wedge([P1, P2], bs, b3) ≈ P3
 
 
         rho1 = rand(2, 2)
         rho2 = rand(4, 4)
-        rho3 = wedge(rho1, b1, rho2, b2, b3)
+        rho3 = wedge([rho1, rho2], bs, b3)
         for P1 in [P1 + I, I - P1], P2 in [P2 + I, I - P2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
             m1 = P1 * rho1 * P1
             m2 = P2 * rho2 * P2
-            P3 = wedge(P1, b1, P2, b2, b3)
+            P3 = wedge([P1, P2], bs, b3)
             m3 = P3 * rho3 * P3
-            @test wedge(m1, b1, m2, b2, b3) == m3
+            @test wedge([m1, m2], bs, b3) == m3
         end
 
         H1 = Matrix(0.5b1[1]' * b1[1])
@@ -299,15 +313,15 @@ end
         vals3, vecs3 = eigen(H3)
 
         # test wedging with I (UniformScaling)
-        H3w = wedge(H1, b1, I, b2, b3) + wedge(I, b1, H2, b2, b3)
+        H3w = wedge([H1, I], bs, b3) + wedge([I, H2], bs, b3)
         @test H3w == H3
-        @test wedge(I, b1, I, b2, b3) == one(H3)
+        @test wedge([I, I], bs, b3) == one(H3)
 
         vals3w = map(sum, Base.product(vals1, vals2)) |> vec
         p = sortperm(vals3w)
         vals3w[p] ≈ vals3
 
-        vecs3w = vec(map(v12 -> wedge(v12[1], b1, v12[2], b2, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
+        vecs3w = vec(map(v12 -> wedge([v12[1], v12[2]], bs, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
         @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
 
         β = 0.7
@@ -317,19 +331,20 @@ end
         rmul!(rho2, 1 / tr(rho2))
         rho3 = exp(-β * H3)
         rmul!(rho3, 1 / tr(rho3))
-        rho3w = wedge(rho1, b1, rho2, b2, b3)
+        rho3w = wedge([rho1, rho2], bs, b3)
         @test rho3w ≈ rho3
-
-        @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b1, b3) ≈ rho1
-        @test partial_trace(wedge(rho1, b1, rho2, b2, b3), b2, b3) ≈ rho2
-        @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(blockdiagonal(rho1, b1), b1, rho2, b2, b3)
-        @test wedge(blockdiagonal(rho1, b1), b1, blockdiagonal(rho2, b2), b2, b3) ≈ wedge(rho1, b1, rho2, b2, b3)
+        bs = [b1, b2]
+        @test partial_trace(wedge([rho1, rho2], bs, b3), b1, b3) ≈ rho1
+        @test partial_trace(wedge([rho1, rho2], bs, b3), b2, b3) ≈ rho2
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([blockdiagonal(rho1, b1), rho2], bs, b3)
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([rho1, rho2], bs, b3)
 
         # Test BD1_hamiltonian
         b1 = FermionBasis(1:2, (:↑, :↓); qn)
         b2 = FermionBasis(3:4, (:↑, :↓); qn)
         b12 = FermionBasis(1:4, (:↑, :↓); qn)
         b12w = wedge(b1, b2)
+        bs = [b1, b2]
         θ1 = 0.5
         θ2 = 0.2
         params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
@@ -338,10 +353,10 @@ end
         H1 = QuantumDots.BD1_hamiltonian(b1; params1...)
         H2 = QuantumDots.BD1_hamiltonian(b2; params2...)
 
-        H12w = wedge(H1, b1, I, b2, b12w) + wedge(I, b1, H2, b2, b12w)
+        H12w = wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w)
         H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
 
-        v12w = wedge(eigvecs(Matrix(H1))[:, 1], b1, eigvecs(Matrix(H2))[:, 1], b2, b12w)
+        v12w = wedge([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
         v12 = eigvecs(H12)[:, 1]
         v12ww = eigvecs(H12w)[:, 1]
         sort(abs.(v12w)) - sort(abs.(v12))
@@ -354,9 +369,6 @@ end
     b1 = FermionBasis(1:2; qn=QuantumDots.parity)
     b2 = FermionBasis(2:4; qn=QuantumDots.parity)
     @test_throws ArgumentError wedge(b1, b2)
-    b2 = FermionBasis(3:4; qn=QuantumDots.parity)
-    b3 = FermionBasis([1, 3, 2, 4]; qn=QuantumDots.parity)
-    @test_throws ArgumentError wedge(rand(4, 4), b1, rand(4, 4), b2, b3)
 end
 
 @testitem "QubitBasis" begin

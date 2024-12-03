@@ -3,7 +3,9 @@
     
 Count the number of fermions to the right of site.
 """
-jwstring(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
+jwstring(site, focknbr) = jwstring_right(site, focknbr)
+jwstring_right(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
+jwstring_left(site, focknbr) = iseven(count_ones(focknbr) - count_ones(focknbr >> (site - 1))) ? 1 : -1
 
 
 """
@@ -15,7 +17,7 @@ function removefermion(digitposition, statefocknbr)
     cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
     allowed = !iszero(cdag & statefocknbr)
-    fermionstatistics = jwstring(digitposition, statefocknbr)
+    fermionstatistics = jwstring_right(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed * fermionstatistics
 end
 
