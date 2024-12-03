@@ -28,35 +28,6 @@ function check_wedge_basis_compatibility(b1::FermionBasis{M1}, b2::FermionBasis{
     end
 end
 
-#TODO: specialize for ::NoSymmetry, where kron and parity operator can be used
-#TODO: Try first permuting, then kron, then permuting back
-# """
-#     wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
-
-# Compute the wedge product of two vectors `v1` and `v2` in the fermion basis `b1` and `b2`, respectively. Return a vector in the fermion basis `b3`.
-
-# # Arguments
-# - `v1::AbstractVector`: The first vector.
-# - `b1::FermionBasis`: The fermion basis for `v1`.
-# - `v2::AbstractVector`: The second vector.
-# - `b2::FermionBasis`: The fermion basis for `v2`.
-# - `b3::FermionBasis`: The fermion basis for the resulting vector. Defaults to the wedge product of `b1` and `b2`.
-# """
-# function wedge(v1::AbstractVector{T1}, b1::FermionBasis{M1}, v2::AbstractVector{T2}, b2::FermionBasis{M2}, b3::FermionBasis=wedge(b1, b2)) where {M1,M2,T1,T2}
-#     M3 = length(b3)
-#     check_wedge_basis_compatibility(b1, b2, b3)
-#     T3 = promote_type(T1, T2)
-#     v3 = zeros(T3, 2^M3)
-#     for f1 in 0:2^M1-1, f2 in 0:2^M2-1
-#         f3 = f1 + f2 * 2^M1
-#         pf = parity(f2)
-#         v3[focktoind(f3, b3)] += v1[focktoind(f1, b1)] * v2[focktoind(f2, b2)] * pf
-#     end
-#     return v3
-# end
-
-
-
 get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = 0:2^M-1
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
 get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
@@ -118,27 +89,14 @@ function wedge_vec!(mout, ms::AbstractVector, bs::AbstractVector{<:FermionBasis}
     return U * mout
 end
 
-# function partition_phase_factor(f, ξ)
-#     phase = 1
-#     for (s, Xs) in enumerate(ξ)
-#         mask = focknbr_from_site_indices(Xs)
-#         masked_f = mask & f
-#         for (r, Xr) in Iterators.drop(enumerate(ξ), s)
-#             for i in Xr
-#                 phase *= (_bit(f, i) ? jwstring_left(i, masked_f) : 1)
-#             end
-#         end
-#     end
-#     return phase
-# end
-function embedding_unitary(ξ, fockstates)
+function embedding_unitary(partition, fockstates)
     #for locally physical algebra, ie only for even operators or states of well-defined parity
     #if ξ is ordered, the phases are +1. 
-    # Note that the jordan wigner modes are ordered in reverse
+    # Note that the jordan wigner modes are ordered in reverse from the labels, but this is taken care of by direction of the jwstring below
     phases = ones(Int, length(fockstates))
-    for (s, Xs) in enumerate(ξ)
+    for (s, Xs) in enumerate(partition)
         mask = focknbr_from_site_indices(Xs)
-        for (r, Xr) in Iterators.drop(enumerate(ξ), s)
+        for (r, Xr) in Iterators.drop(enumerate(partition), s)
             for i in Xr
                 for (n, f) in zip(eachindex(phases), fockstates)
                     if _bit(f, i)
@@ -215,7 +173,6 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     p2 = QuantumDots.phase_map(2)
     @test QuantumDots.fermionic_tensor_product((c1[1], I(2)), (p1, p1), p2) == c2[1]
     @test QuantumDots.fermionic_tensor_product((I(2), c1[1]), (p1, p1), p2) == c2[2]
-
 end
 
 function fermionic_tensor_product(ops, phis, phi)
