@@ -230,9 +230,8 @@ end
     fine_size = 3
     perm = randperm(N)
     rough_partitions = collect(partition(perm, rough_size))
-    rough_partitions_shuffled = shuffle.(rough_partitions)
     # divide each part of rough partition into finer partitions
-    fine_partitions = map(rough_partition -> collect(partition(rough_partition, fine_size)), rough_partitions_shuffled)
+    fine_partitions = map(rough_partition -> collect(partition(shuffle(rough_partition), fine_size)), rough_partitions)
     c = FermionBasis(1:N)
     cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
     cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
