@@ -224,13 +224,12 @@ end
 @testitem "Wedge properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
-    using Random, Base.Iterators
+    using Random, Base.Iterators, LinearAlgebra
     Random.seed!(1234)
     N = 7
     rough_size = 5
     fine_size = 3
-    perm = randperm(N)
-    rough_partitions = collect(partition(perm, rough_size))
+    rough_partitions = collect(partition(randperm(N), rough_size))
     # divide each part of rough partition into finer partitions
     fine_partitions = map(rough_partition -> collect(partition(shuffle(rough_partition), fine_size)), rough_partitions)
     c = FermionBasis(1:N)
