@@ -220,15 +220,16 @@ end
 
 end
 
-@testitem "Wedge associativity" begin
-    # See Eq. 16 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    using Random, Base.Iterators
+
+@testitem "Wedge properties" begin
+    # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
+    # Eq. 16
+    using Random, Base.Iterators, LinearAlgebra
     Random.seed!(1234)
     N = 7
     rough_size = 5
     fine_size = 3
-    perm = randperm(N)
-    rough_partitions = collect(partition(perm, rough_size))
+    rough_partitions = collect(partition(randperm(N), rough_size))
     # divide each part of rough partition into finer partitions
     fine_partitions = map(rough_partition -> collect(partition(shuffle(rough_partition), fine_size)), rough_partitions)
     c = FermionBasis(1:N)
@@ -238,6 +239,13 @@ end
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
     rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
     lhs = wedge([wedge(ops_vec, cs_vec, c) for (ops_vec, cs_vec) in zip(ops_fine, cs_fine)], cs_rough, c)
+    @test lhs ≈ rhs
+
+    # Eq. 18
+    As = ops_rough
+    Bs = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
+    lhs = tr(wedge(As, cs_rough, c)' * wedge(Bs, cs_rough, c))
+    rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
     @test lhs ≈ rhs
 end
 
