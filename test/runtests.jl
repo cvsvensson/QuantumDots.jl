@@ -257,7 +257,7 @@ end
     ops = [rand(ComplexF64, 2, 2) for _ in 1:N]
     op = wedge(ops, cs, c)
     @test tr(op) ≈ prod(tr, ops)
-    
+
     op = wedge(ops, cs[[3, 2, 1, 4]], c)
     @test tr(op) ≈ prod(tr, ops)
 end
@@ -398,6 +398,12 @@ end
     b1 = FermionBasis(1:2; qn=QuantumDots.parity)
     b2 = FermionBasis(2:4; qn=QuantumDots.parity)
     @test_throws ArgumentError wedge(b1, b2)
+
+    # Test zero-mode wedge
+    c1 = FermionBasis(1:0)
+    c2 = FermionBasis(1:1)
+    @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
+    @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
 end
 
 @testitem "QubitBasis" begin
