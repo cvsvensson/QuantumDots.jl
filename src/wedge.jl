@@ -39,7 +39,7 @@ Compute the wedge product of matrices or vectors in `ms` with respect to the fer
 function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Matrix is there to make it work if ms only has one matrix
+    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Array{T,N} is there as a fallback make if there aren't enough arguments
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
     fockmapper = if match_labels
