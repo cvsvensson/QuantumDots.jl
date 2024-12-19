@@ -36,53 +36,71 @@ get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs...))
-    T = promote_type(map(eltype, ms)...)
+function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
+    T = Base.promote_eltype(ms...)
+    N = ndims(first(ms))
+    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Array{T,N} is there as a fallback make if there aren't enough arguments
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
-    if ndims(first(ms)) == 1
-        mout = zeros(T, Nout)
-        return wedge_vec!(mout, ms, bs, b, Val(length(ms)))
-    elseif ndims(first(ms)) == 2
-        mout = zeros(T, Nout, Nout)
-        return wedge_mat!(mout, ms, bs, b, Val(length(ms)))
+    fockmapper = if match_labels
+        fermionpositions = map(Base.Fix2(siteindices, b) ∘ Tuple ∘ keys, bs)
+        FockMapper(fermionpositions)
+    else
+        Ms = map(nbr_of_fermions, bs)
+        shifts = (0, cumsum(Ms)...)
+        FockShifter(shifts)
+    end
+    mout = convert(MT, zeros(T, ntuple(j -> Nout, N)))
+    if N == 1
+        return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+    elseif N == 2
+        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
-function wedge_mat!(mout, ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis, ::Val{N}) where {N}
+
+struct FockMapper{P}
+    fermionpositions::P
+end
+struct FockShifter{M}
+    shifts::M
+end
+(fm::FockMapper)(f::NTuple{N,Int}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
+(fs::FockShifter)(f::NTuple{N,Int}) where {N} = mapreduce((f, M) -> 2^M * f, +, f, fs.shifts)
+get_partition(f::FockMapper) = f.fermionpositions
+get_partition(f::FockShifter) = map((s1, s2) -> s1+1:s2, f.shifts, Iterators.drop(f.shifts, 1))
+
+function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+    fill!(mout, zero(eltype(mout)))
     Ms = map(nbr_of_fermions, bs)
     Mout = sum(Ms)
-    shifts = pushfirst!(cumsum(Ms), 0)
     dimlengths = map(length ∘ get_fockstates, bs)
-    inds::CartesianIndices{N,NTuple{N,Base.OneTo{Int64}}} = CartesianIndices(Tuple(dimlengths))
+    inds = CartesianIndices(dimlengths)
     for I in inds
         TI = Tuple(I)
         fock1 = map(indtofock, TI, bs)
-        fullfock = mapreduce((M, f) -> 2^M * f, +, shifts, fock1)
-        outind = focktoind(fullfock, b)
+        fullfock1 = fockmapper(fock1)
+        outind = focktoind(fullfock1, b)
         for I2 in inds
             TI2 = Tuple(I2)
             fock2 = map(indtofock, TI2, bs)
-            fullfock2 = mapreduce((M, f) -> 2^M * f, +, shifts, fock2)
+            fullfock2 = fockmapper(fock2)
             v = mapreduce((m, b, i1, f1, i2, f2, M) -> m[i1, i2] * phase_factor(f1, f2, M), *, ms, bs, TI, fock1, TI2, fock2, Ms)
-            mout[outind, focktoind(fullfock2, b)] += v * phase_factor(fullfock, fullfock2, Mout)
+            mout[outind, focktoind(fullfock2, b)] += v * phase_factor(fullfock1, fullfock2, Mout)
         end
     end
     return mout
 end
-function wedge_vec!(mout, ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis, ::Val{N}) where {N}
-    Ms = map(nbr_of_fermions, bs)
-    partition = map(_b -> siteindices(collect(keys(_b)), b), bs)
+function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+    fill!(mout, zero(eltype(mout)))
+    partition = get_partition(fockmapper)
     U = embedding_unitary(partition, get_fockstates(b))
-    Mout = sum(Ms)
-    @assert length(unique(reduce(vcat, partition))) == Mout
-    shifts = pushfirst!(cumsum(Ms), 0)
     dimlengths = map(length ∘ get_fockstates, bs)
-    inds::CartesianIndices{N,NTuple{N,Base.OneTo{Int64}}} = CartesianIndices(Tuple(dimlengths))
+    inds = CartesianIndices(Tuple(dimlengths))
     for I in inds
         TI = Tuple(I)
-        fock1 = map(indtofock, TI, bs)
-        fullfock = mapreduce((M, f) -> 2^M * f, +, shifts, fock1)
+        fock = map(indtofock, TI, bs)
+        fullfock = fockmapper(fock)
         outind = focktoind(fullfock, b)
         mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
     end
@@ -108,6 +126,168 @@ function embedding_unitary(partition, fockstates)
     end
     return Diagonal(phases)
 end
+
+
+
+@testitem "Wedge properties" begin
+    # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
+    # Eq. 16
+    using Random, Base.Iterators, LinearAlgebra
+    Random.seed!(1234)
+    N = 7
+    rough_size = 5
+    fine_size = 3
+    rough_partitions = collect(partition(randperm(N), rough_size))
+    # divide each part of rough partition into finer partitions
+    fine_partitions = map(rough_partition -> collect(partition(shuffle(rough_partition), fine_size)), rough_partitions)
+    c = FermionBasis(1:N)
+    cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
+    cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
+    ops_rough = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
+    ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
+    rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
+    lhs = wedge([wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
+    @test lhs ≈ rhs
+
+    # Eq. 18
+    As = ops_rough
+    Bs = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
+    lhs = tr(wedge(As, cs_rough, c)' * wedge(Bs, cs_rough, c))
+    rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
+    @test lhs ≈ rhs
+end
+
+
+@testitem "Wedge" begin
+    using Random, LinearAlgebra
+    Random.seed!(1234)
+
+    for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
+        b1 = FermionBasis(1:1; qn)
+        b2 = FermionBasis(1:3; qn)
+        @test_throws ArgumentError wedge(b1, b2)
+        b2 = FermionBasis(2:3; qn)
+        b3 = FermionBasis(1:3; qn)
+        b3w = wedge(b1, b2)
+        @test norm(b3w .- b3) == 0
+        bs = [b1, b2]
+
+        O1 = isodd.(QuantumDots.numberoperator(b1))
+        O2 = isodd.(QuantumDots.numberoperator(b2))
+        for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            v1 = P1 * rand(2)
+            v2 = P2 * rand(4)
+            v3 = wedge([v1, v2], bs)
+            for k1 in keys(b1), k2 in keys(b2)
+                b1f = b1[k1]
+                b2f = b2[k2]
+                b3f = b3[k2] * b3[k1]
+                b3fw = wedge([b1f, b2f], bs, b3)
+                v3w = wedge([b1f * v1, b2f * v2], bs, b3)
+                v3f = b3f * v3
+                @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
+            end
+        end
+
+        # Test wedge of matrices
+        P1 = QuantumDots.parityoperator(b1)
+        P2 = QuantumDots.parityoperator(b2)
+        P3 = QuantumDots.parityoperator(b3)
+        wedge([P1, P2], bs, b3) ≈ P3
+
+
+        rho1 = rand(2, 2)
+        rho2 = rand(4, 4)
+        rho3 = wedge([rho1, rho2], bs, b3)
+        for P1 in [P1 + I, I - P1], P2 in [P2 + I, I - P2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
+            m1 = P1 * rho1 * P1
+            m2 = P2 * rho2 * P2
+            P3 = wedge([P1, P2], bs, b3)
+            m3 = P3 * rho3 * P3
+            @test wedge([m1, m2], bs, b3) == m3
+        end
+
+        H1 = Matrix(0.5b1[1]' * b1[1])
+        H2 = Matrix(-0.1b2[2]' * b2[2] + 0.3b2[3]' * b2[3] + (b2[2]' * b2[3] + hc))
+        vals1, vecs1 = eigen(H1)
+        vals2, vecs2 = eigen(H2)
+        H3 = Matrix(0.5b3[1]' * b3[1] - 0.1b3[2]' * b3[2] + 0.3b3[3]' * b3[3] + (b3[2]' * b3[3] + hc))
+        vals3, vecs3 = eigen(H3)
+
+        # test wedging with I (UniformScaling)
+        H3w = wedge([H1, I], bs, b3) + wedge([I, H2], bs, b3)
+        @test H3w == H3
+        @test wedge([I, I], bs, b3) == one(H3)
+
+        vals3w = map(sum, Base.product(vals1, vals2)) |> vec
+        p = sortperm(vals3w)
+        vals3w[p] ≈ vals3
+
+        vecs3w = vec(map(v12 -> wedge([v12[1], v12[2]], bs, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
+        @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
+
+        β = 0.7
+        rho1 = exp(-β * H1)
+        rmul!(rho1, 1 / tr(rho1))
+        rho2 = exp(-β * H2)
+        rmul!(rho2, 1 / tr(rho2))
+        rho3 = exp(-β * H3)
+        rmul!(rho3, 1 / tr(rho3))
+        rho3w = wedge([rho1, rho2], bs, b3)
+        @test rho3w ≈ rho3
+        bs = [b1, b2]
+        @test partial_trace(wedge([rho1, rho2], bs, b3), b1, b3) ≈ rho1
+        @test partial_trace(wedge([rho1, rho2], bs, b3), b2, b3) ≈ rho2
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([blockdiagonal(rho1, b1), rho2], bs, b3)
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([rho1, rho2], bs, b3)
+
+        # Test BD1_hamiltonian
+        b1 = FermionBasis(1:2, (:↑, :↓); qn)
+        b2 = FermionBasis(3:4, (:↑, :↓); qn)
+        b12 = FermionBasis(1:4, (:↑, :↓); qn)
+        b12w = wedge(b1, b2)
+        bs = [b1, b2]
+        θ1 = 0.5
+        θ2 = 0.2
+        params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
+        params2 = (; μ=1, t=0.1, Δ=1.0, V=0, θ=parameter(θ2, :diff), ϕ=5.0, h=1.0, U=10.0, Δ1=-1.0)
+        params12 = (; μ=[params1.μ, params1.μ, params2.μ, params2.μ], t=[params1.t, 0, params2.t, 0], Δ=[params1.Δ, params1.Δ, params2.Δ, params2.Δ], V=[params1.V, 0, params2.V, 0], θ=[0, θ1, 0, θ2], ϕ=[params1.ϕ, params1.ϕ, params2.ϕ, params2.ϕ], h=[params1.h, params1.h, params2.h, params2.h], U=[params1.U, params1.U, params2.U, params2.U], Δ1=[params1.Δ1, 0, params2.Δ1, 0])
+        H1 = Matrix(QuantumDots.BD1_hamiltonian(b1; params1...))
+        H2 = Matrix(QuantumDots.BD1_hamiltonian(b2; params2...))
+
+        H12w = wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w)
+        H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
+
+        v12w = wedge([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
+        v12 = eigvecs(H12)[:, 1]
+        v12ww = eigvecs(H12w)[:, 1]
+        sort(abs.(v12w)) - sort(abs.(v12))
+        @test sum(abs, v12w) ≈ sum(abs, v12)
+        @test sum(abs, v12w) ≈ sum(abs, v12ww)
+        @test diff(eigvals(H12w)) ≈ diff(eigvals(H12))
+
+        # Test zero-mode wedge
+        c1 = FermionBasis(1:0; qn)
+        c2 = FermionBasis(1:1; qn)
+        @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
+        @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
+
+        # Test not matching labels
+        c1 = FermionBasis(1:1; qn)
+        c2 = FermionBasis(2:2; qn)
+        c13 = FermionBasis([1, 3]; qn)
+        c123 = FermionBasis(1:3; qn)
+        @test wedge([c2[2], c13[3]], [c2, c13], c123) == c123[3] * c123[2]
+        @test wedge([c1[1], c13[3]], [c1, c13], c123; match_labels=false) == c123[3] * c123[1]
+
+    end
+
+    #Test basis compatibility
+    b1 = FermionBasis(1:2; qn=QuantumDots.parity)
+    b2 = FermionBasis(2:4; qn=QuantumDots.parity)
+    @test_throws ArgumentError wedge(b1, b2)
+end
+
 
 struct PhaseMap
     phases::Matrix{Int}

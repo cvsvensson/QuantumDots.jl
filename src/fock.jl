@@ -10,6 +10,18 @@ fermionnumber(fs::Int) = count_ones(fs)
 fermionnumber(fs::Int, mask) = count_ones(fs & mask)
 fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, labels)))
 
+function insert_bits(x::Int, positions)
+    result = 0
+    bit_index = 1
+    for pos in positions
+        if x & (1 << (bit_index - 1)) != 0
+            result |= (1 << (pos - 1))
+        end
+        bit_index += 1
+    end
+    return result
+end
+
 """
     siteindex(id, labels)
 
