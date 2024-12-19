@@ -38,7 +38,8 @@ Compute the wedge product of matrices or vectors in `ms` with respect to the fer
 """
 function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = Base.promote_eltype(ms...)
-    MT = Base.promote_op(kron, map(typeof, ms)...)
+    N = ndims(first(ms))
+    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Matrix is there to make it work if ms only has one matrix
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
     fockmapper = if match_labels
@@ -49,11 +50,10 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
-    if ndims(first(ms)) == 1
-        mout = convert(MT, zeros(T, Nout))
+    mout = convert(MT, zeros(T, ntuple(j -> Nout, N)))
+    if N == 1
         return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
-    elseif ndims(first(ms)) == 2
-        mout = convert(MT, zeros(T, Nout, Nout))
+    elseif N == 2
         return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
@@ -252,8 +252,8 @@ end
         params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
         params2 = (; μ=1, t=0.1, Δ=1.0, V=0, θ=parameter(θ2, :diff), ϕ=5.0, h=1.0, U=10.0, Δ1=-1.0)
         params12 = (; μ=[params1.μ, params1.μ, params2.μ, params2.μ], t=[params1.t, 0, params2.t, 0], Δ=[params1.Δ, params1.Δ, params2.Δ, params2.Δ], V=[params1.V, 0, params2.V, 0], θ=[0, θ1, 0, θ2], ϕ=[params1.ϕ, params1.ϕ, params2.ϕ, params2.ϕ], h=[params1.h, params1.h, params2.h, params2.h], U=[params1.U, params1.U, params2.U, params2.U], Δ1=[params1.Δ1, 0, params2.Δ1, 0])
-        H1 = QuantumDots.BD1_hamiltonian(b1; params1...)
-        H2 = QuantumDots.BD1_hamiltonian(b2; params2...)
+        H1 = Matrix(QuantumDots.BD1_hamiltonian(b1; params1...))
+        H2 = Matrix(QuantumDots.BD1_hamiltonian(b2; params2...))
 
         H12w = wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w)
         H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
