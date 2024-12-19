@@ -238,7 +238,7 @@ end
     ops_rough = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
     rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
-    lhs = wedge([wedge(ops_vec, cs_vec, c) for (ops_vec, cs_vec) in zip(ops_fine, cs_fine)], cs_rough, c)
+    lhs = wedge([wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
     @test lhs ≈ rhs
 
     # Eq. 18
@@ -393,6 +393,21 @@ end
         @test sum(abs, v12w) ≈ sum(abs, v12)
         @test sum(abs, v12w) ≈ sum(abs, v12ww)
         @test diff(eigvals(H12w)) ≈ diff(eigvals(H12))
+
+        # Test zero-mode wedge
+        c1 = FermionBasis(1:0; qn)
+        c2 = FermionBasis(1:1; qn)
+        @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
+        @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
+
+        # Test not matching labels
+        c1 = FermionBasis(1:1; qn)
+        c2 = FermionBasis(2:2; qn)
+        c13 = FermionBasis([1, 3]; qn)
+        c123 = FermionBasis(1:3; qn)
+        @test wedge([c2[2], c13[3]], [c2, c13], c123) == c123[3] * c123[2]
+        @test wedge([c1[1], c13[3]], [c1, c13], c123; match_labels=false) == c123[3] * c123[1]
+
     end
 
     #Test basis compatibility
@@ -400,11 +415,7 @@ end
     b2 = FermionBasis(2:4; qn=QuantumDots.parity)
     @test_throws ArgumentError wedge(b1, b2)
 
-    # Test zero-mode wedge
-    c1 = FermionBasis(1:0)
-    c2 = FermionBasis(1:1)
-    @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
-    @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
+
 end
 
 @testitem "QubitBasis" begin
