@@ -309,7 +309,8 @@ end
             for k1 in keys(b1), k2 in keys(b2)
                 b1f = b1[k1]
                 b2f = b2[k2]
-                b3f = b3[k1] * b3[k2]
+                b3f = b3[k2] * b3[k1]
+                b3fw = wedge([b1f, b2f], bs, b3)
                 v3w = wedge([b1f * v1, b2f * v2], bs, b3)
                 v3f = b3f * v3
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign

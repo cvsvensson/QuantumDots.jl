@@ -36,53 +36,49 @@ get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs...))
+function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = promote_type(map(eltype, ms)...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
+    labelpositions = match_labels ? map(Base.Fix2(siteindices, b) ∘ Tuple ∘ keys, bs) : 1:Nout
     if ndims(first(ms)) == 1
         mout = zeros(T, Nout)
-        return wedge_vec!(mout, ms, bs, b, Val(length(ms)))
+        return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, labelpositions)
     elseif ndims(first(ms)) == 2
         mout = zeros(T, Nout, Nout)
-        return wedge_mat!(mout, ms, bs, b, Val(length(ms)))
+        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, labelpositions)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
-function wedge_mat!(mout, ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis, ::Val{N}) where {N}
+
+function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fermionpositions)
     Ms = map(nbr_of_fermions, bs)
     Mout = sum(Ms)
-    shifts = pushfirst!(cumsum(Ms), 0)
     dimlengths = map(length ∘ get_fockstates, bs)
-    inds::CartesianIndices{N,NTuple{N,Base.OneTo{Int64}}} = CartesianIndices(Tuple(dimlengths))
+    inds = CartesianIndices(dimlengths)
     for I in inds
         TI = Tuple(I)
         fock1 = map(indtofock, TI, bs)
-        fullfock = mapreduce((M, f) -> 2^M * f, +, shifts, fock1)
+        fullfock = mapreduce(insert_bits, +, fock1, fermionpositions)
         outind = focktoind(fullfock, b)
         for I2 in inds
             TI2 = Tuple(I2)
             fock2 = map(indtofock, TI2, bs)
-            fullfock2 = mapreduce((M, f) -> 2^M * f, +, shifts, fock2)
+            fullfock2 = mapreduce(insert_bits, +, fock2, fermionpositions)
             v = mapreduce((m, b, i1, f1, i2, f2, M) -> m[i1, i2] * phase_factor(f1, f2, M), *, ms, bs, TI, fock1, TI2, fock2, Ms)
             mout[outind, focktoind(fullfock2, b)] += v * phase_factor(fullfock, fullfock2, Mout)
         end
     end
     return mout
 end
-function wedge_vec!(mout, ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis, ::Val{N}) where {N}
-    Ms = map(nbr_of_fermions, bs)
-    partition = map(_b -> siteindices(collect(keys(_b)), b), bs)
-    U = embedding_unitary(partition, get_fockstates(b))
-    Mout = sum(Ms)
-    @assert length(unique(reduce(vcat, partition))) == Mout
-    shifts = pushfirst!(cumsum(Ms), 0)
+function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fermionpositions)
+    U = embedding_unitary(fermionpositions, get_fockstates(b))
     dimlengths = map(length ∘ get_fockstates, bs)
-    inds::CartesianIndices{N,NTuple{N,Base.OneTo{Int64}}} = CartesianIndices(Tuple(dimlengths))
+    inds = CartesianIndices(Tuple(dimlengths)) 
     for I in inds
         TI = Tuple(I)
         fock1 = map(indtofock, TI, bs)
-        fullfock = mapreduce((M, f) -> 2^M * f, +, shifts, fock1)
+        fullfock = mapreduce(insert_bits, +, fock1, fermionpositions)
         outind = focktoind(fullfock, b)
         mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
     end
