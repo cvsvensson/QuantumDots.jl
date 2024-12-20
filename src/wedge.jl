@@ -169,7 +169,7 @@ end
         b2 = FermionBasis(2:3; qn)
         b3 = FermionBasis(1:3; qn)
         b3w = wedge(b1, b2)
-        @test norm(b3w .- b3) == 0
+        @test norm(map(-, b3w, b3)) == 0
         bs = [b1, b2]
 
         O1 = isodd.(QuantumDots.numberoperator(b1))
