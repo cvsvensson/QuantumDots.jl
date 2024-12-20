@@ -14,16 +14,16 @@ end
 struct QubitBasis{M,D,Sym} <: AbstractManyBodyBasis
     dict::D
     symmetry::Sym
-    function QubitBasis(iters...; qn = NoSymmetry(), kwargs...) 
-        labels = handle_labels(iters...)
-        M = length(labels)
-        labelled_symmetry = instantiate(qn, labels)
-        fockstates = get(kwargs, :fockstates, 0:2^M-1)
-        sym_concrete = focksymmetry(fockstates, labelled_symmetry)
-        reps = ntuple(n -> qubit_sparse_matrix(n, length(fockstates), sym_concrete), M)
-        d = OrderedDict(zip(labels, reps))
-        new{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
-    end
+end
+function QubitBasis(iters...; qn = NoSymmetry(), kwargs...) 
+    labels = handle_labels(iters...)
+    M = length(labels)
+    labelled_symmetry = instantiate(qn, labels)
+    fockstates = get(kwargs, :fockstates, 0:2^M-1)
+    sym_concrete = focksymmetry(fockstates, labelled_symmetry)
+    reps = ntuple(n -> qubit_sparse_matrix(n, length(fockstates), sym_concrete), M)
+    d = OrderedDict(zip(labels, reps))
+    QubitBasis{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
 end
 Base.getindex(b::QubitBasis, i) = b.dict[i]
 function Base.getindex(b::QubitBasis, args...)
