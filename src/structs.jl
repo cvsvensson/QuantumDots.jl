@@ -36,6 +36,8 @@ Base.show(io::IO, b::FermionBasis{M,D,Sym}) where {M,D,Sym} = print(io, "Fermion
 Base.iterate(b::FermionBasis) = iterate(values(b.dict))
 Base.iterate(b::FermionBasis, state) = iterate(values(b.dict), state)
 Base.length(::FermionBasis{M}) where {M} = M
+Base.eltype(b::FermionBasis) = eltype(b.dict)
+Base.keytype(b::FermionBasis) = keytype(b.dict)
 symmetry(b::FermionBasis) = b.symmetry
 
 handle_labels(iter, iters...) = Base.product(iter, iters...)

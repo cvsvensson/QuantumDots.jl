@@ -50,7 +50,8 @@ Base.iterate(b::QubitBasis) = iterate(values(b.dict))
 Base.iterate(b::QubitBasis, state) = iterate(values(b.dict), state)
 Base.length(::QubitBasis{M}) where {M} = M
 symmetry(basis::QubitBasis) = basis.symmetry
-
+Base.eltype(b::QubitBasis) = eltype(b.dict)
+Base.keytype(b::QubitBasis) = keytype(b.dict)
 
 
 function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
