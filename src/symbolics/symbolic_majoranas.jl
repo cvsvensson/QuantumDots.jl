@@ -136,6 +136,11 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
     @test substitute(γ[1], 1 => 2) == γ[2]
     @test substitute(γ[:a] * γ[:b] + 1, :a => :b) == 2
 
-    r = (@rule ~x::(x -> x isa QuantumDots.AbstractFermionSym) => (~x).basis[(~x).label+1])
-    r(f[1]) == f[2]
+    r = (@rule ~x::(x -> x isa QuantumDots.AbstractFermionSym) => (~x).basis[min((~x).label+1,10)])
+    @test r(f[1]) == f[2]
+    @test simplify(f[1], r) == f[10] # applies rule repeatedly until no change
+    r2 = Rewriters.Prewalk(Rewriters.PassThrough(r)) # should work on composite expressions. Postwalk also works.
+    @test r2(2*f[2]) == 2f[3]
+    @test simplify(2f[1], r2) == 2f[10] 
+    @test r2(2*f[1]*f[2] + f[3]) == 2*f[2]*f[3] + f[4]
 end
