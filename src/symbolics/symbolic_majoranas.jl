@@ -143,4 +143,5 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
     @test r2(2*f[2]) == 2f[3]
     @test simplify(2f[1], r2) == 2f[10] 
     @test r2(2*f[1]*f[2] + f[3]) == 2*f[2]*f[3] + f[4]
+    @test simplify(2*f[1]'*f[2] + f[3], r2) == 2*f[10]'*f[10] + f[10]
 end
