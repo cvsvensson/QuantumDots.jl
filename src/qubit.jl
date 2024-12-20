@@ -23,7 +23,7 @@ function QubitBasis(iters...; qn = NoSymmetry(), kwargs...)
     sym_concrete = focksymmetry(fockstates, labelled_symmetry)
     reps = ntuple(n -> qubit_sparse_matrix(n, length(fockstates), sym_concrete), M)
     d = OrderedDict(zip(labels, reps))
-    new{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
+    QubitBasis{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
 end
 Base.getindex(b::QubitBasis, i) = b.dict[i]
 function Base.getindex(b::QubitBasis, args...)
