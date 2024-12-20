@@ -16,17 +16,17 @@ Fermion basis for representing many-body fermions.
 struct FermionBasis{M,D,Sym} <: AbstractManyBodyBasis
     dict::D
     symmetry::Sym
-    function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
-        labels = handle_labels(iters...)
-        fockstates = get(kwargs, :fockstates, 0:2^length(labels)-1)
-        M = length(labels)
-        labelled_symmetry = instantiate(qn, labels)
-        sym_concrete = focksymmetry(fockstates, labelled_symmetry)
-        # sym_more_concrete = symmetry(fockstates, sym_concrete)
-        reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
-        d = OrderedDict(zip(labels, reps))
-        new{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
-    end
+end
+function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
+    labels = handle_labels(iters...)
+    fockstates = get(kwargs, :fockstates, 0:2^length(labels)-1)
+    M = length(labels)
+    labelled_symmetry = instantiate(qn, labels)
+    sym_concrete = focksymmetry(fockstates, labelled_symmetry)
+    # sym_more_concrete = symmetry(fockstates, sym_concrete)
+    reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
+    d = OrderedDict(zip(labels, reps))
+    FermionBasis{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
 end
 Base.getindex(b::FermionBasis, i) = b.dict[i]
 Base.getindex(b::FermionBasis, args...) = b.dict[args]
