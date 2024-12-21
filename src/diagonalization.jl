@@ -47,7 +47,8 @@ function BlockDiagonals.blocks(eig::DiagonalizedHamiltonian; full=false)
         filteredinds = [map(i -> i in inds, eachindex(vals)) for inds in blockinds]
         map((inds, block) -> DiagonalizedHamiltonian(vals[inds], vecs[:, inds], original_hamiltonian(eig)), filteredinds, bvecs)
     else
-        map((inds, block) -> DiagonalizedHamiltonian(vals[inds], block, original_hamiltonian(eig)), blockinds, bvecs)
+        original_blocks = _blocks(original_hamiltonian(eig))
+        map((inds, block, hblock) -> DiagonalizedHamiltonian(vals[inds], block, hblock), blockinds, bvecs, original_blocks)
     end
 end
 
