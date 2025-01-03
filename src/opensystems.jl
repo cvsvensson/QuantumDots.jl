@@ -148,12 +148,12 @@ Transform `op` in the energy basis with a Fermi-Dirac distribution at temperatur
 """
 ratetransform(op, energies::AbstractVector, T, μ) = reshape(sqrt(fermidirac(commutator(Diagonal(energies)), T, μ)) * vec(op), size(op))
 
-function ratetransform!(out, op, diagham::DiagonalizedHamiltonian, T, μ)
-    changebasis!(out, op, diagham)
-    ratetransform!(out, diagham.values, T, μ)
-    return changebasis!(out, diagham')
+function ratetransform!(out, cache, op, diagham::DiagonalizedHamiltonian, T, μ)
+    changebasis!(out, cache, op, diagham)
+    ratetransform_energy_basis!(out, diagham.values, T, μ)
+    return changebasis!(out, cache, diagham')
 end
-function ratetransform!(op, energies::AbstractVector, T, μ)
+function ratetransform_energy_basis!(op, energies::AbstractVector, T, μ)
     for I in CartesianIndices(op)
         n1, n2 = Tuple(I)
         δE = energies[n1] - energies[n2]
