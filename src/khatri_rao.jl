@@ -22,7 +22,7 @@ function khatri_rao_dissipator(L::AbstractMatrix{T}, kv::KhatriRaoVectorizer; ra
     N = kv.cumsumsquared[end]
     out = zeros(T, N, N)
     mulcache = zero(L)
-    kroncaches = materialize_kroncache(T, kv) 
+    kroncaches = materialize_kroncache(T, kv)
     khatri_rao_dissipator!(out, L, rate, kv, kroncaches, mulcache, ADD_SUPEROP())
     return out
 end
@@ -46,8 +46,7 @@ function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVecto
         # kron!(@view(out[newinds[k1], newinds[k2]]), transpose(Lblock'), Lblock)
         kron!(kroncache, transpose(Lblock'), Lblock)
         for (n1, m1) in enumerate(newinds[k1]), (n2, m2) in enumerate(newinds[k2])
-            out[m1, m2] += rate*kroncache[n1, n2] #remove + if mode is RESET_SUPEROP
-            #TODO: test @inbounds and @simd
+            out[m1, m2] += rate * kroncache[n1, n2] #remove + if mode is RESET_SUPEROP
         end
         if k1 == k2
             L2block = @view(L2[ind1, ind2])
@@ -56,11 +55,11 @@ function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVecto
             # kroncache = _kroncache_subblock(kroncaches, k1, k2)
             kron!(kroncache, transpose(L2block), id)
             for (n1, m1) in enumerate(newinds[k1]), (n2, m2) in enumerate(newinds[k2])
-                out[m1, m2] -= rate*kroncache[n1, n2]
+                out[m1, m2] -= rate * kroncache[n1, n2]
             end
             kron!(kroncache, id, L2block)
             for (n1, m1) in enumerate(newinds[k1]), (n2, m2) in enumerate(newinds[k2])
-                out[m1, m2] -= rate*kroncache[n1, n2]
+                out[m1, m2] -= rate * kroncache[n1, n2]
             end
             # out[newinds[k1], newinds[k2]] .-= kroncache
         end
