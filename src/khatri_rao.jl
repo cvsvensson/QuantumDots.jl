@@ -47,6 +47,7 @@ function khatri_rao_dissipator!(out, L::AbstractMatrix, rate, kv::KhatriRaoVecto
         kron!(kroncache, transpose(Lblock'), Lblock)
         for (n1, m1) in enumerate(newinds[k1]), (n2, m2) in enumerate(newinds[k2])
             out[m1, m2] += rate*kroncache[n1, n2] #remove + if mode is RESET_SUPEROP
+            #TODO: test @inbounds and @simd
         end
         if k1 == k2
             L2block = @view(L2[ind1, ind2])
