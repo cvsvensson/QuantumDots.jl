@@ -35,13 +35,16 @@ struct KhatriRaoVectorizer{T} <: AbstractVectorizer
     cumsumsquared::Vector{Int}
     inds::Vector{UnitRange{Int}}
     vectorinds::Vector{UnitRange{Int}}
+    linearindices::Matrix{Matrix{Int}}
 end
 function KhatriRaoVectorizer(sizes::Vector{Int}, ::Type{T}=Float64) where {T}
     blockid = BlockDiagonal([Matrix{T}(I, size, size) for size in sizes])
-    KhatriRaoVectorizer{T}(sizes, vecdp(blockid), [0, cumsum(sizes)...], [0, cumsum(sizes .^2)...], sizestoinds(sizes), sizestoinds(sizes .^2))
+    vectorinds = sizestoinds(sizes .^ 2)
+    linearindices = [LinearIndices((sum(sizes .^ 2), sum(sizes .^ 2)))[i1, i2] for i1 in vectorinds, i2 in vectorinds]
+    KhatriRaoVectorizer{T}(sizes, vecdp(blockid), [0, cumsum(sizes)...], [0, cumsum(sizes .^ 2)...], sizestoinds(sizes), vectorinds, linearindices)
 end
 
-KronVectorizer(ham) = KronVectorizer(size(ham,1), eltype(ham))
+KronVectorizer(ham) = KronVectorizer(size(ham, 1), eltype(ham))
 KhatriRaoVectorizer(ham) = KhatriRaoVectorizer(first.(blocksizes(ham)), eltype(ham))
 
 default_vectorizer(ham::BlockDiagonal) = KhatriRaoVectorizer(ham)
