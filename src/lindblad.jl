@@ -190,14 +190,14 @@ function lindblad_matrix!(total, unitary, dissipators)
     return total
 end
 
-update_lindblad_system(L::LindbladSystem, ::SciMLBase.NullParameters) = L
-function update_lindblad_system(L::LindbladSystem, p, tmp=L.cache)
+update_coefficients(L::LindbladSystem, ::SciMLBase.NullParameters) = L
+function update_coefficients(L::LindbladSystem, p, tmp=L.cache)
     _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp), tmp), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
     total = lindblad_matrix(L.unitary, newdissipators)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.matrixhamiltonian, L.cache)
 end
-function update_lindblad_system!(L::LindbladSystem, p, cache=L.cache)
+function update_coefficients!(L::LindbladSystem, p, cache=L.cache)
     # println("__")
     _newdissipators = map(lp -> first(lp) => update_coefficients!(L.dissipators[first(lp)], last(lp), cache), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
@@ -214,7 +214,6 @@ function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normali
 end
 
 (L::LindbladSystem)(u, p, t; kwargs...) = update_lindblad_system(L, p; kwargs...) * u
-update_coefficients(L::LindbladSystem, p) = update_lindblad_system(L, p)
 
 tomatrix(rho::AbstractVector, system::LindbladSystem) = tomatrix(rho, system.vectorizer)
 tomatrix(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
@@ -301,6 +300,8 @@ Base.Matrix(d::LindbladDissipator) = d.superop
 Base.Matrix(L::LindbladSystem) = L.total
 LinearAlgebra.mul!(v, d::LindbladDissipator, u) = mul!(v, Matrix(d), u)
 LinearAlgebra.mul!(v, d::LindbladDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
+LinearAlgebra.mul!(v, ls::LindbladSystem, u, a, b) = mul!(v, ls.total, u, a, b)
+LinearAlgebra.mul!(v, ls::LindbladSystem, u) = mul!(v, ls.total, u)
 
 measure(rho, op, dissipator::AbstractDissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 
