@@ -3,7 +3,8 @@ module QuantumDotsSymbolicsExt
 using QuantumDots, Symbolics
 using QuantumDots.BlockDiagonals
 import QuantumDots: fastgenerator, fastblockdiagonal, TSL_generator,
-    NoSymmetry, TSL_hamiltonian, FermionBdGBasis
+    NoSymmetry, TSL_hamiltonian, FermionBdGBasis, fermion2majorana,
+    SymbolicMajoranaBasis, SymbolicFermionBasis
 
 function fastgenerator(gen, N)
     @variables x[1:N]
@@ -74,6 +75,20 @@ function TSL_generator(qn=NoSymmetry(); blocks=qn !== NoSymmetry(), dense=false,
     randparams = (; zip((:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U), rand(8))...)
     m = TSL_hamiltonian(c; randparams...) |> f
     return tsl, tsl!, m, c
+end
+
+function fermion2majorana(f::SymbolicFermionBasis, γ::SymbolicMajoranaBasis, γ̃::SymbolicMajoranaBasis)
+    sgn(x) = x.creation ? 1 : -1 # what convention to use? or should the user specify?
+    is_fermion_in_basis(x, basis) = x isa QuantumDots.FermionSym && x.basis == basis
+    rw = @rule ~x::(x -> is_fermion_in_basis(x, f)) => 1/2 * (γ[(~x).label] + sgn(~x) * 1im * γ̃[(~x).label])
+    return Rewriters.Prewalk(Rewriters.PassThrough(rw))
+end
+
+function majorana2fermion(γ::SymbolicMajoranaBasis, γ̃::SymbolicMajoranaBasis, f::SymbolicFermionBasis)
+    is_majorana_in_basis(x, basis) = x isa QuantumDots.MajoranaSym && x.basis == basis
+    rw1 = @rule ~x::(x -> is_majorana_in_basis(x, γ)) => f[(~x).label] + f[(~x).label]'
+    rw2 = @rule ~x::(x -> is_majorana_in_basis(x, γ̃)) => 1im * (f[(~x).label] - f[(~x).label]')
+    return Rewriters.Prewalk(Rewriters.Chain([rw1, rw2]))
 end
 
 end

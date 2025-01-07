@@ -145,3 +145,20 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
     @test r2(2*f[1]*f[2] + f[3]) == 2*f[2]*f[3] + f[4]
     @test simplify(2*f[1]'*f[2] + f[3], r2) == 2*f[10]'*f[10] + f[10]
 end
+
+@testitem "Rewrite rules" begin
+    import QuantumDots: fermion2majorana, majorana2fermion
+    using Symbolics
+    @majoranas a b
+    @fermions f
+    f2m = fermion2majorana(f, a, b)
+    m2f = majorana2fermion(a, b, f)
+    @test f2m(f[1]) == 1/2 * (a[1] - 1im * b[1])
+    @test f2m(f[1]') == 1/2 * (a[1] + 1im * b[1])
+    @test f2m(f[1]'*f[1]) == 1/2 * (1 + 1im*b[1]*a[1])
+    @test m2f(a[1]) == f[1] + f[1]'
+    @test m2f(b[1]) == 1im * (f[1] - f[1]')
+    @test m2f(1im*b[1]*a[1]) == 2*f[1]'*f[1] - 1
+    expr = 10*f[1]'*f[2] - f[1]*f[2] + f[1]'*f[2]'*f[3]
+    @test m2f(f2m(expr)) == expr
+end
