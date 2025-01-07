@@ -18,14 +18,22 @@ function LazyLindbladDissipator(_lead::NormalLead, diagham::DiagonalizedHamilton
 end
 Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian), d.cache)
 
-update_dissipator(d::LazyLindbladDissipator, p::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
-update_dissipator!(d::LazyLindbladDissipator, p::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
+update_dissipator(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
+update_dissipator!(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
 function update_dissipator!(d::LazyLindbladDissipator, p, cache=d.cache)
     rate = get(p, :rate, d.rate)
     newlead = update_lead(d.lead, p)
     op = (; in=map((out, op) -> complex(ratetransform!(out, cache, op, d.hamiltonian, newlead.T, newlead.μ)), d.op.in, newlead.jump_in),
         out=map((out, op) -> complex(ratetransform!(out, cache, op, d.hamiltonian, newlead.T, -newlead.μ)), d.op.out, newlead.jump_out))
     opsquare = map((outops, leadops) -> map((out, x) -> mul!(out, x', x), outops, leadops), d.opsquare, op)
+    LazyLindbladDissipator(op, opsquare, rate, newlead, d.hamiltonian, d.cache)
+end
+function update_dissipator(d::LazyLindbladDissipator, p, cache=d.cache)
+    rate = get(p, :rate, d.rate)
+    newlead = update_lead(d.lead, p)
+    op = (; in=map((out, op) -> complex(ratetransform!(similar(out), cache, op, d.hamiltonian, newlead.T, newlead.μ)), d.op.in, newlead.jump_in),
+        out=map((out, op) -> complex(ratetransform!(similar(out), cache, op, d.hamiltonian, newlead.T, -newlead.μ)), d.op.out, newlead.jump_out))
+    opsquare = map((outops, leadops) -> map((out, x) -> mul!(similar(out), x', x), outops, leadops), d.opsquare, op)
     LazyLindbladDissipator(op, opsquare, rate, newlead, d.hamiltonian, d.cache)
 end
 
@@ -95,7 +103,7 @@ update_lazy_lindblad_system!(L::LazyLindbladSystem, ::SciMLBase.NullParameters) 
 function update_lazy_lindblad_system(L::LazyLindbladSystem, p)
     _newdissipators = map(lp -> first(lp) => update_dissipator(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
     newdissipators = merge(L.dissipators, _newdissipators)
-    nonhermitian_hamiltonian = _nonhermitian_hamiltonian(L.hamiltonian, newdissipators)
+    nonhermitian_hamiltonian = _nonhermitian_hamiltonian(L.hamiltonian.original, newdissipators)
     LazyLindbladSystem(newdissipators, L.hamiltonian, nonhermitian_hamiltonian, L.cache)
 end
 function update_lazy_lindblad_system!(L::LazyLindbladSystem, p)
