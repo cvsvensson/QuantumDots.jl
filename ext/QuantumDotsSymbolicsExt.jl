@@ -3,7 +3,7 @@ module QuantumDotsSymbolicsExt
 using QuantumDots, Symbolics
 using QuantumDots.BlockDiagonals
 import QuantumDots: fastgenerator, fastblockdiagonal, TSL_generator,
-    NoSymmetry, TSL_hamiltonian, FermionBdGBasis, fermion2majorana,
+    NoSymmetry, TSL_hamiltonian, FermionBdGBasis, fermion2majorana, majorana2fermion,
     SymbolicMajoranaBasis, SymbolicFermionBasis
 
 function fastgenerator(gen, N)
