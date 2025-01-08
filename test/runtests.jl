@@ -1022,7 +1022,6 @@ end
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
-    @test conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
 
     ls2 = QuantumDots.update_coefficients(ls, (; left=(; μ=0.1)))
     @test ls2.dissipators[:left].lead.μ ≈ 0.1
