@@ -136,14 +136,14 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
     @test substitute(γ[1], 1 => 2) == γ[2]
     @test substitute(γ[:a] * γ[:b] + 1, :a => :b) == 2
 
-    r = (@rule ~x::(x -> x isa QuantumDots.AbstractFermionSym) => (~x).basis[min((~x).label+1,10)])
+    r = (@rule ~x::(x -> x isa QuantumDots.AbstractFermionSym) => (~x).basis[min((~x).label + 1, 10)])
     @test r(f[1]) == f[2]
     @test simplify(f[1], r) == f[10] # applies rule repeatedly until no change
     r2 = Rewriters.Prewalk(Rewriters.PassThrough(r)) # should work on composite expressions. Postwalk also works.
-    @test r2(2*f[2]) == 2f[3]
-    @test simplify(2f[1], r2) == 2f[10] 
-    @test r2(2*f[1]*f[2] + f[3]) == 2*f[2]*f[3] + f[4]
-    @test simplify(2*f[1]'*f[2] + f[3], r2) == 2*f[10]'*f[10] + f[10]
+    @test r2(2 * f[2]) == 2f[3]
+    @test simplify(2f[1], r2) == 2f[10]
+    @test r2(2 * f[1] * f[2] + f[3]) == 2 * f[2] * f[3] + f[4]
+    @test simplify(2 * f[1]' * f[2] + f[3], r2) == 2 * f[10]' * f[10] + f[10]
 end
 
 @testitem "Rewrite rules" begin
@@ -153,13 +153,13 @@ end
     @fermions f
     to_maj = fermion_to_majorana(f, a, b)
     to_ferm = majorana_to_fermion(a, b, f)
-    @test to_maj(f[1]) == 1/2 * (a[1] - 1im * b[1])
-    @test to_maj(f[1]') == 1/2 * (a[1] + 1im * b[1])
-    @test to_maj(f[1]'*f[1]) == 1/2 * (1 + 1im*b[1]*a[1])
+    @test to_maj(f[1]) == 1 / 2 * (a[1] - 1im * b[1])
+    @test to_maj(f[1]') == 1 / 2 * (a[1] + 1im * b[1])
+    @test to_maj(f[1]' * f[1]) == 1 / 2 * (1 + 1im * b[1] * a[1])
     @test to_ferm(a[1]) == f[1] + f[1]'
     @test to_ferm(b[1]) == 1im * (f[1] - f[1]')
-    @test to_ferm(1im*b[1]*a[1]) == 2*f[1]'*f[1] - 1
-    expr = 10*f[1]'*f[2] - f[1]*f[2] + f[1]'*f[2]'*f[3]
+    @test to_ferm(1im * b[1] * a[1]) == 2 * f[1]' * f[1] - 1
+    expr = 10 * f[1]' * f[2] - f[1] * f[2] + f[1]' * f[2]' * f[3]
     @test to_ferm(to_maj(expr)) == expr
     @test to_ferm(to_maj(expr)^2) == expr^2
     @test to_ferm(expr) == expr
@@ -167,5 +167,5 @@ end
     @fermions f2
     @majoranas a2 b2
     @test to_maj(f2[1]) == f2[1]
-    @test_throws ArgumentError fermion_to_majorana(f, a, b2) # 
+    @test_throws ArgumentError fermion_to_majorana(f, a, b2)
 end

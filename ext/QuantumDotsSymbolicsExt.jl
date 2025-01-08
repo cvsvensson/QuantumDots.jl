@@ -81,7 +81,7 @@ function fermion_to_majorana(f::SymbolicFermionBasis, a::SymbolicMajoranaBasis, 
     a.universe == b.universe || throw(ArgumentError("Majorana bases must anticommute"))
     sgn(x) = x.creation ? 1 : -1 # what convention to use? or should the user specify?
     is_fermion_in_basis(x, basis) = x isa QuantumDots.FermionSym && x.basis == basis
-    rw = @rule ~x::(x -> is_fermion_in_basis(x, f)) => 1/2 * (a[(~x).label] + sgn(~x) * 1im * b[(~x).label])
+    rw = @rule ~x::(x -> is_fermion_in_basis(x, f)) => 1 / 2 * (a[(~x).label] + sgn(~x) * 1im * b[(~x).label])
     return Rewriters.Prewalk(Rewriters.PassThrough(rw))
 end
 
