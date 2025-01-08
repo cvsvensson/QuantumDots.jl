@@ -191,7 +191,7 @@ function lindblad_matrix!(total, unitary, dissipators)
 end
 
 update_coefficients(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_coefficients!(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache = L.cache) = L
+update_coefficients!(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache=L.cache) = L
 function update_coefficients(L::LindbladSystem, p, tmp=L.cache)
     _newdissipators = Dict(k => update_coefficients(L.dissipators[k], d, tmp) for (k, d) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
@@ -312,7 +312,8 @@ end
 
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
-measure(rho, op, ls::AbstractOpenSystem) = Dict(k => measure(rho, op, d, ls) for (k, d) in pairs(ls.dissipators))
+# measure(rho, op, ls::AbstractOpenSystem) = Dict(k => measure(rho, op, d, ls) for (k, d) in pairs(ls.dissipators))
+measure(rho, op, ls::AbstractOpenSystem) = AxisKeys.KeyedArray([measure(rho, op, d, ls) for (k, d) in pairs(ls.dissipators)], collect(keys(ls.dissipators)))
 
 measure(rho, op, dissipator::AbstractDissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 
