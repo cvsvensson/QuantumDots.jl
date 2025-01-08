@@ -25,8 +25,8 @@ export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 function fastgenerator end
 function fastblockdiagonal end
 function TSL_generator end
-function fermion2majorana end
-function majorana2fermion end
+function fermion_to_majorana end
+function majorana_to_fermion end
 
 include("structs.jl")
 include("fock.jl")

@@ -147,18 +147,18 @@ TermInterface.children(a::MajoranaSym) = arguments(a)
 end
 
 @testitem "Rewrite rules" begin
-    import QuantumDots: fermion2majorana, majorana2fermion
+    import QuantumDots: fermion_to_majorana, majorana_to_fermion
     using Symbolics
     @majoranas a b
     @fermions f
-    f2m = fermion2majorana(f, a, b)
-    m2f = majorana2fermion(a, b, f)
-    @test f2m(f[1]) == 1/2 * (a[1] - 1im * b[1])
-    @test f2m(f[1]') == 1/2 * (a[1] + 1im * b[1])
-    @test f2m(f[1]'*f[1]) == 1/2 * (1 + 1im*b[1]*a[1])
-    @test m2f(a[1]) == f[1] + f[1]'
-    @test m2f(b[1]) == 1im * (f[1] - f[1]')
-    @test m2f(1im*b[1]*a[1]) == 2*f[1]'*f[1] - 1
+    to_maj = fermion_to_majorana(f, a, b)
+    to_ferm = majorana_to_fermion(a, b, f)
+    @test to_maj(f[1]) == 1/2 * (a[1] - 1im * b[1])
+    @test to_maj(f[1]') == 1/2 * (a[1] + 1im * b[1])
+    @test to_maj(f[1]'*f[1]) == 1/2 * (1 + 1im*b[1]*a[1])
+    @test to_ferm(a[1]) == f[1] + f[1]'
+    @test to_ferm(b[1]) == 1im * (f[1] - f[1]')
+    @test to_ferm(1im*b[1]*a[1]) == 2*f[1]'*f[1] - 1
     expr = 10*f[1]'*f[2] - f[1]*f[2] + f[1]'*f[2]'*f[3]
-    @test m2f(f2m(expr)) == expr
+    @test to_ferm(to_maj(expr)) == expr
 end
