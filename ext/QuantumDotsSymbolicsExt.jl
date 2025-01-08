@@ -78,6 +78,7 @@ function TSL_generator(qn=NoSymmetry(); blocks=qn !== NoSymmetry(), dense=false,
 end
 
 function fermion_to_majorana(f::SymbolicFermionBasis, a::SymbolicMajoranaBasis, b::SymbolicMajoranaBasis)
+    a.universe == b.universe || throw(ArgumentError("Majorana bases must anticommute"))
     sgn(x) = x.creation ? 1 : -1 # what convention to use? or should the user specify?
     is_fermion_in_basis(x, basis) = x isa QuantumDots.FermionSym && x.basis == basis
     rw = @rule ~x::(x -> is_fermion_in_basis(x, f)) => 1/2 * (a[(~x).label] + sgn(~x) * 1im * b[(~x).label])
@@ -85,6 +86,7 @@ function fermion_to_majorana(f::SymbolicFermionBasis, a::SymbolicMajoranaBasis, 
 end
 
 function majorana_to_fermion(a::SymbolicMajoranaBasis, b::SymbolicMajoranaBasis, f::SymbolicFermionBasis)
+    a.universe == b.universe || throw(ArgumentError("Majorana bases must anticommute"))
     is_majorana_in_basis(x, basis) = x isa QuantumDots.MajoranaSym && x.basis == basis
     rw1 = @rule ~x::(x -> is_majorana_in_basis(x, a)) => f[(~x).label] + f[(~x).label]'
     rw2 = @rule ~x::(x -> is_majorana_in_basis(x, b)) => 1im * (f[(~x).label] - f[(~x).label]')

@@ -161,4 +161,11 @@ end
     @test to_ferm(1im*b[1]*a[1]) == 2*f[1]'*f[1] - 1
     expr = 10*f[1]'*f[2] - f[1]*f[2] + f[1]'*f[2]'*f[3]
     @test to_ferm(to_maj(expr)) == expr
+    @test to_ferm(to_maj(expr)^2) == expr^2
+    @test to_ferm(expr) == expr
+
+    @fermions f2
+    @majoranas a2 b2
+    @test to_maj(f2[1]) == f2[1]
+    @test_throws ArgumentError fermion_to_majorana(f, a, b2) # 
 end
