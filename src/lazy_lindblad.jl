@@ -56,18 +56,18 @@ struct LazyLindbladSystem{DS,H,NH,C} <: AbstractOpenSystem
     cache::C
 end
 
-function LazyLindbladSystem(ham, leads; rates=map(l -> 1, leads))
+function LazyLindbladSystem(ham, leads::AbstractDict; rates=Dict(k => 1 for (k, v) in pairs(leads)))
     _diagham = diagonalize(ham)
     T = complex(eltype(_diagham.vectors))
     # We convert a blockdiagonal hamiltonian to a matrix, because jump operators individually are not blockdiagonal
     diagham = DiagonalizedHamiltonian(collect(_diagham.values), complex(collect(_diagham.vectors)), Matrix{T}(_diagham.original))
-    dissipators = map((lead, rate) -> LazyLindbladDissipator(lead, diagham, rate), leads, rates)
-    cache = -1im * diagham.vectors * first(first(first(dissipators).opsquare))
+    dissipators = Dict(k => LazyLindbladDissipator(leads[k], diagham, rates[k]) for k in keys(leads))
+    cache = -1im * diagham.vectors * first(first(first(values(dissipators)).opsquare))
     nonhermitian_hamiltonian = _nonhermitian_hamiltonian(diagham.original, dissipators)
     LazyLindbladSystem(dissipators, diagham, nonhermitian_hamiltonian, cache)
 end
 function Base.adjoint(d::LazyLindbladSystem)
-    newdissipators = map(adjoint, d.dissipators)
+    newdissipators = Dict(k => adjoint(v) for (k, v) in pairs(d.dissipators))
     newham = -d.hamiltonian
     newnonhermitian = _nonhermitian_hamiltonian(newham.original, newdissipators)
     LazyLindbladSystem(newdissipators, newham, newnonhermitian, d.cache)
@@ -98,19 +98,20 @@ function (d::LazyLindbladSystem)(out, rho, p, t)
 end
 (d::LazyLindbladSystem)(rho) = d * rho
 
-update_lazy_lindblad_system(L::LazyLindbladSystem, ::SciMLBase.NullParameters) = L
-update_lazy_lindblad_system!(L::LazyLindbladSystem, ::SciMLBase.NullParameters) = L
+update_lazy_lindblad_system(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+update_lazy_lindblad_system!(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 function update_lazy_lindblad_system(L::LazyLindbladSystem, p)
-    _newdissipators = map(lp -> first(lp) => update_dissipator(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+    _newdissipators = Dict(k => update_dissipator(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     nonhermitian_hamiltonian = _nonhermitian_hamiltonian(L.hamiltonian.original, newdissipators)
     LazyLindbladSystem(newdissipators, L.hamiltonian, nonhermitian_hamiltonian, L.cache)
 end
-function update_lazy_lindblad_system!(L::LazyLindbladSystem, p)
-    _newdissipators = map(lp -> first(lp) => update_dissipator!(L.dissipators[first(lp)], last(lp), L.cache), collect(pairs(p)))
-    newdissipators = merge(L.dissipators, _newdissipators)
-    nonhermitian_hamiltonian = _nonhermitian_hamiltonian!(L.nonhermitian_hamiltonian, L.hamiltonian.original, newdissipators)
-    LazyLindbladSystem(newdissipators, L.hamiltonian, nonhermitian_hamiltonian, L.cache)
+function update_lazy_lindblad_system!(L::LazyLindbladSystem, p, cache=L.cache)
+    for (k, v) in pairs(p)
+        L.dissipators[k] = update_dissipator!(L.dissipators[k], v, cache)
+    end
+    _nonhermitian_hamiltonian!(L.nonhermitian_hamiltonian, L.hamiltonian.original, L.dissipators)
+    L
 end
 
 
@@ -232,11 +233,7 @@ end
 
 
 ## SciML interface
-update_coefficients(d::LazyLindbladDissipator, ::SciMLBase.NullParameters, t=nothing) = d
-update_coefficients(d::LazyLindbladDissipator, p, t=nothing) = update_dissipator!(d, p)
-update_coefficients(L::LazyLindbladSystem, p) = update_lazy_lindblad_system(L, p)
-update_coefficients(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_coefficients(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_coefficients!(L::LazyLindbladSystem, p) = update_lazy_lindblad_system!(L, p)
-update_coefficients!(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_coefficients!(L::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}) = L
+update_coefficients(d::LazyLindbladDissipator, p, t=nothing) = update_dissipator(d, p)
+update_coefficients!(d::LazyLindbladDissipator, p, t=nothing) = update_dissipator!(d, p)
+update_coefficients(L::LazyLindbladSystem, p, t=nothing) = update_lazy_lindblad_system(L, p)
+update_coefficients!(L::LazyLindbladSystem, p, t=nothing) = update_lazy_lindblad_system!(L, p)

@@ -56,7 +56,7 @@ end
 #     LindbladCache(kroncache, mulcache, superopcache, opcache, deepcopy(opcache))
 # end
 """
-    LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads), usecache=false)
+    LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=Dict(k => 1 for (k, v) in pairs(leads)), usecache=false)
 
 Constructs a Lindblad system for simulating open quantum systems.
 
@@ -67,7 +67,7 @@ Constructs a Lindblad system for simulating open quantum systems.
 - `rates`: An array of rates for each lead. Defaults to an array of ones with the same length as `leads`.
 - `usecache`: A boolean indicating whether to use a cache. Defaults to `false`.
 """
-function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamiltonian); rates=map(l -> 1, leads), usecache=false)
+function LindbladSystem(hamiltonian, leads::AbstractDict, vectorizer=default_vectorizer(hamiltonian); rates=Dict(k => 1 for (k, v) in pairs(leads)), usecache=false)
     diagham = diagonalize(hamiltonian)
     matrixdiagham = DiagonalizedHamiltonian(collect(diagham.values), collect(diagham.vectors), collect(hamiltonian))
     commutator_hamiltonian = Matrix(commutator(hamiltonian, vectorizer))
@@ -82,7 +82,7 @@ function LindbladSystem(hamiltonian, leads, vectorizer=default_vectorizer(hamilt
     cache = LindbladCache(kroncache, mulcache, superopcache, matrixcache1, matrixcache2, blockcache)
     cache = usecache ? cache : nothing
 
-    dissipators = map((lead, rate) -> LindbladDissipator(superoperator(lead, diagham, rate, vectorizer, cache), rate, lead, diagham, matrixdiagham, vectorizer, cache), leads, rates)
+    dissipators = Dict(k => LindbladDissipator(superoperator(leads[k], diagham, rates[k], vectorizer, cache), rates[k], leads[k], diagham, matrixdiagham, vectorizer, cache) for k in keys(leads))
     total = lindblad_matrix(unitary, dissipators)
     LindbladSystem(total, unitary, dissipators, vectorizer, hamiltonian, matrixdiagham, cache)
 end
@@ -174,9 +174,9 @@ function update_coefficients!(d::LindbladDissipator, p, cache=d.cache)
 end
 
 function lindblad_matrix(unitary, dissipators)
-    total = zeros(promote(eltype(unitary), map(eltype, dissipators)...)[1], size(unitary)...)
+    total = zeros(promote(eltype(unitary), map(eltype, values(dissipators))...)[1], size(unitary)...)
     total .+= (unitary)
-    for d in dissipators
+    for d in values(dissipators)
         total .+= d.superop
     end
     return total
@@ -184,25 +184,27 @@ end
 function lindblad_matrix!(total, unitary, dissipators)
     fill!(total, zero(eltype(total)))
     total .+= unitary
-    for d in dissipators
+    for d in values(dissipators)
         total .+= d.superop
     end
     return total
 end
 
-update_coefficients(L::LindbladSystem, ::SciMLBase.NullParameters) = L
+update_coefficients(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+update_coefficients!(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache = L.cache) = L
 function update_coefficients(L::LindbladSystem, p, tmp=L.cache)
-    _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp), tmp), collect(pairs(p)))
+    _newdissipators = Dict(k => update_coefficients(L.dissipators[k], d, tmp) for (k, d) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     total = lindblad_matrix(L.unitary, newdissipators)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.matrixhamiltonian, L.cache)
 end
 function update_coefficients!(L::LindbladSystem, p, cache=L.cache)
-    # println("__")
-    _newdissipators = map(lp -> first(lp) => update_coefficients!(L.dissipators[first(lp)], last(lp), cache), collect(pairs(p)))
-    newdissipators = merge(L.dissipators, _newdissipators)
-    total = lindblad_matrix!(L.total, L.unitary, newdissipators)
-    LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.matrixhamiltonian, L.cache)
+    isnothing(cache) && throw(ArgumentError("Cache is not initialized"))
+    for (k, v) in pairs(p)
+        L.dissipators[k] = update_coefficients!(L.dissipators[k], v, cache)
+    end
+    lindblad_matrix!(L.total, L.unitary, L.dissipators)
+    L
 end
 
 LinearOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer=false) = MatrixOperator(L, p; normalizer)
@@ -213,7 +215,23 @@ function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normali
     MatrixOperator(A)
 end
 
-(L::LindbladSystem)(u, p, t; kwargs...) = update_lindblad_system(L, p; kwargs...) * u
+function (d::LindbladSystem)(rho, p, t)
+    d = update_coefficients(d, p)
+    d * rho
+end
+function (d::LindbladSystem)(out, rho, p, t)
+    d = update_coefficients!(d, p)
+    mul!(out, d, rho)
+    return out
+end
+Base.:*(d::LindbladSystem, rho) = d.total * rho
+Base.Matrix(d::LindbladDissipator) = d.superop
+Base.Matrix(L::LindbladSystem) = L.total
+LinearAlgebra.mul!(v, d::LindbladDissipator, u) = mul!(v, Matrix(d), u)
+LinearAlgebra.mul!(v, d::LindbladDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
+LinearAlgebra.mul!(v, ls::LindbladSystem, u, a, b) = mul!(v, ls.total, u, a, b)
+LinearAlgebra.mul!(v, ls::LindbladSystem, u) = mul!(v, ls.total, u)
+
 
 tomatrix(rho::AbstractVector, system::LindbladSystem) = tomatrix(rho, system.vectorizer)
 tomatrix(rho::AbstractVector, vectorizer::KronVectorizer) = reshape(rho, vectorizer.size, vectorizer.size)
@@ -294,14 +312,7 @@ end
 
 commutator(A, ::KronVectorizer) = commutator(A)
 commutator(A) = kron(one(A), A) - kron(transpose(A), one(A))
-measure(rho, op, ls::AbstractOpenSystem) = map(d -> measure(rho, op, d, ls), ls.dissipators)
-
-Base.Matrix(d::LindbladDissipator) = d.superop
-Base.Matrix(L::LindbladSystem) = L.total
-LinearAlgebra.mul!(v, d::LindbladDissipator, u) = mul!(v, Matrix(d), u)
-LinearAlgebra.mul!(v, d::LindbladDissipator, u, a, b) = mul!(v, Matrix(d), u, a, b)
-LinearAlgebra.mul!(v, ls::LindbladSystem, u, a, b) = mul!(v, ls.total, u, a, b)
-LinearAlgebra.mul!(v, ls::LindbladSystem, u) = mul!(v, ls.total, u)
+measure(rho, op, ls::AbstractOpenSystem) = Dict(k => measure(rho, op, d, ls) for (k, d) in pairs(ls.dissipators))
 
 measure(rho, op, dissipator::AbstractDissipator, ls::AbstractOpenSystem) = dot(op, tomatrix(dissipator * internal_rep(rho, ls), ls))
 

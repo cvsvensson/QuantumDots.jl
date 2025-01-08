@@ -6,7 +6,7 @@ struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
     jump_in::Opin
     jump_out::Opout
 end
-NormalLead(jin, jout; T, μ) = NormalLead(T, μ, [jin], [jout])
+NormalLead(jin, jout; T, μ) = NormalLead(T, μ, (jin,), (jout,))
 NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
 function update_lead(lead, props)
     μ = get(props, :μ, lead.μ)
