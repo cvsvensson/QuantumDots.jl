@@ -61,5 +61,11 @@ end
 
 changebasis(op, os::DiagonalizedHamiltonian) = eigenvectors(os)' * op * eigenvectors(os)
 changebasis(::Nothing, os::DiagonalizedHamiltonian) = nothing
-changebasis!(out, op, os::DiagonalizedHamiltonian) = mul!(out, eigenvectors(os)' * op, eigenvectors(os))
-changebasis!(op, os::DiagonalizedHamiltonian) = mul!(op, eigenvectors(os)' * op, eigenvectors(os))
+function changebasis!(out, cache, op, os::DiagonalizedHamiltonian)
+    mul!(cache, eigenvectors(os)', op)
+    mul!(out, cache, eigenvectors(os))
+end
+function changebasis!(op, cache, os::DiagonalizedHamiltonian)
+    mul!(cache, eigenvectors(os)', op)
+    mul!(op, cache, eigenvectors(os))
+end

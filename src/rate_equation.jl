@@ -65,23 +65,24 @@ Constructs a PauliSystem object from a Hamiltonian and a set of leads.
 """
 PauliSystem(ham, leads) = PauliSystem(diagonalize(ham), leads)
 function PauliSystem(H::DiagonalizedHamiltonian, leads)
-    ds = map(l -> PauliDissipator(H, l), leads)
+    ds = Dict(k => PauliDissipator(H, lead) for (k, lead) in pairs(leads))
     PauliSystem(ds)
 end
 function PauliSystem(ds)
-    Win = zero(first(ds).Win)
-    Wout = zero(first(ds).Wout)
-    D = zero(first(ds).total_master_matrix)
-    Iin = zero(first(ds).Iin)
-    Iout = zero(first(ds).Iout)
+    first_diss = first(values(ds))
+    Win = zero(first_diss.Win)
+    Wout = zero(first_diss.Wout)
+    D = zero(first_diss.total_master_matrix)
+    Iin = zero(first_diss.Iin)
+    Iout = zero(first_diss.Iout)
     P = PauliSystem(D, (; in=Win, out=Wout), (; in=Iin, out=Iout), ds)
     update_total_operators!(P)
     return P
 end
 update_coefficients(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
-update_pauli_system(L::PauliSystem, ::SciMLBase.NullParameters) = L
+update_pauli_system(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 function update_pauli_system(L::PauliSystem, p)
-    _newdissipators = map(lp -> first(lp) => update_coefficients(L.dissipators[first(lp)], last(lp)), collect(pairs(p)))
+    _newdissipators = Dict(k => update_coefficients(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end
@@ -99,7 +100,7 @@ function zero_total_operators!(P::PauliSystem)
 end
 function update_total_operators!(P::PauliSystem)
     zero_total_operators!(P)
-    for d in P.dissipators
+    for d in values(P.dissipators)
         P.total_rate_matrix.in .+= d.Win
         P.total_rate_matrix.out .+= d.Wout
         P.total_current_operator.in .+= d.Iin
@@ -136,40 +137,48 @@ end
 
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
-    map(d -> dot(d.Iin, rho) + dot(d.Iout, rho), P.dissipators)
+    Dict(k => dot(d.Iin, rho) + dot(d.Iout, rho) for (k, d) in pairs(P.dissipators))
 end
 
 
 function conductance_matrix(dμ::Number, sys::PauliSystem)
-    perturbations = map(d -> (; μ=d.lead.μ + dμ), sys.dissipators)
+    perturbations = [Dict(k => (; μ=d.lead.μ + dμ)) for (k, d) in pairs(sys.dissipators)]
     function get_current(pert)
         newsys = update_coefficients(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
-        real(collect(get_currents(sol, newsys)))
+        currents = get_currents(sol, newsys)
+        [real(currents[k]) for k in keys(sys.dissipators)]
     end
     I0 = get_current(SciMLBase.NullParameters())
-    stack(map(key -> (get_current(perturbations[[key]]) .- I0) / dμ, keys(perturbations)))
+    stack([(get_current(pert) .- I0) / dμ for pert in perturbations])
 end
 
 function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem)
-    μs0 = [d.lead.μ for d in ls.dissipators]
+    keys_iter = keys(ls.dissipators)
+    μs0 = [ls.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
-        count = 0
-        pert = map(d -> (; μ=μs[count+=1]), ls.dissipators)
+        pert = Dict(k => (; μ=μs[n]) for (n, k) in enumerate(keys_iter))
         newsys = update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newsys))
-        real(collect(get_currents(sol, newsys)))
+        currents = get_currents(sol, newsys)
+        [real(currents[k]) for k in keys_iter]
     end
     AD.jacobian(ad, get_current, μs0)[1]
 end
 
 
 function conductance_matrix(backend::AD.AbstractBackend, sys::PauliSystem, rho)
-    dDs = [chem_derivative(backend, d -> [Matrix(d), d.Iin + d.Iout], d) for d in sys.dissipators]
     linsolve = init(StationaryStateProblem(sys))
-    rhodiff = stack([collect(get_currents(solveDiffProblem!(linsolve, rho, dD[1]), sys)) for dD in dDs])
-    dissdiff = Diagonal([dot(dD[2], rho) for dD in dDs])
-    return dissdiff + rhodiff
+    func = d -> [Matrix(d), d.Iin + d.Iout]
+    key_iter = keys(sys.dissipators)
+    mapreduce(hcat, key_iter) do k
+        d = sys.dissipators[k]
+        dD = chem_derivative(backend, func, d)
+        sol = solveDiffProblem!(linsolve, rho, dD[1])
+        rhodiff_currents = get_currents(sol, sys)
+        dissdiff_current = dot(dD[2], rho)
+        [real(rhodiff_currents[k2] + dissdiff_current * (k2 == k)) for k2 in key_iter]
+    end
 end
 
 function ODEProblem(system::PauliSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)

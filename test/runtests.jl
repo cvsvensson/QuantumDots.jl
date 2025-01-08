@@ -822,7 +822,7 @@ end
         μL, μR, μH = rand(3)
         leftlead = CombinedLead((a[1]',); T, μ=μL)
         rightlead = NormalLead(a[N]'; T, μ=μR)
-        leads = (; left=leftlead, right=rightlead)
+        leads = Dict(:left => leftlead, :right => rightlead)
 
         particle_number = bd(numberoperator(a))
         ham = get_hamiltonian(μH)
@@ -837,9 +837,16 @@ end
         @test mo isa MatrixOperator
         @test collect(mo) ≈ collect(QuantumDots.LinearOperator(ls_cache))
 
+        vr = rand(ComplexF64, size(ls.total, 1))
+        vl = rand(ComplexF64, size(ls.total, 1))
+        @test all(dot(vl, d * vr) ≈ dot(d' * vl, vr) for d in values(ls.dissipators))
+
         lazyls = LazyLindbladSystem(ham, leads)
         @test eltype(lazyls) == ComplexF64
-        @test eltype(first(lazyls.dissipators)) == ComplexF64
+        @test eltype(lazyls.dissipators[:left]) == ComplexF64
+        mr = rand(ComplexF64, size(ham))
+        ml = rand(ComplexF64, size(ham))
+        @test all(dot(ml, d * mr) ≈ dot(d' * ml, mr) for d in values(lazyls.dissipators))
 
         prob = StationaryStateProblem(ls)
         prob2 = StationaryStateProblem(lazyls)
@@ -863,9 +870,10 @@ end
         cm3 = conductance_matrix(1e-5, ls, particle_number)
         @test norm(cm - cm2) < 1e-3
         @test norm(cm - cm3) < 1e-3
-        @test all(map(≈, numeric_current, QuantumDots.measure(ρinternal, particle_number, ls)[1]))
-        @test abs(sum(numeric_current)) < 1e-10
-        @test all(map(≈, numeric_current, (; left=-analytic_current, right=analytic_current))) #Why not flip the signs?
+
+        @test all(numeric_current[k] ≈ QuantumDots.measure(ρinternal, particle_number, ls)[k] for k in keys(leads))
+        @test abs(sum(values(numeric_current))) < 1e-10
+        @test all(numeric_current[k] ≈ (; left=-analytic_current, right=analytic_current)[k] for k in keys(leads))
 
         pauli = PauliSystem(ham, leads)
         pauli_prob = StationaryStateProblem(pauli)
@@ -877,8 +885,8 @@ end
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test rate_current.left ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli).left
-        @test numeric_current.left / numeric_current.right ≈ rate_current.left / rate_current.right
+        @test rate_current[:left] ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)[:left]
+        @test numeric_current[:left] / numeric_current[:right] ≈ rate_current[:left] / rate_current[:right]
 
         cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
         cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
@@ -887,13 +895,16 @@ end
         @test norm(cmpauli - cmpauli2) < 1e-3
         @test norm(cmpauli - cmpauli3) < 1e-3
         eigen_particle_number = QuantumDots.changebasis(particle_number, diagham)
-        @test vec(sum(eigen_particle_number * pauli.dissipators.left.total_master_matrix, dims=1)) ≈ pauli.dissipators.left.Iin + pauli.dissipators.left.Iout
+        @test vec(sum(eigen_particle_number * pauli.dissipators[:left].total_master_matrix, dims=1)) ≈ pauli.dissipators[:left].Iin + pauli.dissipators[:left].Iout
 
         prob = ODEProblem(ls, I / 2^N, (0, 100))
-        dt = 1e-3
         sol = solve(prob, Tsit5())
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
+
+        prob = ODEProblem((du, u, p, t) -> ls_cache(du, u, p, t), QuantumDots.internal_rep(I / 2^N, ls), (0, 100))
+        sol_cache = solve(prob, Tsit5())
+        @test norm(sol(100) - sol_cache(100)) < 1e-8
 
         prob = ODEProblem(pauli, I / 2^N, (0, 100))
         sol = solve(prob, Tsit5())
@@ -907,16 +918,16 @@ end
               QuantumDots.internal_rep(Matrix(ρ_pauli), pauli)
 
         @test islinear(pauli)
-        @test all(map(islinear, (pauli.dissipators)))
+        @test all(map(islinear, values(pauli.dissipators)))
         @test islinear(ls)
-        @test all(map(islinear, (ls.dissipators)))
+        @test all(map(islinear, values(ls.dissipators)))
         @test eltype(ls) == eltype(ls.total)
         @test eltype(pauli) == eltype(pauli.total_master_matrix)
         @test Matrix(ls) == ls.total
         @test Matrix(pauli) == pauli.total_master_matrix
-        @test eltype(first(pauli.dissipators)) == eltype(Matrix(first(pauli.dissipators)))
-        @test size(pauli) == size(Matrix(pauli)) == size(first(pauli.dissipators))
-        @test size(ls) == size(Matrix(ls)) == size(first(ls.dissipators))
+        @test eltype(pauli.dissipators[:left]) == eltype(Matrix(pauli.dissipators[:left]))
+        @test size(pauli) == size(Matrix(pauli)) == size(pauli.dissipators[:left])
+        @test size(ls) == size(Matrix(ls)) == size(ls.dissipators[:left])
 
         A = QuantumDots.LinearOperator(ls)
         vr = rand(ComplexF64, size(A, 2))
@@ -940,7 +951,7 @@ end
     μR = 0.0
     leftlead = CombinedLead((a[1]',); T, μ=μL)
     rightlead = NormalLead(a[N]'; T, μ=μR)
-    leads = (; left=leftlead, right=rightlead)
+    leads = Dict(:left => leftlead, :right => rightlead)
 
     particle_number = bd(numberoperator(a))
     ls = LindbladSystem(hamiltonian, leads)
@@ -965,10 +976,12 @@ end
     mout = deepcopy(m)
     @test lazyls * m ≈ reshape(mo * vec(m), size(m)...)
     @test mul!(mout, lazyls, m) ≈ reshape(mo * vec(m), size(m)...)
-    @test first(lazyls.dissipators) * m ≈ reshape(first(ls.dissipators) * vec(m), size(m)...)
-    mul!(mout, first(lazyls.dissipators), m)
-    @test mout ≈ first(lazyls.dissipators) * m
-    @test mout ≈ reshape(mul!(vc1, first(ls.dissipators), vec(m)), size(m)...)
+    lazyd = first(values(lazyls.dissipators))
+    d = first(values(ls.dissipators))
+    @test lazyd * m ≈ reshape(d * vec(m), size(m)...)
+    mul!(mout, lazyd, m)
+    @test mout ≈ lazyd * m
+    @test mout ≈ reshape(mul!(vc1, d, vec(m)), size(m)...)
 
     prob1 = StationaryStateProblem(ls)
     prob2 = StationaryStateProblem(lazyls)
@@ -981,27 +994,47 @@ end
     @test tr(sol(1)) ≈ 1
 
     u = sol(1)
-    diss = lazyls.dissipators[1]
+    diss = lazyls.dissipators[:left]
     out = diss * u
     @test abs(tr(out)) < 1e-10
     @test diss(u) ≈ out
     @test diss(u, nothing, nothing) ≈ out
     @test !(diss(u, (; μ=1), nothing) ≈ out)
     @test diss(u, (; μ=diss.lead.μ), nothing) ≈ out
-    @test diss(deepcopy(out), u, nothing, nothing) ≈ out
+    @test diss(similar(out), u, nothing, nothing) ≈ out
 
     out = lazyls * u
     @test abs(tr(out)) < 1e-10
     @test lazyls(u) ≈ out
     @test lazyls(u, nothing, nothing) ≈ out
     @test !(lazyls(u, (; left=(; μ=1)), nothing) ≈ out)
-    @test lazyls(u, (; left=(; μ=lazyls.dissipators.left.lead.μ)), nothing) ≈ out
-    @test lazyls(deepcopy(out), u, nothing, nothing) ≈ out
+    @test lazyls(u, (; left=(; μ=lazyls.dissipators[:left].lead.μ)), nothing) ≈ out
+    @test lazyls(similar(out), u, nothing, nothing) ≈ out
+    @test lazyls(similar(out), u, Dict(:left => (; μ=1.0)), nothing) ≈ lazyls(u, Dict(:left => (; μ=1)), nothing)
+
+    out = QuantumDots.internal_rep(out, ls)
+    um = QuantumDots.internal_rep(u, ls)
+    @test ls(um, nothing, nothing) ≈ out
+    ls2 = LindbladSystem(hamiltonian, leads; usecache=true)
+    @test ls2(similar(out), um, Dict(:left => (; μ=1.0)), nothing) ≈ ls(um, Dict(:left => (; μ=1)), nothing)
 
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
     @test conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
+
+    ls2 = QuantumDots.update_coefficients(ls, (; left=(; μ=0.1)))
+    @test ls2.dissipators[:left].lead.μ ≈ 0.1
+    @test_throws ArgumentError QuantumDots.update_coefficients!(ls, (; left=(; μ=0.1)))
+
+    ls1 = LindbladSystem(hamiltonian, leads; usecache=true)
+    lazyls1 = LazyLindbladSystem(hamiltonian, leads)
+    ls2 = QuantumDots.update_coefficients!(ls1, (; left=(; μ=0.1)))
+    lazyls2 = QuantumDots.update_coefficients!(lazyls1, (; left=(; μ=0.1)))
+    @test ls2.dissipators[:left].lead.μ ≈ 0.1
+    @test lazyls2.dissipators[:left].lead.μ ≈ 0.1
+    @test ls1.dissipators[:left].lead.μ ≈ 0.1
+    @test lazyls1.dissipators[:left].lead.μ ≈ 0.1
 end
 
 @testitem "Khatri-Rao" begin
