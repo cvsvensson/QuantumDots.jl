@@ -155,8 +155,8 @@ end
 dissipator_op_list(d::LazyLindbladSystem) = dissipator_op_list(d.dissipators) #mapreduce(dissipator_op_list, vcat, d.dissipators)
 dissipator_op_list(dissipators) = mapreduce(dissipator_op_list, vcat, values(dissipators))
 function dissipator_op_list(d::LazyLindbladDissipator)
-    ops = vcat(collect(zip(d.op.in, d.opsquare.in)), collect(zip(d.op.out, d.opsquare.out)))
-    map(o -> (o..., d.rate), ops)
+    ops = Iterators.flatten((zip(d.op.in, d.opsquare.in), zip(d.op.out, d.opsquare.out)))
+    map(o -> (first(o), last(o), d.rate), ops)
 end
 function add_diagonal!(m, x)
     for n in diagind(m)
