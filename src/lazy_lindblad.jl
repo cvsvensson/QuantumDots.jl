@@ -78,10 +78,13 @@ function _nonhermitian_hamiltonian(H, dissipators)
 end
 function _nonhermitian_hamiltonian!(out, H, dissipators)
     fill!(out, zero(eltype(out)))
-    dissipator_ops = dissipator_op_list(dissipators)
     out .+= H
-    for (L, L2, rate) in dissipator_ops
-        out .-= (1im * rate / 2) .* L2
+    for d in values(dissipators)
+        rate = d.rate
+        L2s = Iterators.flatten((d.opsquare.in, d.opsquare.out))
+        for L2 in L2s
+            out .-= (1im * rate / 2) .* L2
+        end
     end
     return out
 end
@@ -116,16 +119,27 @@ end
 
 function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
     fill!(out, zero(eltype(out)))
-    for (L, L2, rate) in dissipator_op_list(d)
-        out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
+    Ls = Iterators.flatten((d.op.in, d.op.out))
+    L2s = Iterators.flatten((d.opsquare.in, d.opsquare.out))
+    rate = d.rate
+    cache = d.cache
+    for (L, L2) in zip(Ls, L2s)
+        mul!(cache, L, rho)
+        mul!(out, cache, L', rate, 1)
+        mul!(out, L2, rho, -rate / 2, 1)
+        mul!(out, rho, L2, -rate / 2, 1)
     end
+
     return out
 end
 function Base.:*(d::LazyLindbladDissipator, rho::AbstractMatrix)
-    ops = dissipator_op_list(d)
-    (L, L2, rate) = first(ops)
+    rate = d.rate
+    Ls = Iterators.flatten((d.op.in, d.op.out))
+    L2s = Iterators.flatten((d.opsquare.in, d.opsquare.out))
+    ops = zip(Ls, L2s)
+    (L, L2,) = first(ops)
     out = rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
-    for (L, L2, rate) in Iterators.drop(ops, 1)
+    for (L, L2) in Iterators.drop(ops, 1)
         out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
     end
     return out
@@ -136,27 +150,27 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
     mul!(out, Heff, rho, -1im, 0)
     mul!(out, rho, Heff', 1im, 1)
     cache = d.cache
-    for (L, L2, rate) in dissipator_op_list(d)
-        mul!(cache, L, rho)
-        mul!(out, cache, L', rate, 1)
+    for d in values(d.dissipators)
+        rate = d.rate
+        Ls = Iterators.flatten((d.op.in, d.op.out))
+        for L in Ls
+            mul!(cache, L, rho)
+            mul!(out, cache, L', rate, 1)
+        end
     end
-
     return out
 end
 function Base.:*(d::LazyLindbladSystem, rho::AbstractMatrix)
     Heff = d.nonhermitian_hamiltonian
-    dissipator_ops = dissipator_op_list(d)
     out = -1im .* (Heff * rho .- rho * Heff')
-    for (L, L2, rate) in dissipator_ops
-        out .+= rate .* (L * rho * L')
+    for d in values(d.dissipators)
+        rate = d.rate
+        Ls = Iterators.flatten((d.op.in, d.op.out))
+        for L in Ls
+            out .+= rate .* (L * rho * L')
+        end
     end
     return out
-end
-dissipator_op_list(d::LazyLindbladSystem) = dissipator_op_list(d.dissipators) #mapreduce(dissipator_op_list, vcat, d.dissipators)
-dissipator_op_list(dissipators) = mapreduce(dissipator_op_list, vcat, values(dissipators))
-function dissipator_op_list(d::LazyLindbladDissipator)
-    ops = Iterators.flatten((zip(d.op.in, d.opsquare.in), zip(d.op.out, d.opsquare.out)))
-    map(o -> (first(o), last(o), d.rate), ops)
 end
 function add_diagonal!(m, x)
     for n in diagind(m)
