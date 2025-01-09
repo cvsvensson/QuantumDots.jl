@@ -81,11 +81,10 @@ function _nonhermitian_hamiltonian!(out, H, dissipators)
     dissipator_ops = dissipator_op_list(dissipators)
     out .+= H
     for (L, L2, rate) in dissipator_ops
-        out .-= 1im * rate / 2 * L2
+        out .-= (1im * rate / 2) .* L2
     end
     return out
 end
-
 
 function (d::LazyLindbladSystem)(rho, p, t)
     d = update_coefficients(d, p)
