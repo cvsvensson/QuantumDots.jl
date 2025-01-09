@@ -871,9 +871,9 @@ end
         @test norm(cm - cm2) < 1e-3
         @test norm(cm - cm3) < 1e-3
 
-        @test all(numeric_current[k] ≈ QuantumDots.measure(ρinternal, particle_number, ls)[k] for k in keys(leads))
+        @test numeric_current ≈ QuantumDots.measure(ρinternal, particle_number, ls)
         @test abs(sum(values(numeric_current))) < 1e-10
-        @test all(numeric_current[k] ≈ (; left=-analytic_current, right=analytic_current)[k] for k in keys(leads))
+        @test numeric_current ≈ [-analytic_current, analytic_current]
 
         pauli = PauliSystem(ham, leads)
         pauli_prob = StationaryStateProblem(pauli)
@@ -885,8 +885,9 @@ end
         @test diag(ρ_pauli) ≈ rhod
         @test tr(ρ_pauli) ≈ 1
         rate_current = QuantumDots.get_currents(ρ_pauli, pauli)
-        @test rate_current[:left] ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)[:left]
-        @test numeric_current[:left] / numeric_current[:right] ≈ rate_current[:left] / rate_current[:right]
+        # @test rate_current[:left] ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)[:left]
+        @test rate_current ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)
+        @test numeric_current(:left) / numeric_current(:right) ≈ rate_current(:left) / rate_current(:right)
 
         cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
         cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
@@ -1021,7 +1022,6 @@ end
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
-    @test conductance_matrix(0.01, lazyls, particle_number) isa Matrix # https://github.com/SciML/LinearSolve.jl/issues/414 
 
     ls2 = QuantumDots.update_coefficients(ls, (; left=(; μ=0.1)))
     @test ls2.dissipators[:left].lead.μ ≈ 0.1

@@ -22,8 +22,6 @@ function pretty_print(v::AbstractVector, b::AbstractBasis; digits=3)
     end
 end
 
-import AxisKeys
-import Crayons
 
 struct ColoredString{C}
     s::String

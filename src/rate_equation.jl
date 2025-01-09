@@ -137,7 +137,9 @@ end
 
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
-    Dict(k => dot(d.Iin, rho) + dot(d.Iout, rho) for (k, d) in pairs(P.dissipators))
+    # Dict(k => dot(d.Iin, rho) + dot(d.Iout, rho) for (k, d) in pairs(P.dissipators))
+    ks = collect(keys(P.dissipators))
+    AxisKeys.KeyedArray([dot(P.dissipators[k].Iin, rho) + dot(P.dissipators[k].Iout, rho) for k in ks], ks)
 end
 
 
@@ -146,39 +148,70 @@ function conductance_matrix(dμ::Number, sys::PauliSystem)
     function get_current(pert)
         newsys = update_coefficients(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
-        currents = get_currents(sol, newsys)
-        [real(currents[k]) for k in keys(sys.dissipators)]
+        get_currents(sol, newsys)
     end
     I0 = get_current(SciMLBase.NullParameters())
-    stack([(get_current(pert) .- I0) / dμ for pert in perturbations])
+    ks = AxisKeys.axiskeys(I0, 1)
+    N = length(I0)
+    T = real(eltype(I0))
+    G = AxisKeys.wrapdims(AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (ks, ks)), :∂Iᵢ, :∂μⱼ)
+
+    for dict in perturbations
+        diff_currents = (get_current(dict) .- I0) ./ dμ
+        key = first(only(dict))
+        G(:, key) .= real.(diff_currents)
+    end
+    return G
 end
 
-function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem)
-    keys_iter = keys(ls.dissipators)
-    μs0 = [ls.dissipators[k].lead.μ for k in keys_iter]
+function conductance_matrix(ad::AD.FiniteDifferencesBackend, sys::PauliSystem)
+    keys_iter = collect(keys(sys.dissipators))
+    μs0 = [sys.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
         pert = Dict(k => (; μ=μs[n]) for (n, k) in enumerate(keys_iter))
-        newsys = update_coefficients(ls, pert)
+        newsys = update_coefficients(sys, pert)
         sol = solve(StationaryStateProblem(newsys))
         currents = get_currents(sol, newsys)
-        [real(currents[k]) for k in keys_iter]
+        [real(currents(k)) for k in keys_iter]
     end
-    AD.jacobian(ad, get_current, μs0)[1]
+    J = AD.jacobian(ad, get_current, μs0)[1]
+    AxisKeys.wrapdims(AxisKeys.KeyedArray(J, (keys_iter, keys_iter)), :∂Iᵢ, :∂μⱼ)
 end
 
 
 function conductance_matrix(backend::AD.AbstractBackend, sys::PauliSystem, rho)
     linsolve = init(StationaryStateProblem(sys))
     func = d -> [Matrix(d), d.Iin + d.Iout]
-    key_iter = keys(sys.dissipators)
-    mapreduce(hcat, key_iter) do k
+    key_iter = collect(keys(sys.dissipators))
+    N = length(key_iter)
+    T = real(eltype(sys))
+    G = AxisKeys.wrapdims(AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter)), :∂Iᵢ, :∂μⱼ)
+
+    # mapreduce(hcat, key_iter) do k
+    #     d = sys.dissipators[k]
+    #     dD = chem_derivative(backend, func, d)
+    #     sol = solveDiffProblem!(linsolve, rho, dD[1])
+    #     rhodiff_currents = get_currents(sol, sys)
+    #     dissdiff_current = dot(dD[2], rho)
+    #     [real(rhodiff_currents[k2] + dissdiff_current * (k2 == k)) for k2 in key_iter]
+    # end
+
+    # linsolve = init(StationaryStateProblem(ls))
+    # key_iter = collect(keys(ls.dissipators))
+    # N = length(key_iter)
+    # T = real(eltype(ls))
+    # G = AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter))
+    for k in key_iter
         d = sys.dissipators[k]
         dD = chem_derivative(backend, func, d)
         sol = solveDiffProblem!(linsolve, rho, dD[1])
         rhodiff_currents = get_currents(sol, sys)
         dissdiff_current = dot(dD[2], rho)
-        [real(rhodiff_currents[k2] + dissdiff_current * (k2 == k)) for k2 in key_iter]
+        rhodiff_currents[AxisKeys.Key(k)] += dissdiff_current
+        G(:, k) .= real.(rhodiff_currents)
     end
+    G
+
 end
 
 function ODEProblem(system::PauliSystem, u0, tspan, p=SciMLBase.NullParameters(), args...; kwargs...)

@@ -10,6 +10,9 @@ import AbstractDifferentiation as AD
 using TestItems
 using TermInterface
 
+import AxisKeys
+import Crayons
+
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 

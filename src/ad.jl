@@ -15,15 +15,22 @@ end
 
 function conductance_matrix(backend, ls::AbstractOpenSystem, rho, current_op)
     linsolve = init(StationaryStateProblem(ls))
-    key_iter = keys(ls.dissipators)
-    mapreduce(hcat, key_iter) do k
+    key_iter = collect(keys(ls.dissipators))
+    N = length(key_iter)
+    T = real(eltype(ls))
+    # G = AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter))
+    G = AxisKeys.wrapdims(AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter)), :∂Iᵢ, :∂μⱼ)
+
+    for k in key_iter
         d = ls.dissipators[k]
         dD = chem_derivative(backend, d)
         sol = solveDiffProblem!(linsolve, rho, dD)
         rhodiff_currents = measure(sol, current_op, ls)
         dissdiff_current = dot(current_op, tomatrix(dD * rho, ls))
-        [real(rhodiff_currents[k2] + dissdiff_current * (k2 == k)) for k2 in key_iter]
+        rhodiff_currents[AxisKeys.Key(k)] += dissdiff_current
+        G(:, k) .= real.(rhodiff_currents)
     end
+    G
 end
 
 
@@ -32,22 +39,34 @@ function conductance_matrix(dμ::Number, ls::AbstractOpenSystem, current_op)
     function get_current(pert)
         newls = update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newls))
-        real(collect(values(measure(sol, current_op, newls))))
+        measure(sol, current_op, newls)
     end
     I0 = get_current(SciMLBase.NullParameters())
-    stack(map(pert -> (get_current(pert) .- I0) / dμ, perturbations))
+    N = length(I0)
+    T = real(eltype(I0))
+    ks = AxisKeys.axiskeys(I0, 1)
+    G = AxisKeys.wrapdims(AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (ks, ks)), :∂Iᵢ, :∂μⱼ)
+    for dict in perturbations
+        diff_currents = (get_current(dict) .- I0) ./ dμ
+        key = first(only(dict))
+        G(:, key) .= real.(diff_currents)
+    end
+    return G
+
 end
 
 
 function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem, current_op)
-    keys_iter = keys(ls.dissipators)
+    keys_iter = collect(keys(ls.dissipators))
     μs0 = [ls.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
         pert = Dict(k => (; μ=μs[n]) for (n, k) in enumerate(keys_iter))
         newls = update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newls))
         currents = measure(sol, current_op, newls)
-        [real(currents[k]) for k in keys_iter]
+        [real(currents(k)) for k in keys_iter]
+        #real()
     end
-    AD.jacobian(ad, get_current, μs0)[1]
+    J = AD.jacobian(ad, get_current, μs0)[1]
+    AxisKeys.wrapdims(AxisKeys.KeyedArray(J, (keys_iter, keys_iter)), :∂Iᵢ, :∂μⱼ)
 end
