@@ -201,7 +201,7 @@ end
     @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
     @test M ≈ partial_transpose(M, (), cN)
 
-    M = rand(ComplexF64, 2^N, 2^N) 
+    M = rand(ComplexF64, 2^N, 2^N)
     pt(l, M) = partial_transpose(M, l, cN)
     for (i, j) in pair_iterator
         @test pt((i, j), M) ≈ pt((j, i), M) ≈ pt(j, pt(i, M)) ≈ pt(i, pt(j, M))
@@ -210,6 +210,8 @@ end
         @test pt((i, j, k), M) ≈ pt((j, i, k), M) ≈ pt((j, k, i), M) ≈ pt((k, j, i), M) ≈ pt((k, i, j), M) ≈ pt((i, k, j), M) ≈ pt(i, pt(j, pt(k, M))) ≈ pt(j, pt(i, pt(k, M))) ≈ pt(k, pt(j, pt(i, M)))
     end
 
+    @test pt((1, 2), M) ≈ pt((1, 2, 3, 4), pt((3, 4), M))
+    @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
 end
 
 
