@@ -67,10 +67,10 @@ end
 _bit(f, k) = Bool((f >> (k - 1)) & 1)
 function phase_factor(focknbr1, focknbr2, subinds::NTuple)::Int
     bitmask = focknbr_from_site_indices(subinds)
-    prod(i -> (jwstring_left(i, bitmask & focknbr1) * jwstring_left(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds, init = 1)
+    prod(i -> (jwstring_left(i, bitmask & focknbr1) * jwstring_left(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds, init=1)
 end
 function phase_factor(focknbr1, focknbr2, N)::Int
-    prod(_phase_factor(focknbr1, focknbr2, i) for i in 1:N; init = 1)
+    prod(_phase_factor(focknbr1, focknbr2, i) for i in 1:N; init=1)
 end
 
 function _phase_factor(focknbr1, focknbr2, i)::Int
@@ -122,6 +122,89 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
     end
     return mout
 end
+
+"""
+    partial_trace!(mout, m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+
+Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
+"""
+function partial_transpose(m::AbstractMatrix{T}, labels, b::FermionBasis{M}) where {T,M}
+    mout = zero(m)
+    partial_transpose!(mout, m, labels, b)
+end
+function partial_transpose!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}) where {T,M}
+    fill!(mout, zero(eltype(mout)))
+    outinds = siteindices(labels, b) #::NTuple{N,Int}
+    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system"
+    bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
+    outbits(f) = map(i -> _bit(f, i), outinds)
+    for f1 in UnitRange{UInt64}(0, 2^M - 1)
+        f1R = (f1 & bitmask)
+        f1L = (f1 & ~bitmask)
+        for f2 in UnitRange{UInt64}(0, 2^M - 1)
+            f2R = (f2 & bitmask)
+            f2L = (f2 & ~bitmask)
+            newfocknbr1 = f2L + f1R
+            newfocknbr2 = f1L + f2R
+            s1 = phase_factor(f1, f2, M)
+            s2 = phase_factor(newfocknbr1, newfocknbr2, M)
+            s = s2 * s1
+            mout[focktoind(newfocknbr1, b), focktoind(newfocknbr2, b)] = s * m[focktoind(f1, b), focktoind(f2, b)]
+        end
+    end
+    return mout
+end
+
+@testitem "Partial transpose" begin
+    using LinearAlgebra
+    qn = ParityConservation()
+    c1 = FermionBasis(1:1; qn)
+    c2 = FermionBasis(2:2; qn)
+    c12 = FermionBasis(1:2; qn)
+
+    A = rand(ComplexF64, 2, 2)
+    B = rand(ComplexF64, 2, 2)
+    C = wedge((A, B), (c1, c2), c12)
+    Cpt = QuantumDots.partial_transpose(C, (1,), c12)
+    Cpt2 = wedge((transpose(A), B), (c1, c2), c12)
+    @test Cpt ≈ Cpt2
+
+    ## Larger system
+    labels = 1:4
+    c4 = FermionBasis(labels; qn)
+    cs = [FermionBasis(i:i; qn) for i in labels]
+    Ms = [rand(ComplexF64, 2, 2) for _ in labels]
+    M = wedge(Ms, cs, c4)
+
+    single_subsystems = [(i,) for i in 1:4]
+    for (k,) in single_subsystems
+        Mpt = QuantumDots.partial_transpose(M, (k,), c4)
+        Mpt2 = wedge([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        @test Mpt ≈ Mpt2
+    end
+    pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i < j]
+    triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if i < j < k]
+    for (i, j) in pair_iterator
+        Mpt = QuantumDots.partial_transpose(M, (i, j), c4)
+        Mpt2 = wedge([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        @test Mpt ≈ Mpt2
+    end
+    for (i, j, k) in triple_iterator
+        Mpt = QuantumDots.partial_transpose(M, (i, j, k), c4)
+        Mpt2 = wedge([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        @test Mpt ≈ Mpt2
+    end
+    Mpt = QuantumDots.partial_transpose(M, labels, c4)
+    Mpt2 = wedge([transpose(M) for M in Ms], cs, c4)
+    @test Mpt ≈ Mpt2
+    @test !(Mpt ≈ transpose(M)) # transpose does NOT commute with wedge for unphysical states
+    @test M ≈ QuantumDots.partial_transpose(M, (), c4)
+
+    diagMs = [Diagonal(rand(ComplexF64, 2)) for _ in labels]
+    diagM = wedge(diagMs, cs, c4)
+    @test QuantumDots.partial_transpose(diagM, labels, c4) ≈ transpose(diagM)  # transpose DOES commute with wedge for physical states
+end
+
 
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
     rightindices::NTuple{N - NL,Int} = Tuple(setdiff(ntuple(identity, N), leftindices))
