@@ -128,20 +128,14 @@ function LinearAlgebra.mul!(out, d::LazyLindbladDissipator, rho)
         mul!(out, cache, L', rate, 1)
         mul!(out, L2, rho, -rate / 2, 1)
         mul!(out, rho, L2, -rate / 2, 1)
+        # out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
     end
-
     return out
 end
 function Base.:*(d::LazyLindbladDissipator, rho::AbstractMatrix)
-    rate = d.rate
-    Ls = Iterators.flatten((d.op.in, d.op.out))
-    L2s = Iterators.flatten((d.opsquare.in, d.opsquare.out))
-    ops = zip(Ls, L2s)
-    (L, L2,) = first(ops)
-    out = rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
-    for (L, L2) in Iterators.drop(ops, 1)
-        out .+= rate * (L * rho * L' .- 1 / 2 .* (L2 * rho .+ rho * L2))
-    end
+    T = promote_type(eltype(rho), eltype(d))
+    out = zeros(T, size(rho))
+    mul!(out, d, rho)
     return out
 end
 
@@ -149,6 +143,7 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
     Heff = d.nonhermitian_hamiltonian
     mul!(out, Heff, rho, -1im, 0)
     mul!(out, rho, Heff', 1im, 1)
+    # out = -1im .* (Heff * rho .- rho * Heff')
     cache = d.cache
     for d in values(d.dissipators)
         rate = d.rate
@@ -156,20 +151,15 @@ function LinearAlgebra.mul!(out, d::LazyLindbladSystem, rho)
         for L in Ls
             mul!(cache, L, rho)
             mul!(out, cache, L', rate, 1)
+            #out .+= rate .* (L * rho * L')
         end
     end
     return out
 end
 function Base.:*(d::LazyLindbladSystem, rho::AbstractMatrix)
-    Heff = d.nonhermitian_hamiltonian
-    out = -1im .* (Heff * rho .- rho * Heff')
-    for d in values(d.dissipators)
-        rate = d.rate
-        Ls = Iterators.flatten((d.op.in, d.op.out))
-        for L in Ls
-            out .+= rate .* (L * rho * L')
-        end
-    end
+    T = promote_type(eltype(rho), eltype(d))
+    out = zeros(T, size(rho))
+    mul!(out, d, rho)
     return out
 end
 function add_diagonal!(m, x)
