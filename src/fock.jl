@@ -100,12 +100,12 @@ end
 """
     partial_trace!(mout, m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
 
-Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
+Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
 """
 function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
-    outinds = siteindices(labels, b) #::NTuple{N,Int}
+    outinds = siteindices(labels, b)  
     @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system" #Is this true?
     bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
@@ -124,15 +124,15 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
 end
 
 """
-    partial_trace!(mout, m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+    partial_transpose(m::AbstractMatrix, labels, b::FermionBasis{M})
 
-Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
+Compute the fermionic partial transpose of a matrix `m` in subsystem denoted by `labels`.
 """
-function partial_transpose(m::AbstractMatrix{T}, labels, b::FermionBasis{M}) where {T,M}
+function partial_transpose(m::AbstractMatrix, labels, b::FermionBasis)
     mout = zero(m)
     partial_transpose!(mout, m, labels, b)
 end
-function partial_transpose!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}) where {T,M}
+function partial_transpose!(mout, m::AbstractMatrix, labels, b::FermionBasis{M}) where {M}
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b)
     bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
