@@ -106,7 +106,7 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b) #::NTuple{N,Int}
-    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system"
+    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system" #Is this true?
     bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for f1 in UnitRange{UInt64}(0, 2^M - 1), f2 in UnitRange{UInt64}(0, 2^M - 1)
@@ -134,8 +134,7 @@ function partial_transpose(m::AbstractMatrix{T}, labels, b::FermionBasis{M}) whe
 end
 function partial_transpose!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}) where {T,M}
     fill!(mout, zero(eltype(mout)))
-    outinds = siteindices(labels, b) #::NTuple{N,Int}
-    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system"
+    outinds = siteindices(labels, b)
     bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for f1 in UnitRange{UInt64}(0, 2^M - 1)
@@ -157,6 +156,7 @@ end
 
 @testitem "Partial transpose" begin
     using LinearAlgebra
+    import QuantumDots: partial_transpose
     qn = ParityConservation()
     c1 = FermionBasis(1:1; qn)
     c2 = FermionBasis(2:2; qn)
@@ -165,44 +165,51 @@ end
     A = rand(ComplexF64, 2, 2)
     B = rand(ComplexF64, 2, 2)
     C = wedge((A, B), (c1, c2), c12)
-    Cpt = QuantumDots.partial_transpose(C, (1,), c12)
+    Cpt = partial_transpose(C, (1,), c12)
     Cpt2 = wedge((transpose(A), B), (c1, c2), c12)
     @test Cpt ≈ Cpt2
 
     ## Larger system
     labels = 1:4
-    c4 = FermionBasis(labels; qn)
+    N = length(labels)
+    cN = FermionBasis(labels; qn)
     cs = [FermionBasis(i:i; qn) for i in labels]
     Ms = [rand(ComplexF64, 2, 2) for _ in labels]
-    M = wedge(Ms, cs, c4)
+    M = wedge(Ms, cs, cN)
 
     single_subsystems = [(i,) for i in 1:4]
     for (k,) in single_subsystems
-        Mpt = QuantumDots.partial_transpose(M, (k,), c4)
-        Mpt2 = wedge([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        Mpt = partial_transpose(M, (k,), cN)
+        Mpt2 = wedge([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
-    pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i < j]
-    triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if i < j < k]
+    pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i != j]
+    triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if length(unique((i, j, k))) == 3]
     for (i, j) in pair_iterator
-        Mpt = QuantumDots.partial_transpose(M, (i, j), c4)
-        Mpt2 = wedge([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        Mpt = partial_transpose(M, (i, j), cN)
+        Mpt2 = wedge([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     for (i, j, k) in triple_iterator
-        Mpt = QuantumDots.partial_transpose(M, (i, j, k), c4)
-        Mpt2 = wedge([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, c4)
+        Mpt = partial_transpose(M, (i, j, k), cN)
+        Mpt2 = wedge([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
-    Mpt = QuantumDots.partial_transpose(M, labels, c4)
-    Mpt2 = wedge([transpose(M) for M in Ms], cs, c4)
+    Mpt = partial_transpose(M, labels, cN)
+    Mpt2 = wedge([transpose(M) for M in Ms], cs, cN)
     @test Mpt ≈ Mpt2
-    @test !(Mpt ≈ transpose(M)) # transpose does NOT commute with wedge for unphysical states
-    @test M ≈ QuantumDots.partial_transpose(M, (), c4)
+    @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
+    @test M ≈ partial_transpose(M, (), cN)
 
-    diagMs = [Diagonal(rand(ComplexF64, 2)) for _ in labels]
-    diagM = wedge(diagMs, cs, c4)
-    @test QuantumDots.partial_transpose(diagM, labels, c4) ≈ transpose(diagM)  # transpose DOES commute with wedge for physical states
+    M = rand(ComplexF64, 2^N, 2^N) 
+    pt(l, M) = partial_transpose(M, l, cN)
+    for (i, j) in pair_iterator
+        @test pt((i, j), M) ≈ pt((j, i), M) ≈ pt(j, pt(i, M)) ≈ pt(i, pt(j, M))
+    end
+    for (i, j, k) in triple_iterator
+        @test pt((i, j, k), M) ≈ pt((j, i, k), M) ≈ pt((j, k, i), M) ≈ pt((k, j, i), M) ≈ pt((k, i, j), M) ≈ pt((i, k, j), M) ≈ pt(i, pt(j, pt(k, M))) ≈ pt(j, pt(i, pt(k, M))) ≈ pt(k, pt(j, pt(i, M)))
+    end
+
 end
 
 
