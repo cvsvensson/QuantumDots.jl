@@ -5,9 +5,14 @@ QuantumDots.jl
 [![Build Status](https://github.com/cvsvensson/QuantumDots.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/cvsvensson/QuantumDots.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/cvsvensson/QuantumDots.jl/branch/main/graph/badge.svg?token=34V1PF8DQA)](https://codecov.io/gh/cvsvensson/QuantumDots.jl)
 
-This package provides some tools for working with quantum systems. The scope is not clearly defined and the api may change. As such, the package is not registered in the general registry but can be installed by
+This package provides some tools for working with quantum systems. The scope is not clearly defined and the api may change. As such, the package is not registered in the general registry but can be installed directly by
 ```julia
 using Pkg; Pkg.add(url="https://github.com/cvsvensson/QuantumDots.jl")
+```
+or by adding a registry to your julia environment and then installing the package
+```julia
+using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/williamesamuelson/PackageRegistry"))
+Pkg.add("QuantumDots")
 ```
 
 Functionality includes
