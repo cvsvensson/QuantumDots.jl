@@ -151,21 +151,29 @@ end
     using Symbolics
     @majoranas a b
     @fermions f
-    to_maj = fermion_to_majorana(f, a, b)
-    to_ferm = majorana_to_fermion(a, b, f)
-    @test to_maj(f[1]) == 1 / 2 * (a[1] - 1im * b[1])
-    @test to_maj(f[1]') == 1 / 2 * (a[1] + 1im * b[1])
-    @test to_maj(f[1]' * f[1]) == 1 / 2 * (1 + 1im * b[1] * a[1])
-    @test to_ferm(a[1]) == f[1] + f[1]'
-    @test to_ferm(b[1]) == 1im * (f[1] - f[1]')
-    @test to_ferm(1im * b[1] * a[1]) == 2 * f[1]' * f[1] - 1
-    expr = 10 * f[1]' * f[2] - f[1] * f[2] + f[1]' * f[2]' * f[3]
-    @test to_ferm(to_maj(expr)) == expr
-    @test to_ferm(to_maj(expr)^2) == expr^2
-    @test to_ferm(expr) == expr
+    for leijnse_convention in (true, false)
+        to_maj = fermion_to_majorana(f, a, b; leijnse_convention)
+        to_ferm = majorana_to_fermion(a, b, f; leijnse_convention)
+        # Expected sign factor for the current convention
+        sgn = leijnse_convention ? 1 : -1
+        # Tests for fermion to Majorana conversion
+        @test to_maj(f[1]) == 1 / 2 * (a[1] + sgn * 1im * b[1])
+        @test to_maj(f[1]') == 1 / 2 * (a[1] - sgn * 1im * b[1])
+        @test to_maj(f[1]' * f[1]) == 1 / 2 * (1 + sgn * 1im * a[1] * b[1])
+        # Tests for Majorana to fermion conversion
+        @test to_ferm(a[1]) == f[1] + f[1]'
+        @test to_ferm(b[1]) == sgn * 1im * (f[1]' - f[1])
+        @test to_ferm(1im * a[1] * b[1]) == sgn * (2 * f[1]' * f[1] - 1)
+        # Round-trip tests for expressions
+        expr = 10 * f[1]' * f[2] - f[1] * f[2] + f[1]' * f[2]' * f[3]
+        @test to_ferm(to_maj(expr)) == expr
+        @test to_ferm(to_maj(expr)^2) == expr^2
+        @test to_ferm(expr) == expr
+    end
 
     @fermions f2
     @majoranas a2 b2
+    to_maj = fermion_to_majorana(f, a, b)
     @test to_maj(f2[1]) == f2[1]
     @test_throws ArgumentError fermion_to_majorana(f, a, b2)
 end
