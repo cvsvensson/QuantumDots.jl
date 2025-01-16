@@ -127,13 +127,21 @@ function embedding_unitary(partition, fockstates)
     return Diagonal(phases)
 end
 
+function fermionic_embedding(A, Xbasis, Ybasis)
+    Xbar_labs = setdiff([keys(Ybasis)...], [keys(Xbasis)...]) # arrays to keep order
+    qn = promote_symmetry(Xbasis.symmetry, Ybasis.symmetry)
+    Xbarbasis = FermionBasis(Xbar_labs; qn)
+    return wedge([A, I], [Xbasis, Xbarbasis], Ybasis)
+end
+
 
 
 @testitem "Wedge properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
     using Random, Base.Iterators, LinearAlgebra
-    Random.seed!(1234)
+    import QuantumDots: fermionic_embedding
+    Random.seed!(134)
     N = 7
     rough_size = 5
     fine_size = 3
@@ -155,6 +163,24 @@ end
     lhs = tr(wedge(As, cs_rough, c)' * wedge(Bs, cs_rough, c))
     rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
     @test lhs ≈ rhs
+
+    # Eq. 19 (note that the ordered product is reversed from the article above)
+    As = [rand(ComplexF64, 2, 2) for _ in 1:N]
+    parts = vcat(fine_partitions...)
+    lhs = mapreduce(j -> fermionic_embedding(As[j], FermionBasis(j:j), c), *, N:-1:1)
+    rhs_ordered_prod(X) = mapreduce(j -> fermionic_embedding(As[j], FermionBasis(j:j), FermionBasis(sort(X))), *, reverse(sort(X)))
+    rhs = wedge([rhs_ordered_prod(p) for p in parts], FermionBasis.(parts), c)
+    @test lhs ≈ rhs
+
+    # Eq. 36
+    X = sort(rough_partitions[1])
+    A = ops_rough[1]
+    B = rand(ComplexF64, 2^N, 2^N)
+    lhs = tr(fermionic_embedding(A, FermionBasis(X), c)' * B)
+    rhs = tr(A' * partial_trace(B, FermionBasis(X), c))
+    @test lhs ≈ rhs
+
+    # Eq. 39
 end
 
 
