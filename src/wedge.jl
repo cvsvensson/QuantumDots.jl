@@ -134,7 +134,7 @@ Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis 
 """
 function fermionic_embedding(m, b, bnew)
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    bbar_labs = setdiff([keys(bnew)...], [keys(b)...]) # arrays to keep order
+    bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
     qn = promote_symmetry(b.symmetry, bnew.symmetry)
     bbar = FermionBasis(bbar_labs; qn)
     return wedge([m, I], [b, bbar], bnew)
