@@ -137,7 +137,7 @@ function fermionic_embedding(m, b, bnew)
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
     qn = promote_symmetry(b.symmetry, bnew.symmetry)
     bbar = FermionBasis(bbar_labs; qn)
-    return wedge([m, I], [b, bbar], bnew)
+    return wedge((m, I), (b, bbar), bnew)
 end
 
 """
