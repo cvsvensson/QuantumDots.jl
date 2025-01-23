@@ -129,19 +129,45 @@ function embedding_unitary(partition, fockstates)
     return Diagonal(phases)
 end
 
+"""
+    fermionic_embedding(m, b, bnew)
+
+Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis `bnew`.
+"""
+function fermionic_embedding(m, b, bnew)
+    # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
+    bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
+    qn = promote_symmetry(b.symmetry, bnew.symmetry)
+    bbar = FermionBasis(bbar_labs; qn)
+    return wedge((m, I), (b, bbar), bnew)
+end
+
+"""
+    ordered_prod_of_embeddings(ms, bs, b)
+
+Compute the ordered product of the fermionic embeddings of the matrices `ms` in the bases `bs` into the basis `b`.
+"""
+function ordered_prod_of_embeddings(ms, bs, b)
+    # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
+    # note that the multiplication is done in the reverse order
+    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip(reverse(ms), reverse(bs)))
+end
+
 
 
 @testitem "Wedge properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
     using Random, Base.Iterators, LinearAlgebra
+    import QuantumDots: fermionic_embedding, ordered_prod_of_embeddings
+
     Random.seed!(1234)
     N = 7
     rough_size = 5
     fine_size = 3
-    rough_partitions = collect(partition(randperm(N), rough_size))
+    rough_partitions = sort.(collect(partition(randperm(N), rough_size)))
     # divide each part of rough partition into finer partitions
-    fine_partitions = map(rough_partition -> collect(partition(shuffle(rough_partition), fine_size)), rough_partitions)
+    fine_partitions = map(rough_partition -> sort.(collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
     c = FermionBasis(1:N)
     cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
     cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
@@ -157,6 +183,76 @@ end
     lhs = tr(wedge(As, cs_rough, c)' * wedge(Bs, cs_rough, c))
     rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
     @test lhs ≈ rhs
+
+    # Fermionic embedding
+
+    # Eq. 19 (note that the ordered product is reversed from the article above)
+    As_modes = [rand(ComplexF64, 2, 2) for _ in 1:N]
+    ξ = vcat(fine_partitions...)
+    ξbases = vcat(cs_fine...)
+    modebases = [FermionBasis(j:j) for j in 1:N]
+    lhs = mapreduce(j -> fermionic_embedding(As_modes[j], modebases[j], c), *, N:-1:1)
+    rhs_ordered_prod(X, basis) = mapreduce(j -> fermionic_embedding(As_modes[j], modebases[j], basis), *, reverse(X))
+    rhs = wedge([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
+    @test lhs ≈ rhs
+
+    # Eq. 23
+    X = rough_partitions[1]
+    cX = cs_rough[1]
+    A = ops_rough[1]
+    B = rand(ComplexF64, 2^length(X), 2^length(X))
+    @test fermionic_embedding(A, cX, c) * fermionic_embedding(B, cX, c) ≈ fermionic_embedding(A * B, cX, c)
+    @test fermionic_embedding(A, cX, c)' ≈ fermionic_embedding(A', cX, c)
+
+    # Ordered product of embeddings
+
+    # Eq. 31
+    A = ops_rough[1]
+    X = rough_partitions[1]
+    Xbar = setdiff(1:N, X)
+    cX = cs_rough[1]
+    cXbar = FermionBasis(Xbar)
+    corr = fermionic_embedding(A, cX, c)
+    @test corr ≈ wedge([A, I], [cX, cXbar], c) ≈ ordered_prod_of_embeddings([A, I], [cX, cXbar], c) ≈ ordered_prod_of_embeddings([I, A], [cXbar, cX], c)
+
+    # Eq. 32
+    @test ordered_prod_of_embeddings(As_modes, modebases, c) ≈ wedge(As_modes, modebases, c)
+
+    # Fermionic partial trace
+
+    # Eq. 36
+    X = rough_partitions[1]
+    A = ops_rough[1]
+    B = rand(ComplexF64, 2^N, 2^N)
+    cX = cs_rough[1]
+    lhs = tr(fermionic_embedding(A, cX, c)' * B)
+    rhs = tr(A' * partial_trace(B, cX, c))
+    @test lhs ≈ rhs
+
+    # Eq. 39
+    A = rand(ComplexF64, 2^N, 2^N)
+    X = fine_partitions[1][1]
+    Y = rough_partitions[1]
+    bX = cs_fine[1][1]
+    bY = cs_rough[1]
+    bZ = c
+    Z = 1:N
+    rhs = partial_trace(A, bX, bZ)
+    lhs = partial_trace(partial_trace(A, bY, bZ), bX, bY)
+    @test lhs ≈ rhs
+
+    # Eq. 41
+    bY = c
+    @test partial_trace(A', bX, bY) ≈ partial_trace(A, bX, bY)'
+
+    # Eq. 95
+    ξ = rough_partitions
+    As = ops_rough
+    Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
+    lhs1 = ordered_prod_of_embeddings(As, cs_rough, c) * ordered_prod_of_embeddings(Bs, cs_rough, c)
+    rhs1 = ordered_prod_of_embeddings(As .* Bs, cs_rough, c)
+    @test lhs1 ≈ rhs1
+    @test ordered_prod_of_embeddings(As, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(As), cs_rough, c)
 end
 
 
