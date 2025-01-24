@@ -213,7 +213,7 @@ _labels(a::FermionMul) = [s.label for s in a.factors]
 SparseArrays.sparse(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, labels, instates::AbstractVector) = sparse(op, labels, instates, instates)
 SparseArrays.sparse(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates::AbstractVector) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
 function sparsetuple(op::FermionMul{C}, labels, outstates, instates; fock_to_outind=Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))) where {C}
-    outfocks = Int[]
+    outfocks = FockNumber[]
     ininds_final = Int[]
     amps = C[]
     sizehint!(outfocks, length(instates))
@@ -249,7 +249,9 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
     N = 4
     labels = 1:N
     fmb = FermionBasis(labels)
-    get_mat(op) = sparse(op, labels, 0:2^N-1, 0:2^N-1)
+    fockstates = map(FockNumber, 0:2^N-1)
+    jw = JordanWignerOrdering(labels)
+    get_mat(op) = sparse(op, jw, fockstates, fockstates)
     @test all(get_mat(f[l]) == fmb[l] for l in labels)
     @test all(get_mat(f[l]') == fmb[l]' for l in labels)
     @test all(get_mat(f[l]') == get_mat(f[l])' for l in labels)
@@ -261,7 +263,7 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
     mat = sum(fmb[l]' * fmb[l] for l in labels)
     @test newmat == mat
 
-    @test all(sparse(sum(f[l]' * f[l] for l in labels), labels, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
+    @test all(sparse(sum(f[l]' * f[l] for l in labels), jw, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
     @test all(QuantumDots.eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
     @test all(QuantumDots.eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)

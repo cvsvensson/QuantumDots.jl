@@ -4,29 +4,48 @@ abstract type AbstractManyBodyBasis <: AbstractBasis end
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
 
+struct FockNumber
+    f::Int
+end
+FockNumber(f::FockNumber) = f
+struct JordanWignerOrdering{L}
+    labels::Vector{L}
+    ordering::OrderedDict{L,Int}
+    function JordanWignerOrdering(labels)
+        ls = collect(labels)
+        dict = OrderedDict(zip(ls, Base.OneTo(length(ls))))
+        new{eltype(ls)}(ls, dict)
+    end
+end
+
+
 """
-    struct FermionBasis{M,S,T,Sym} <: AbstractManyBodyBasis
+    struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
 
 Fermion basis for representing many-body fermions.
 
 ## Fields
 - `dict::OrderedDict`: A dictionary that maps fermion labels to a representation of the fermion.
 - `symmetry::Sym`: The symmetry of the basis.
+- `jw::JordanWignerOrdering{L}`: The Jordan-Wigner ordering of the basis.
 """
-struct FermionBasis{M,D,Sym} <: AbstractManyBodyBasis
+struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
     dict::D
     symmetry::Sym
+    jw::JordanWignerOrdering{L}
 end
 function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
     labels = handle_labels(iters...)
-    fockstates = get(kwargs, :fockstates, 0:2^length(labels)-1)
+    labelvec = collect(labels)[:]
+    jw = JordanWignerOrdering(labelvec)
+    fockstates = map(FockNumber, get(kwargs, :fockstates, 0:2^length(labels)-1))
     M = length(labels)
-    labelled_symmetry = instantiate(qn, labels)
+    labelled_symmetry = instantiate(qn, jw)
     sym_concrete = focksymmetry(fockstates, labelled_symmetry)
     # sym_more_concrete = symmetry(fockstates, sym_concrete)
     reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
-    d = OrderedDict(zip(labels, reps))
-    FermionBasis{M,typeof(d),typeof(sym_concrete)}(d, sym_concrete)
+    d = OrderedDict(zip(labelvec, reps))
+    FermionBasis{M,typeof(d),typeof(sym_concrete),_label_type(jw)}(d, sym_concrete, jw)
 end
 Base.getindex(b::FermionBasis, i) = b.dict[i]
 Base.getindex(b::FermionBasis, args...) = b.dict[args]
@@ -62,7 +81,7 @@ struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
     indtofockdict::IF
     focktoinddict::FI
     qntoblocksizes::Dictionary{QN,Int}
-    qntofockstates::Dictionary{QN,Vector{Int}}
+    qntofockstates::Dictionary{QN,Vector{FockNumber}}
     qntoinds::Dictionary{QN,Vector{Int}}
     conserved_quantity::QNfunc
 end

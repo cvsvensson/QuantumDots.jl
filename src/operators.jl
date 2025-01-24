@@ -1,19 +1,10 @@
-"""
-    jwstring(site, focknbr)
-    
-Count the number of fermions to the right of site.
-"""
-jwstring(site, focknbr) = jwstring_right(site, focknbr)
-jwstring_right(site, focknbr) = iseven(count_ones(focknbr >> site)) ? 1 : -1
-jwstring_left(site, focknbr) = iseven(count_ones(focknbr) - count_ones(focknbr >> (site - 1))) ? 1 : -1
-
 
 """
     removefermion(digitposition, statefocknbr)
 
 Return (newfocknbr, fermionstatistics) where `newfocknbr` is the state obtained by removing a fermion at `digitposition` from `statefocknbr` and `fermionstatistics` is the phase from the Jordan-Wigner string, or 0 if the operation is not allowed.
 """
-function removefermion(digitposition, statefocknbr)
+function removefermion(digitposition, statefocknbr::FockNumber)
     cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
     allowed = !iszero(cdag & statefocknbr)
@@ -43,16 +34,7 @@ function numberoperator(basis::FermionBasis)
     return mat
 end
 
-function _fill!(mat, op, ::NoSymmetry)
-    for ind in axes(mat, 2)
-        newfockstate, amp = op(ind - 1)
-        newind = newfockstate + 1
-        mat[newind, ind] += amp
-    end
-    return mat
-end
-
-function _fill!(mat, op, sym::AbelianFockSymmetry)
+function _fill!(mat, op, sym::AbstractSymmetry)
     for ind in axes(mat, 2)
         newfockstate, amp = op(indtofock(ind, sym))
         newind = focktoind(newfockstate, sym)
@@ -66,7 +48,7 @@ function togglefermions(digitpositions, daggers, focknbr)
     allowed = true
     fermionstatistics = 1
     for (digitpos, dagger) in zip(digitpositions, daggers)
-        op = 1 << (digitpos - 1) #2^(digitpos - 1) but faster
+        op = FockNumber(1 << (digitpos - 1)) #2^(digitpos - 1) but faster
         if dagger
             newfocknbr = op | focknbr
             # Check if there already was a fermion at the site.

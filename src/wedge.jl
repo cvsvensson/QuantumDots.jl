@@ -28,7 +28,7 @@ function check_wedge_basis_compatibility(b1::FermionBasis{M1}, b2::FermionBasis{
     end
 end
 
-get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = 0:2^M-1
+get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
 get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 """
@@ -43,7 +43,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
     fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b) ∘ Tuple ∘ keys, bs)
+        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)
         FockMapper(fermionpositions)
     else
         Ms = map(nbr_of_fermions, bs)
@@ -65,10 +65,9 @@ end
 struct FockShifter{M}
     shifts::M
 end
-(fm::FockMapper)(f::NTuple{N,Int}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
-(fs::FockShifter)(f::NTuple{N,Int}) where {N} = mapreduce((f, M) -> 2^M * f, +, f, fs.shifts)
-get_partition(f::FockMapper) = f.fermionpositions
-get_partition(f::FockShifter) = map((s1, s2) -> s1+1:s2, f.shifts, Iterators.drop(f.shifts, 1))
+(fm::FockMapper)(f::NTuple{N,FockNumber}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
+(fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
+shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 
 function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
@@ -93,8 +92,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
 end
 function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
-    partition = get_partition(fockmapper)
-    U = embedding_unitary(partition, get_fockstates(b))
+    U = embedding_unitary(bs, b)
     dimlengths = map(length ∘ get_fockstates, bs)
     inds = CartesianIndices(Tuple(dimlengths))
     for I in inds
@@ -107,15 +105,25 @@ function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     return U * mout
 end
 
-function embedding_unitary(partition, fockstates)
+"""
+    embedding_unitary(partition, fockstates, jw)
+
+    Compute the unitary matrix that maps between the tensor embedding and the fermionic embedding in the physical. 
+    # Arguments
+    - `partition`: A partition of the labels in `jw` into disjoint sets.
+    - `fockstates`: The fock states in the basis
+    - `jw`: The Jordan-Wigner ordering.
+"""
+function embedding_unitary(partition, fockstates, jw::JordanWignerOrdering)
     #for locally physical algebra, ie only for even operators or states of well-defined parity
     #if ξ is ordered, the phases are +1. 
     # Note that the jordan wigner modes are ordered in reverse from the labels, but this is taken care of by direction of the jwstring below
     phases = ones(Int, length(fockstates))
     for (s, Xs) in enumerate(partition)
-        mask = focknbr_from_site_indices(Xs)
+        mask = focknbr_from_site_labels(Xs, jw)
         for (r, Xr) in Iterators.drop(enumerate(partition), s)
-            for i in Xr
+            for li in Xr
+                i = siteindex(li, jw)
                 for (n, f) in zip(eachindex(phases), fockstates)
                     if _bit(f, i)
                         phases[n] *= jwstring_right(i, mask & f)
@@ -126,6 +134,49 @@ function embedding_unitary(partition, fockstates)
     end
     return Diagonal(phases)
 end
+embedding_unitary(partition, c::FermionBasis) = embedding_unitary(partition, get_fockstates(c), c.jw)
+embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis) where {B<:FermionBasis,N} = embedding_unitary(map(keys, cs), c)
+
+@testitem "Embedding unitary" begin
+    # Appendix C.4
+    using LinearAlgebra
+    jw = JordanWignerOrdering(1:2)
+    fockstates = sort(map(FockNumber, 0:3), by=Base.Fix2(bits, 2))
+
+    @test QuantumDots.embedding_unitary([[1], [2]], fockstates, jw) == I
+    @test QuantumDots.embedding_unitary([[2], [1]], fockstates, jw) == Diagonal([1, 1, 1, -1])
+
+    # N = 3
+    jw = JordanWignerOrdering(1:3)
+    fockstates = sort(map(FockNumber, 0:7), by=Base.Fix2(bits, 3))
+    U(p) = QuantumDots.embedding_unitary(p, fockstates, jw)
+    @test U([[1], [2], [3]]) == U([[1, 2], [3]]) == U([[1], [2, 3]]) == I
+
+    @test U([[2], [1], [3]]) == Diagonal([1, 1, 1, 1, 1, 1, -1, -1])
+    @test U([[2], [3], [1]]) == Diagonal([1, 1, 1, 1, 1, -1, -1, 1])
+    @test U([[3], [1], [2]]) == Diagonal([1, 1, 1, -1, 1, -1, 1, 1])
+    @test U([[3], [2], [1]]) == Diagonal([1, 1, 1, -1, 1, -1, -1, -1])
+    @test U([[1], [3], [2]]) == Diagonal([1, 1, 1, -1, 1, 1, 1, -1])
+
+    @test U([[2], [1, 3]]) == Diagonal([1, 1, 1, 1, 1, 1, -1, -1])
+    @test U([[3], [1, 2]]) == Diagonal([1, 1, 1, -1, 1, -1, 1, 1])
+
+    @test U([[1, 3], [2]]) == Diagonal([1, 1, 1, -1, 1, 1, 1, -1])
+    @test U([[2, 3], [1]]) == Diagonal([1, 1, 1, 1, 1, -1, -1, 1])
+
+    ##
+    cA = FermionBasis((1, 3))
+    cB = FermionBasis((2, 4))
+    c = FermionBasis((1, 2, 3, 4))
+    @test QuantumDots.embedding_unitary((cA, cB), c) == QuantumDots.embedding_unitary([[1, 3], [2, 4]], c)
+    @test fermionic_embedding(cA[1], cA, c) ≈ wedge((cA[1], I), (cA, cB), c) ≈ wedge((I, cA[1]), (cB, cA), c)
+    @test fermionic_embedding(cB[2], cB, c) ≈ wedge((I, cB[2]), (cA, cB), c) ≈ wedge((cB[2], I), (cB, cA), c)
+    @test fermionic_embedding(cB[2], cB, c) * fermionic_embedding(cA[1], cA, c) ≈ wedge([cA[1], cB[2]], (cA, cB), c)
+
+    Ux = QuantumDots.embedding_unitary((cB, cA), c)
+    @test fermionic_embedding(cA[1], cA, c) ≈ Ux * QuantumDots.canonical_embedding(cA[1], cA, c) * Ux'
+    # wedge([cA[1], cB[2]], (cA,cB), c)
+end
 
 """
     fermionic_embedding(m, b, bnew)
@@ -135,7 +186,8 @@ Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis 
 function fermionic_embedding(m, b, bnew)
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
-    qn = promote_symmetry(b.symmetry, bnew.symmetry)
+    # qn = promote_symmetry(b.symmetry, bnew.symmetry)
+    qn = NoSymmetry()
     bbar = FermionBasis(bbar_labs; qn)
     return wedge((m, I), (b, bbar), bnew)
 end
@@ -152,7 +204,6 @@ function ordered_prod_of_embeddings(ms, bs, b)
 end
 
 
-
 @testitem "Wedge properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
@@ -163,17 +214,25 @@ end
     N = 7
     rough_size = 5
     fine_size = 3
-    rough_partitions = sort.(collect(partition(randperm(N), rough_size)))
+    rough_partitions = (collect(partition(randperm(N), rough_size)))
     # divide each part of rough partition into finer partitions
-    fine_partitions = map(rough_partition -> sort.(collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
+    fine_partitions = map(rough_partition -> (collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
     c = FermionBasis(1:N)
     cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
     cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
+
+    ordered_rough_partitions = map(p -> p[randperm(length(p))], partition(1:N, rough_size))
+    fine_partitions_from_ordered_rough = map(rough_partition -> (collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
+    ordered_cs_rough = [FermionBasis(r_p) for r_p in ordered_rough_partitions]
+
+    # Associativity (Eq. 16)
     ops_rough = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
     rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
     lhs = wedge([wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
     @test lhs ≈ rhs
+
+    physical_ops_rough = map((op, c) -> (parityoperator(c) + I) / 2 * op * (parityoperator(c) + I) / 2, ops_rough, cs_rough)
 
     # Eq. 18
     As = ops_rough
@@ -194,11 +253,41 @@ end
     rhs = wedge([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
     @test lhs ≈ rhs
 
+    # Associativity (Eq. 21)
+    @test fermionic_embedding(fermionic_embedding(ops_fine[1][1], cs_fine[1][1], cs_rough[1]), cs_rough[1], c) ≈ fermionic_embedding(ops_fine[1][1], cs_fine[1][1], c)
+    @test all(map(cs_rough, cs_fine, ops_fine) do cr, cfs, ofs
+        all(map(cfs, ofs) do cf, of
+            fermionic_embedding(fermionic_embedding(of, cf, cr), cr, c) ≈ fermionic_embedding(of, cf, c)
+        end)
+    end)
+
+    # Eq. 22
+    cX = cs_rough[1]
+    Ux = QuantumDots.embedding_unitary(rough_partitions, c)
+
+    # ordered_rough_cs = FermionBasis.(ordered_rough_partitions)
+    # cX = ordered_rough_cs[1]
+    # Ux = QuantumDots.embedding_unitary(ordered_rough_cs, c)
+
+    A = ops_rough[1]
+    Aphys = physical_ops_rough[1]
+    canon_emb = QuantumDots.canonical_embedding
+    @test fermionic_embedding(A, cX, c) ≈ Ux * canon_emb(A, cX, c) * Ux'
+    @test fermionic_embedding(Aphys, cX, c) ≈ Ux * canon_emb(Aphys, cX, c) * Ux'
+
+    ordered_prod_of_embeddings(ops_rough, cs_rough, c) - Ux * kron(ops_rough, cs_rough, c) * Ux'
+
+    orderedUx = QuantumDots.embedding_unitary(ordered_rough_partitions, c)
+    @test orderedUx ≈ I
+    @test ordered_prod_of_embeddings(physical_ops_rough, ordered_cs_rough, c) ≈ kron(physical_ops_rough, ordered_cs_rough, c)
+
     # Eq. 23
     X = rough_partitions[1]
     cX = cs_rough[1]
     A = ops_rough[1]
     B = rand(ComplexF64, 2^length(X), 2^length(X))
+
+    @test canon_emb(A, cX, c) * canon_emb(B, cX, c) ≈ canon_emb(A * B, cX, c)
     @test fermionic_embedding(A, cX, c) * fermionic_embedding(B, cX, c) ≈ fermionic_embedding(A * B, cX, c)
     @test fermionic_embedding(A, cX, c)' ≈ fermionic_embedding(A', cX, c)
 
@@ -387,10 +476,10 @@ end
 
 struct PhaseMap
     phases::Matrix{Int}
-    fockstates::Vector{Int}
+    fockstates::Vector{FockNumber}
 end
 struct LazyPhaseMap{M} <: AbstractMatrix{Int}
-    fockstates::Vector{Int}
+    fockstates::Vector{FockNumber}
 end
 Base.length(p::LazyPhaseMap) = length(p.fockstates)
 Base.ndims(::LazyPhaseMap) = 2
@@ -406,7 +495,7 @@ function Base.show(io::IO, p::LazyPhaseMap{M}) where {M}
 end
 Base.show(io::IO, ::MIME"text/plain", p::LazyPhaseMap) = show(io, p)
 Base.getindex(p::LazyPhaseMap{M}, n1::Int, n2::Int) where {M} = phase_factor(p.fockstates[n1], p.fockstates[n2], M)
-function phase_map(fockstates::AbstractVector, M::Int)
+function phase_map(fockstates, M::Int)
     phases = zeros(Int, length(fockstates), length(fockstates))
     for (n1, f1) in enumerate(fockstates)
         for (n2, f2) in enumerate(fockstates)
@@ -415,8 +504,8 @@ function phase_map(fockstates::AbstractVector, M::Int)
     end
     PhaseMap(phases, fockstates)
 end
-phase_map(N::Int) = phase_map(0:2^N-1, N)
-LazyPhaseMap(N::Int) = LazyPhaseMap{N}(0:2^N-1)
+phase_map(N::Int) = phase_map(map(FockNumber, 0:2^N-1), N)
+LazyPhaseMap(N::Int) = LazyPhaseMap{N}(map(FockNumber, 0:2^N-1))
 SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest...) = SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(rest...)
 (p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
 (p::LazyPhaseMap)(op::AbstractMatrix) = p .* op
@@ -453,4 +542,72 @@ end
 
 function fermionic_tensor_product(ops, phis, phi)
     phi(kron(reverse(map((phi, op) -> phi(op), phis, ops))...))
+end
+
+## kron, i.e. wedge without phase factors
+function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
+    T = Base.promote_eltype(ms...)
+    N = ndims(first(ms))
+    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Array{T,N} is there as a fallback make if there aren't enough arguments
+    dimlengths = map(length ∘ get_fockstates, bs)
+    Nout = prod(dimlengths)
+    fockmapper = if match_labels
+        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)
+        FockMapper(fermionpositions)
+    else
+        Ms = map(nbr_of_fermions, bs)
+        shifts = (0, cumsum(Ms)...)
+        FockShifter(shifts)
+    end
+    mout = convert(MT, zeros(T, ntuple(j -> Nout, N)))
+    if N == 1
+        return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+    elseif N == 2
+        return kron_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+    end
+    throw(ArgumentError("Only 1D or 2D arrays are supported"))
+end
+
+function kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+    fill!(mout, zero(eltype(mout)))
+    Ms = map(nbr_of_fermions, bs)
+    Mout = sum(Ms)
+    dimlengths = map(length ∘ get_fockstates, bs)
+    inds = CartesianIndices(dimlengths)
+    for I in inds
+        TI = Tuple(I)
+        fock1 = map(indtofock, TI, bs)
+        fullfock1 = fockmapper(fock1)
+        outind = focktoind(fullfock1, b)
+        for I2 in inds
+            TI2 = Tuple(I2)
+            fock2 = map(indtofock, TI2, bs)
+            fullfock2 = fockmapper(fock2)
+            v = mapreduce((m, b, i1, i2) -> m[i1, i2], *, ms, bs, TI, TI2)
+            mout[outind, focktoind(fullfock2, b)] += v
+        end
+    end
+    return mout
+end
+
+function kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+    fill!(mout, zero(eltype(mout)))
+    dimlengths = map(length ∘ get_fockstates, bs)
+    inds = CartesianIndices(Tuple(dimlengths))
+    for I in inds
+        TI = Tuple(I)
+        fock = map(indtofock, TI, bs)
+        fullfock = fockmapper(fock)
+        outind = focktoind(fullfock, b)
+        mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
+    end
+    return mout
+end
+
+function canonical_embedding(m, b, bnew)
+    bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))
+    # qn = promote_symmetry(b.symmetry, bnew.symmetry)
+    qn = NoSymmetry()
+    bbar = FermionBasis(bbar_labs; qn)
+    return kron((m, I), (b, bbar), bnew)
 end

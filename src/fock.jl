@@ -1,16 +1,51 @@
-focknbr_from_bits(bits) = mapreduce(nb -> nb[2] * (1 << (nb[1] - 1)), +, enumerate(bits))
-focknbr_from_site_index(site::Integer) = 1 << (site - 1)
-focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites, init=0)
+
+siteindex(label, ordering::JordanWignerOrdering) = ordering.ordering[label]
+siteindex(label, b::AbstractManyBodyBasis) = siteindex(label, b.jw)
+siteindices(labels, jw::JordanWignerOrdering) = map(Base.Fix2(siteindex, jw), labels)
+siteindices(labels, b::AbstractManyBodyBasis) = siteindices(labels, b.jw)
+
+label_at_site(n, ordering::JordanWignerOrdering) = ordering.labels[n]
+_label_type(::JordanWignerOrdering{L}) where {L} = L
+focknbr_from_site_label(label, jw) = focknbr_from_site_index(siteindex(label, jw))
+focknbr_from_site_labels(labels, jw) = mapreduce(Base.Fix2(focknbr_from_site_label, jw), +, labels, init=FockNumber(0))
+
+Base.:+(f1::FockNumber, f2::FockNumber) = FockNumber(f1.f + f2.f)
+Base.:-(f1::FockNumber, f2::FockNumber) = FockNumber(f1.f - f2.f)
+Base.:⊻(f1::FockNumber, f2::FockNumber) = FockNumber(f1.f ⊻ f2.f)
+Base.:&(f1::FockNumber, f2::FockNumber) = FockNumber(f1.f & f2.f)
+Base.:&(f1::Integer, f2::FockNumber) = FockNumber(f1 & f2.f)
+Base.:|(f1::FockNumber, f2::FockNumber) = FockNumber(f1.f | f2.f)
+Base.iszero(f::FockNumber) = iszero(f.f)
+Base.:*(b::Bool, f::FockNumber) = FockNumber(b * f.f)
+Base.:~(f::FockNumber) = FockNumber(~f.f)
+
+focknbr_from_bits(bits) = mapreduce(nb -> FockNumber(nb[2] * (1 << (nb[1] - 1))), +, enumerate(bits))
+focknbr_from_site_index(site::Integer) = FockNumber(1 << (site - 1))
+focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites, init=FockNumber(0))
 # focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
 
-bits(s::Integer, N) = digits(Bool, s, base=2, pad=N)
-parity(fs::Int) = iseven(fermionnumber(fs)) ? 1 : -1
-fermionnumber(fs::Int) = count_ones(fs)
+bits(f::FockNumber, N) = digits(Bool, f.f, base=2, pad=N)
+parity(f::FockNumber) = iseven(fermionnumber(f)) ? 1 : -1
+fermionnumber(f::FockNumber) = count_ones(f)
+Base.count_ones(f::FockNumber) = count_ones(f.f)
 
-fermionnumber(fs::Int, mask) = count_ones(fs & mask)
-fermionnumber(sublabels, labels) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, labels)))
+fermionnumber(fs::FockNumber, mask) = count_ones(fs & mask)
+# fermionnumber(sublabels, jw::JordanWignerOrdering) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, jw)))
 
-function insert_bits(x::Int, positions)
+"""
+    jwstring(site, focknbr)
+    
+Parity of the number of fermions to the right of site.
+"""
+jwstring(site, focknbr) = jwstring_right(site, focknbr)
+jwstring_right(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f >> site)) ? 1 : -1
+jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_ones(focknbr.f >> (site - 1))) ? 1 : -1
+
+jwstring_right(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_right(siteindex(label, jw), f)
+jwstring_left(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_left(siteindex(label, jw), f)
+
+function insert_bits(_x::FockNumber, positions)
+    x = _x.f
     result = 0
     bit_index = 1
     for pos in positions
@@ -19,34 +54,66 @@ function insert_bits(x::Int, positions)
         end
         bit_index += 1
     end
-    return result
+    return FockNumber(result)
 end
 
-"""
-    siteindex(id, labels)
+@testitem "Fock" begin
+    using Random
+    Random.seed!(1234)
 
-Find the index of the first occurrence of `id` in `labels`.
-"""
-siteindex(id, labels)::Int = findfirst(x -> x == id, labels)
-"""
-    siteindex(id, b::AbstractBasis)
+    N = 6
+    focknumber = FockNumber(20) # = 16+4 = 00101
+    fbits = bits(focknumber, N)
+    @test fbits == [0, 0, 1, 0, 1, 0]
 
-Find the index of the first occurrence of `id` in the labels in basis `b`.
-"""
-siteindex(id, b::AbstractBasis) = siteindex(id, collect(keys(b)))
+    @test QuantumDots.focknbr_from_bits(fbits) == focknumber
+    @test QuantumDots.focknbr_from_bits(Tuple(fbits)) == focknumber
+    @test !QuantumDots._bit(focknumber, 1)
+    @test !QuantumDots._bit(focknumber, 2)
+    @test QuantumDots._bit(focknumber, 3)
+    @test !QuantumDots._bit(focknumber, 4)
+    @test QuantumDots._bit(focknumber, 5)
 
-"""
-    siteindices(ids, b::AbstractBasis)
+    @test QuantumDots.focknbr_from_site_indices((3, 5)) == focknumber
+    @test QuantumDots.focknbr_from_site_indices([3, 5]) == focknumber
 
-Return the site indices corresponding to the given `ids` in the labels of the basis `b`.
-"""
-siteindices(ids, b::AbstractBasis) = map(id -> siteindex(id, b), ids)
-"""
-    siteindices(ids, b::AbstractBasis)
+    @testset "removefermion" begin
+        focknbr = FockNumber(rand(1:2^N) - 1)
+        fockbits = bits(focknbr, N)
+        function test_remove(n)
+            # QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (FockNumber(focknbr.f - 2^(n - 1)), (-1)^sum(fockbits[1:n-1])) : (FockNumber(0), 0))
+            QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (focknbr - FockNumber(2^(n - 1)), (-1)^sum(fockbits[n+1:N])) : (FockNumber(0), 0))
+        end
+        @test all([test_remove(n) for n in 1:N])
+    end
 
-Return the site indices corresponding to the given `ids` in the labels.
-"""
-siteindices(ids, labels) = map(id -> siteindex(id, labels), ids)
+    @testset "ToggleFermions" begin
+        focknbr = FockNumber(177) # = 1000 1101, msb to the right
+        digitpositions = Vector([7, 8, 2, 3])
+        daggers = BitVector([1, 0, 1, 1])
+        newfocknbr, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+        @test newfocknbr == FockNumber(119) # = 1110 1110
+        @test sign == -1
+        # swap two operators
+        digitpositions = Vector([7, 2, 8, 3])
+        daggers = BitVector([1, 1, 0, 1])
+        newfocknbr, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+        @test newfocknbr == FockNumber(119) # = 1110 1110
+        @test sign == 1
+
+        # annihilate twice
+        digitpositions = Vector([5, 3, 5])
+        daggers = BitVector([0, 1, 0])
+        _, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
+        @test sign == 0
+    end
+
+    fs = QuantumDots.fockstates(10, 5)
+    @test length(fs) == binomial(10, 5)
+    @test allunique(fs)
+    @test all(QuantumDots.fermionnumber.(fs) .== 5)
+end
+
 
 """
     tensor(v::AbstractVector, b::AbstractBasis)
@@ -64,7 +131,7 @@ function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
     return t
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
-_bit(f, k) = Bool((f >> (k - 1)) & 1)
+_bit(f::FockNumber, k) = Bool((f.f >> (k - 1)) & 1)
 function phase_factor(focknbr1, focknbr2, subinds::NTuple)::Int
     bitmask = focknbr_from_site_indices(subinds)
     prod(i -> (jwstring_left(i, bitmask & focknbr1) * jwstring_left(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds, init=1)
@@ -105,11 +172,13 @@ Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only t
 function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
-    outinds = siteindices(labels, b)  
-    @assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system" #Is this true?
-    bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
+    outinds = siteindices(labels, b.jw)
+    #@assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system" #Is this true?
+    bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    for f1 in UnitRange{UInt64}(0, 2^M - 1), f2 in UnitRange{UInt64}(0, 2^M - 1)
+    for _f1 in UnitRange{UInt64}(0, 2^M - 1), _f2 in UnitRange{UInt64}(0, 2^M - 1)
+        f1 = FockNumber(_f1)
+        f2 = FockNumber(_f2)
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
@@ -135,12 +204,13 @@ end
 function partial_transpose!(mout, m::AbstractMatrix, labels, b::FermionBasis{M}) where {M}
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b)
-    bitmask = 2^M - 1 - focknbr_from_site_indices(outinds)
+    bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    for f1 in UnitRange{UInt64}(0, 2^M - 1)
+    fockstates = get_fockstates(b)
+    for f1 in fockstates#UnitRange{UInt64}(0, 2^M - 1)
         f1R = (f1 & bitmask)
         f1L = (f1 & ~bitmask)
-        for f2 in UnitRange{UInt64}(0, 2^M - 1)
+        for f2 in fockstates#UnitRange{UInt64}(0, 2^M - 1)
             f2R = (f2 & bitmask)
             f2L = (f2 & ~bitmask)
             newfocknbr1 = f2L + f1R
