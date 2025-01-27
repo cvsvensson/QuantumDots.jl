@@ -172,9 +172,13 @@ end
 
     @test [phase_factor_h(f1, f2, [[1], [2]], jw) for f1 in fockstates, f2 in fockstates] == [1 1 1 -1; 1 1 -1 1; 1 1 1 -1; 1 1 -1 1]
 
-    phf(f1, f2, part, jw) = prod(p -> phase_factor_f(f1, f2, Tuple(siteindices(p, jw))), part) * phase_factor_f(f1, f2, length(jw))
+    phf(f1, f2, subinds, N) = prod(s -> phase_factor_f(f1, f2, s), subinds) * phase_factor_f(f1, f2, N)
     let part = [[1], [2]]
-        @test all([phase_factor_h(f1, f2, part, jw) == phf(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates])
+        subinds = map(p -> Tuple(siteindices(p, jw)), part)
+        N = length(jw)
+        h = [phase_factor_h(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates]
+        f = [phf(f1, f2, subinds, N) for f1 in fockstates, f2 in fockstates]
+        @test h == f
     end
     # N = 3
     jw = JordanWignerOrdering(1:3)
@@ -189,8 +193,10 @@ end
         1 1 -1 1 -1 -1 -1 1]
 
     for part in [[[1, 3], [2]], [[1], [2, 3]], [[1], [2], [3]], [[3], [2, 1]], [[2], [1, 3]], [[1, 2, 3]]]
+        subinds = map(p -> Tuple(siteindices(p, jw)), part)
+        N = length(jw)
         h = [phase_factor_h(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates]
-        f = [phf(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates]
+        f = [phf(f1, f2, subinds, N) for f1 in fockstates, f2 in fockstates]
         @test h == f
     end
 
