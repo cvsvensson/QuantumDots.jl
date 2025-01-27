@@ -8,7 +8,7 @@ function removefermion(digitposition, statefocknbr::FockNumber)
     cdag = focknbr_from_site_index(digitposition)
     newfocknbr = cdag ⊻ statefocknbr
     allowed = !iszero(cdag & statefocknbr)
-    fermionstatistics = jwstring_right(digitposition, statefocknbr)
+    fermionstatistics = jwstring(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed * fermionstatistics
 end
 

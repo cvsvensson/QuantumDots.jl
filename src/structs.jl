@@ -17,7 +17,7 @@ struct JordanWignerOrdering{L}
         new{eltype(ls)}(ls, dict)
     end
 end
-
+Base.length(jw::JordanWignerOrdering) = length(jw.labels)
 
 """
     struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis

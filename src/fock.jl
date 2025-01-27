@@ -37,12 +37,13 @@ fermionnumber(fs::FockNumber, mask) = count_ones(fs & mask)
     
 Parity of the number of fermions to the right of site.
 """
-jwstring(site, focknbr) = jwstring_right(site, focknbr)
+jwstring(site, focknbr) = jwstring_left(site, focknbr)
+jwstring_anti(site, focknbr) = jwstring_right(site, focknbr)
 jwstring_right(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f >> site)) ? 1 : -1
 jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_ones(focknbr.f >> (site - 1))) ? 1 : -1
 
-jwstring_right(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_right(siteindex(label, jw), f)
-jwstring_left(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_left(siteindex(label, jw), f)
+# jwstring_right(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_right(siteindex(label, jw), f)
+# jwstring_left(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_left(siteindex(label, jw), f)
 
 function insert_bits(_x::FockNumber, positions)
     x = _x.f
@@ -82,7 +83,7 @@ end
         fockbits = bits(focknbr, N)
         function test_remove(n)
             # QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (FockNumber(focknbr.f - 2^(n - 1)), (-1)^sum(fockbits[1:n-1])) : (FockNumber(0), 0))
-            QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (focknbr - FockNumber(2^(n - 1)), (-1)^sum(fockbits[n+1:N])) : (FockNumber(0), 0))
+            QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (focknbr - FockNumber(2^(n - 1)), (-1)^sum(fockbits[1:n-1])) : (FockNumber(0), 0))
         end
         @test all([test_remove(n) for n in 1:N])
     end
@@ -93,13 +94,13 @@ end
         daggers = BitVector([1, 0, 1, 1])
         newfocknbr, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
         @test newfocknbr == FockNumber(119) # = 1110 1110
-        @test sign == -1
+        @test sign == 1
         # swap two operators
         digitpositions = Vector([7, 2, 8, 3])
         daggers = BitVector([1, 1, 0, 1])
         newfocknbr, sign = QuantumDots.togglefermions(digitpositions, daggers, focknbr)
         @test newfocknbr == FockNumber(119) # = 1110 1110
-        @test sign == 1
+        @test sign == -1
 
         # annihilate twice
         digitpositions = Vector([5, 3, 5])
@@ -132,16 +133,67 @@ function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
 end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
 _bit(f::FockNumber, k) = Bool((f.f >> (k - 1)) & 1)
-function phase_factor(focknbr1, focknbr2, subinds::NTuple)::Int
+function phase_factor_f(focknbr1, focknbr2, subinds::NTuple)::Int
     bitmask = focknbr_from_site_indices(subinds)
-    prod(i -> (jwstring_left(i, bitmask & focknbr1) * jwstring_left(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds, init=1)
+    prod(i -> (jwstring_anti(i, bitmask & focknbr1) * jwstring_anti(i, bitmask & focknbr2))^_bit(focknbr2, i), subinds, init=1)
 end
-function phase_factor(focknbr1, focknbr2, N)::Int
-    prod(_phase_factor(focknbr1, focknbr2, i) for i in 1:N; init=1)
+function phase_factor_f(focknbr1, focknbr2, N::Int)::Int
+    prod(_phase_factor_f(focknbr1, focknbr2, i) for i in 1:N; init=1)
 end
 
-function _phase_factor(focknbr1, focknbr2, i)::Int
-    _bit(focknbr2, i) ? (jwstring_left(i, focknbr1) * jwstring_left(i, focknbr2)) : 1
+function _phase_factor_f(focknbr1, focknbr2, i::Int)::Int
+    _bit(focknbr2, i) ? (jwstring_anti(i, focknbr1) * jwstring_anti(i, focknbr2)) : 1
+end
+
+function phase_factor_h(f1, f2, partition, jw)::Int
+    #(120b)
+    phase = 1
+    for X in partition
+        for Xp in partition
+            Xpmask = focknbr_from_site_labels(Xp, jw)
+            if X == Xp
+                continue
+            end
+            for li in X
+                i = siteindex(li, jw)
+                if _bit(f2, i)
+                    phase *= jwstring_anti(i, Xpmask & f1) * jwstring_anti(i, Xpmask & f2)
+                end
+            end
+        end
+    end
+    return phase
+end
+@testitem "Phase factor h" begin
+    import QuantumDots: phase_factor_h, phase_factor_f, siteindices
+    using LinearAlgebra
+    jw = JordanWignerOrdering(1:2)
+    fockstates = sort(map(FockNumber, 0:3), by=Base.Fix2(bits, 2))
+
+    @test [phase_factor_h(f1, f2, [[1], [2]], jw) for f1 in fockstates, f2 in fockstates] == [1 1 1 -1; 1 1 -1 1; 1 1 1 -1; 1 1 -1 1]
+
+    phf(f1, f2, part, jw) = prod(p -> phase_factor_f(f1, f2, Tuple(siteindices(p, jw))), part) * phase_factor_f(f1, f2, length(jw))
+    let part = [[1], [2]]
+        @test all([phase_factor_h(f1, f2, part, jw) == phf(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates])
+    end
+    # N = 3
+    jw = JordanWignerOrdering(1:3)
+    fockstates = sort(map(FockNumber, 0:7), by=Base.Fix2(bits, 3))
+    @test [phase_factor_h(f1, f2, [[1, 3], [2]], jw) for f1 in fockstates, f2 in fockstates] == [1 1 1 -1 1 1 -1 1;
+        1 1 -1 1 1 1 1 -1;
+        1 1 1 -1 -1 -1 1 -1;
+        1 1 -1 1 -1 -1 -1 1;
+        1 1 1 -1 1 1 -1 1;
+        1 1 -1 1 1 1 1 -1;
+        1 1 1 -1 -1 -1 1 -1;
+        1 1 -1 1 -1 -1 -1 1]
+
+    for part in [[[1, 3], [2]], [[1], [2, 3]], [[1], [2], [3]], [[3], [2, 1]], [[2], [1, 3]], [[1, 2, 3]]]
+        h = [phase_factor_h(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates]
+        f = [phf(f1, f2, part, jw) for f1 in fockstates, f2 in fockstates]
+        @test h == f
+    end
+
 end
 
 """
@@ -184,8 +236,8 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
         end
         newfocknbr1 = focknbr_from_bits(outbits(f1))
         newfocknbr2 = focknbr_from_bits(outbits(f2))
-        s1 = phase_factor(f1, f2, M)
-        s2 = phase_factor(newfocknbr1, newfocknbr2, N)
+        s1 = phase_factor_f(f1, f2, M)
+        s2 = phase_factor_f(newfocknbr1, newfocknbr2, N)
         s = s2 * s1
         mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]
     end
@@ -215,8 +267,8 @@ function partial_transpose!(mout, m::AbstractMatrix, labels, b::FermionBasis{M})
             f2L = (f2 & ~bitmask)
             newfocknbr1 = f2L + f1R
             newfocknbr2 = f1L + f2R
-            s1 = phase_factor(f1, f2, M)
-            s2 = phase_factor(newfocknbr1, newfocknbr2, M)
+            s1 = phase_factor_f(f1, f2, M)
+            s2 = phase_factor_f(newfocknbr1, newfocknbr2, M)
             s = s2 * s1
             mout[focktoind(newfocknbr1, b), focktoind(newfocknbr2, b)] = s * m[focktoind(f1, b), focktoind(f2, b)]
         end

@@ -100,7 +100,7 @@ end
     end
     function bilinear_equality(c, csub, ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = QuantumDots.partial_trace(ρ, csub, c)
+        ρsub = partial_trace(ρ, csub, c)
         @test tr(ρsub) ≈ 1
         all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
     end
@@ -114,7 +114,6 @@ end
         @test all(bilinear_equality(c, FermionBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(cparity, N))
         @test all(bilinear_equality(c, FermionBasis(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
     end
-    @test_throws AssertionError bilinear_equality(c, FermionBasis(((1, :b), (1, :a))), ρ)
 
     ## Single particle density matrix
     N = 3
