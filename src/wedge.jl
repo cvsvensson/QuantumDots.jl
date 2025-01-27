@@ -582,13 +582,13 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     c2 = FermionBasis(1:2)
     p1 = QuantumDots.LazyPhaseMap(1)
     p2 = QuantumDots.phase_map(2)
-    @test QuantumDots.fermionic_tensor_product((c1[1], I(2)), (p1, p1), p2) == c2[1]
-    @test QuantumDots.fermionic_tensor_product((I(2), c1[1]), (p1, p1), p2) == c2[2]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c2[1]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c1[1]), (p1, p1), p2) == c2[2]
 end
 
-# function fermionic_tensor_product(ops, phis, phi)
-#     phi(kron(reverse(map((phi, op) -> phi(op), phis, ops))...))
-# end
+function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
+    phi(kron(reverse(map((phi, op) -> phi(op), phis, ops))...))
+end
 
 ## kron, i.e. wedge without phase factors
 function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
