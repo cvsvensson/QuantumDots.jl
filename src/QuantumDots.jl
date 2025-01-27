@@ -33,6 +33,7 @@ function majorana_to_fermion end
 
 include("structs.jl")
 include("fock.jl")
+include("phase_factors.jl")
 include("operators.jl")
 include("symmetry.jl")
 include("lattice.jl")
