@@ -129,20 +129,21 @@ function phase_factor_l(f1, f2, partition, jw)::Int
 end
 
 @testitem "Phase factor l" begin
-    import QuantumDots: phase_factor_l, siteindices
+    import QuantumDots: phase_factor_l
     N = 2
     jw = JordanWignerOrdering(1:N)
     fockstates = sort(map(FockNumber, 0:2^N-1), by=Base.Fix2(bits, N))
-    lX = [phase_factor_l(f1, f2, [1], [2], jw) for f1 in fockstates, f2 in fockstates]
-    lξ = [phase_factor_l(f1, f2, [[1], [2]], jw) for f1 in fockstates, f2 in fockstates]
-    @test lX == lξ == [1 1 1 1;
+    lX(p1, p2, fockstates, jw) = [phase_factor_l(f1, f2, p1, p2, jw) for f1 in fockstates, f2 in fockstates]
+    lξ(p, fockstates, jw) = [phase_factor_l(f1, f2, p, jw) for f1 in fockstates, f2 in fockstates]
+
+    p = [[1], [2]]
+    @test lX(p..., fockstates, jw) == lξ(p, fockstates, jw) == [1 1 1 1;
               1 1 1 1;
               1 1 1 1;
               1 1 1 1]
 
-    lX = [phase_factor_l(f1, f2, [2], [1], jw) for f1 in fockstates, f2 in fockstates]
-    lξ = [phase_factor_l(f1, f2, [[2], [1]], jw) for f1 in fockstates, f2 in fockstates]
-    @test lX == lξ == [1 1 1 -1;
+    p = [[2], [1]]
+    @test lX(p..., fockstates, jw) == lξ(p, fockstates, jw) == [1 1 1 -1;
               1 1 -1 1;
               1 -1 1 1;
               -1 1 1 1]
@@ -150,16 +151,15 @@ end
     N = 3
     jw = JordanWignerOrdering(1:N)
     fockstates = sort(map(FockNumber, 0:2^N-1), by=Base.Fix2(bits, N))
-    lX = [phase_factor_l(f1, f2, [1], [2, 3], jw) for f1 in fockstates, f2 in fockstates]
-    lξ = [phase_factor_l(f1, f2, [[1], [2, 3]], jw) for f1 in fockstates, f2 in fockstates]
-    @test lX == lξ == ones(Int, 2^N, 2^N)
 
-    lX = [phase_factor_l(f1, f2, [1, 2], [3], jw) for f1 in fockstates, f2 in fockstates]
-    lξ = [phase_factor_l(f1, f2, [[1, 2], [3]], jw) for f1 in fockstates, f2 in fockstates]
-    @test lX == lξ == ones(Int, 2^N, 2^N)
-    lX = [phase_factor_l(f1, f2, [2], [1, 3], jw) for f1 in fockstates, f2 in fockstates]
-    lξ = [phase_factor_l(f1, f2, [[2], [1, 3]], jw) for f1 in fockstates, f2 in fockstates]
-    @test lX == lξ ==
+    p = [[1], [2, 3]]
+    @test lX(p..., fockstates, jw) == lξ(p, fockstates, jw) == ones(Int, 2^N, 2^N)
+
+    p = [[1, 2], [3]]
+    @test lX(p..., fockstates, jw) == lξ(p, fockstates, jw) == ones(Int, 2^N, 2^N)
+
+    p = [[2], [1, 3]]
+    @test lX(p..., fockstates, jw) == lξ(p, fockstates, jw) ==
           [1 1 1 1 1 1 -1 -1;
               1 1 1 1 1 1 -1 -1;
               1 1 1 1 -1 -1 1 1;
@@ -169,4 +169,7 @@ end
               -1 -1 1 1 1 1 1 1;
               -1 -1 1 1 1 1 1 1]
 
+    @test lξ([[1], [2], [3]], fockstates, jw) == ones(Int, 2^N, 2^N)
+    @test lξ([[2], [1], [3]], fockstates, jw) == lξ([[2], [1, 3]], fockstates, jw)
+    @test lξ([[2], [3], [1]], fockstates, jw) == lξ([[2, 3], [1]], fockstates, jw) == lX([2, 3], [1], fockstates, jw)
 end
