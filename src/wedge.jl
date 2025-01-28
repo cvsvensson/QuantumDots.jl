@@ -1,8 +1,11 @@
 """
-    wedge(b1::FermionBasis, b2::FermionBasis)
+    wedge(bs)
 
-Compute the wedge product of two `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
+Compute the wedge product of a list of `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
 """
+wedge(bs::AbstractVector{<:FermionBasis}) = foldl(wedge, bs,)
+wedge(bs::NTuple{N,B}) where {N,B<:FermionBasis} = foldl(wedge, bs)
+wedge(b1, bs::Vararg{B,N}) where {N,B<:FermionBasis} = foldl(wedge, bs, init=b1)
 function wedge(b1::FermionBasis, b2::FermionBasis)
     newlabels = vcat(collect(keys(b1)), collect(keys(b2)))
     if length(unique(newlabels)) != length(newlabels)
@@ -11,7 +14,6 @@ function wedge(b1::FermionBasis, b2::FermionBasis)
     qn = promote_symmetry(b1.symmetry, b2.symmetry)
     FermionBasis(newlabels; qn)
 end
-wedge(b1::FermionBasis, bs...) = foldl(wedge, bs, init=b1)
 
 promote_symmetry(s1::AbelianFockSymmetry{<:Any,<:Any,<:Any,F}, s2::AbelianFockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
 promote_symmetry(::AbelianFockSymmetry{<:Any,<:Any,<:Any,F1}, ::AbelianFockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
@@ -32,11 +34,11 @@ get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(Foc
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
 get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 """
-    wedge(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs...))
+    wedge(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs))
 
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
+function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
     MT = Base.promote_type(Matrix, typeof.(ms)...)
