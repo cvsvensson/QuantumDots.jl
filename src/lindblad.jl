@@ -224,6 +224,7 @@ function (d::LindbladSystem)(out, rho, p, t)
     mul!(out, d, rho)
     return out
 end
+(d::LindbladSystem, rho) = d * rho
 Base.:*(d::LindbladSystem, rho) = d.total * rho
 Base.Matrix(d::LindbladDissipator) = d.superop
 Base.Matrix(L::LindbladSystem) = L.total
