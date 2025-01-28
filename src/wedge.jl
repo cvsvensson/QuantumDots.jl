@@ -482,15 +482,6 @@ end
         c2 = FermionBasis(1:1; qn)
         @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
         @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
-
-        # Test not matching labels
-        c1 = FermionBasis(1:1; qn)
-        c2 = FermionBasis(2:2; qn)
-        c13 = FermionBasis([1, 3]; qn)
-        c123 = FermionBasis(1:3; qn)
-        # @test wedge([c2[2], c13[3]], [c2, c13], c123) == c123[3] * c123[2]
-        # @test wedge([c1[1], c13[3]], [c1, c13], c123; match_labels=false) == c123[3] * c123[1]
-
     end
 
     #Test basis compatibility

@@ -77,7 +77,6 @@ end
         focknbr = FockNumber(rand(1:2^N) - 1)
         fockbits = bits(focknbr, N)
         function test_remove(n)
-            # QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (FockNumber(focknbr.f - 2^(n - 1)), (-1)^sum(fockbits[1:n-1])) : (FockNumber(0), 0))
             QuantumDots.removefermion(n, focknbr) == (fockbits[n] ? (focknbr - FockNumber(2^(n - 1)), (-1)^sum(fockbits[1:n-1])) : (FockNumber(0), 0))
         end
         @test all([test_remove(n) for n in 1:N])
