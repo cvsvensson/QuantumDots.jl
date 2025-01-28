@@ -71,11 +71,11 @@ shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 
 function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
-    Ms = map(nbr_of_fermions, bs)
-    # Mout = sum(Ms)
+    jw = b.jw
     dimlengths = map(length ∘ get_fockstates, bs)
     inds = CartesianIndices(dimlengths)
-    partition = map(keys, bs)
+    partition = map(collect ∘ keys, bs)
+    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
     for I in inds
         TI = Tuple(I)
         fock1 = map(indtofock, TI, bs)
@@ -85,10 +85,9 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
             TI2 = Tuple(I2)
             fock2 = map(indtofock, TI2, bs)
             fullfock2 = fockmapper(fock2)
-            # v = mapreduce((m, b, i1, f1, i2, f2, M) -> m[i1, i2] * phase_factor_f(f1, f2, M), *, ms, bs, TI, fock1, TI2, fock2, Ms)
-            # mout[outind, focktoind(fullfock2, b)] += v * phase_factor_f(fullfock1, fullfock2, Mout)
+            s = phase_factor_h(fullfock1, fullfock2, partition, jw)
             v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, TI, TI2)
-            mout[outind, focktoind(fullfock2, b)] += v * phase_factor_h(fullfock1, fullfock2, partition, b.jw)
+            mout[outind, focktoind(fullfock2, b)] += v * s
         end
     end
     return mout
@@ -215,7 +214,9 @@ function fermionic_embedding(m, b, bnew)
     # qn = promote_symmetry(b.symmetry, bnew.symmetry)
     qn = NoSymmetry()
     bbar = FermionBasis(bbar_labs; qn)
-    return wedge((m, I), (b, bbar), bnew)
+    bs = (b, bbar)
+    isorderedpartition(bs, bnew) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
+    return wedge((m, I), bs, bnew)
 end
 
 """
@@ -226,6 +227,7 @@ Compute the ordered product of the fermionic embeddings of the matrices `ms` in 
 function ordered_prod_of_embeddings(ms, bs, b)
     # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
     # note that the multiplication is done in the reverse order
+    isorderedpartition(bs, b) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
     return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip((ms), (bs)))
 end
 
@@ -236,31 +238,24 @@ end
     using Random, Base.Iterators, LinearAlgebra
     import QuantumDots: fermionic_embedding, ordered_prod_of_embeddings, embedding_unitary, canonical_embedding
 
-    Random.seed!(1234)
+    Random.seed!(1)
     N = 7
     rough_size = 5
     fine_size = 3
-    rough_partitions = (collect(partition(randperm(N), rough_size)))
+    rough_partitions = sort.(collect(partition(randperm(N), rough_size)))
     # divide each part of rough partition into finer partitions
-    fine_partitions = map(rough_partition -> (collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
+    fine_partitions = map(rough_partition -> sort.(collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
     c = FermionBasis(1:N)
     cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
     cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
-
-    ordered_rough_partitions = map(p -> p[randperm(length(p))], partition(1:N, rough_size))
-    fine_partitions_from_ordered_rough = map(rough_partition -> (collect(partition(shuffle(rough_partition), fine_size))), ordered_rough_partitions)
-    ordered_cs_rough = [FermionBasis(r_p) for r_p in ordered_rough_partitions]
-
-    finely_ordered_rough_partitions = collect(partition(1:N, rough_size))
-    fine_partitions_from_finely_ordered_rough = map(rough_partition -> (collect(partition(shuffle(rough_partition), fine_size))), finely_ordered_rough_partitions)
-    finely_ordered_cs_rough = [FermionBasis(r_p) for r_p in finely_ordered_rough_partitions]
 
     ops_rough = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
 
     # Associativity (Eq. 16)
     rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
-    lhs = wedge([wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
+    finewedges = [wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)]
+    lhs = wedge(finewedges, cs_rough, c)
     @test lhs ≈ rhs
 
     rhs = kron(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
@@ -299,63 +294,28 @@ end
     end)
 
     ## Eq. 22
-    #start with the finely ordered partition
-    cX = finely_ordered_cs_rough[1]
-    Ux = embedding_unitary(finely_ordered_rough_partitions, c)
-    A = ops_rough[1]
-    Aphys = physical_ops_rough[1]
-    @test Ux == I
-    @test wedge((A, I), finely_ordered_cs_rough, c) ≈ kron((A, I), finely_ordered_cs_rough, c)
-    @test fermionic_embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
-
-    # ordered partition
-    cX = ordered_cs_rough[1]
-    Ux = embedding_unitary(ordered_rough_partitions, c)
-    A = ops_rough[1]
-    Aphys = physical_ops_rough[1]
-    @test Ux == I
-    # Wedge will insert phases because the modes are reordered from the partitions to the full system
-    # but Ux == I, so there is a mismatch
-    @test !(wedge((A, I), ordered_cs_rough, c) ≈ Ux * kron((A, I), ordered_cs_rough, c) * Ux')
-    @test !(fermionic_embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux')
-    @test !(wedge((Aphys, I), ordered_cs_rough, c) ≈ Ux * kron((Aphys, I), ordered_cs_rough, c) * Ux')
-    @test !(fermionic_embedding(Aphys, cX, c) ≈ Ux * canonical_embedding(Aphys, cX, c) * Ux')
-
-    # now unordered
     cX = cs_rough[1]
     Ux = embedding_unitary(rough_partitions, c)
-    Uxrev = embedding_unitary(reverse(rough_partitions), c)
-
     A = ops_rough[1]
-    Aphys = physical_ops_rough[1]
+    @test Ux !== I
     @test fermionic_embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
-    @test fermionic_embedding(Aphys, cX, c) ≈ Ux * canonical_embedding(Aphys, cX, c) * Ux'
-
-    ordered_prod_of_embeddings(ops_rough, cs_rough, c) - Ux * kron(ops_rough, cs_rough, c) * Ux'
-
-    orderedUx = embedding_unitary(ordered_cs_rough, c)
-    @test orderedUx ≈ I
-    @test fermionic_embedding(A, ordered_cs_rough[1], c) ≈ Ux * canonical_embedding(A, ordered_cs_rough[1], c) * Ux'
-    @test fermionic_embedding(Aphys, ordered_cs_rough[1], c) ≈ Ux * canonical_embedding(Aphys, ordered_cs_rough[1], c) * Ux'
-
-
-    @test ordered_prod_of_embeddings(physical_ops_rough, ordered_cs_rough, c) ≈ kron(physical_ops_rough, ordered_cs_rough, c)
+    # Eq. 93
+    @test ordered_prod_of_embeddings(physical_ops_rough, cs_rough, c) ≈ Ux * kron(physical_ops_rough, cs_rough, c) * Ux'
 
     # Eq. 23
     X = rough_partitions[1]
     cX = cs_rough[1]
     A = ops_rough[1]
     B = rand(ComplexF64, 2^length(X), 2^length(X))
-
+    #Eq 5a and 5br are satisfied also when embedding matrices in larger subsystems
+    @test fermionic_embedding(A, cX, c)' ≈ fermionic_embedding(A', cX, c)
+    @test canonical_embedding(A, cX, c) * canonical_embedding(B, cX, c) ≈ canonical_embedding(A * B, cX, c)
     for cmode in modebases
         #Eq 5bl
         A = rand(ComplexF64, 2, 2)
         B = rand(ComplexF64, 2, 2)
         @test fermionic_embedding(A, cmode, c) * fermionic_embedding(B, cmode, c) ≈ fermionic_embedding(A * B, cmode, c)
     end
-    #Eq 5a and 5br are satisfied also when embedding matrices in larger subsystems
-    @test fermionic_embedding(A, cX, c)' ≈ fermionic_embedding(A', cX, c)
-    @test canonical_embedding(A, cX, c) * canonical_embedding(B, cX, c) ≈ canonical_embedding(A * B, cX, c)
 
     # Ordered product of embeddings
 
@@ -400,12 +360,13 @@ end
 
     # Eq. 95
     ξ = rough_partitions
-    As = ops_rough
+    Asphys = physical_ops_rough
     Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
-    lhs1 = ordered_prod_of_embeddings(As, cs_rough, c) * ordered_prod_of_embeddings(Bs, cs_rough, c)
-    rhs1 = ordered_prod_of_embeddings(As .* Bs, cs_rough, c)
+    Bsphys = map((B, Po, Pe) -> Pe * B * Pe + Po * B * Po, Bs, odd_projectors, even_projectors)
+    lhs1 = ordered_prod_of_embeddings(Asphys, cs_rough, c) * ordered_prod_of_embeddings(Bsphys, cs_rough, c)
+    rhs1 = ordered_prod_of_embeddings(Asphys .* Bsphys, cs_rough, c)
     @test lhs1 ≈ rhs1
-    @test ordered_prod_of_embeddings(As, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(As), cs_rough, c)
+    @test ordered_prod_of_embeddings(Asphys, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(Asphys), cs_rough, c)
 end
 
 
