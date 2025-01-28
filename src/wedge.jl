@@ -144,7 +144,6 @@ embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis)
 
 function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrdering)
     #(122a)
-    # test that the union of labels in x and xbar are the labels in jw
     length(X) + length(Xbar) == length(jw.labels) || throw(ArgumentError("The union of the labels in X and Xbar must be the same as the labels in jw"))
     all(haskey(jw.ordering, k) for k in Iterators.flatten((X, Xbar))) || throw(ArgumentError("The labels in X and Xbar must be the same as the labels in jw"))
     phases = ones(Int, length(fockstates))

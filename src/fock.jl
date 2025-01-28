@@ -22,7 +22,6 @@ Base.:~(f::FockNumber) = FockNumber(~f.f)
 focknbr_from_bits(bits) = mapreduce(nb -> FockNumber(nb[2] * (1 << (nb[1] - 1))), +, enumerate(bits))
 focknbr_from_site_index(site::Integer) = FockNumber(1 << (site - 1))
 focknbr_from_site_indices(sites) = mapreduce(focknbr_from_site_index, +, sites, init=FockNumber(0))
-# focknbr(sites::NTuple{N,<:Integer}) where {N} = mapreduce(site -> 1 << (site - 1), +, sites)
 
 bits(f::FockNumber, N) = digits(Bool, f.f, base=2, pad=N)
 parity(f::FockNumber) = iseven(fermionnumber(f)) ? 1 : -1
@@ -30,7 +29,6 @@ fermionnumber(f::FockNumber) = count_ones(f)
 Base.count_ones(f::FockNumber) = count_ones(f.f)
 
 fermionnumber(fs::FockNumber, mask) = count_ones(fs & mask)
-# fermionnumber(sublabels, jw::JordanWignerOrdering) = Base.Fix2(fermionnumber, focknbr_from_site_indices(siteindices(sublabels, jw)))
 
 """
     jwstring(site, focknbr)
@@ -41,9 +39,6 @@ jwstring(site, focknbr) = jwstring_left(site, focknbr)
 jwstring_anti(site, focknbr) = jwstring_right(site, focknbr)
 jwstring_right(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f >> site)) ? 1 : -1
 jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_ones(focknbr.f >> (site - 1))) ? 1 : -1
-
-# jwstring_right(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_right(siteindex(label, jw), f)
-# jwstring_left(f::FockNumber, label, jw::JordanWignerOrdering) = jwstring_left(siteindex(label, jw), f)
 
 function insert_bits(_x::FockNumber, positions)
     x = _x.f
@@ -161,10 +156,10 @@ end
 Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
 """
 function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
+    consistent_ordering(labels, b.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b.jw)
-    #@assert all(outinds[n] > outinds[n-1] for n in Iterators.drop(eachindex(outinds), 1)) "Subsystems must be ordered in the same way as the full system" #Is this true?
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     for _f1 in UnitRange{UInt64}(0, 2^M - 1), _f2 in UnitRange{UInt64}(0, 2^M - 1)

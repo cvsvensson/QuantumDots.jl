@@ -10,7 +10,15 @@ function _phase_factor_f(focknbr1, focknbr2, i::Int)::Int
     _bit(focknbr2, i) ? (jwstring_anti(i, focknbr1) * jwstring_anti(i, focknbr2)) : 1
 end
 
-
+function consistent_ordering(subsystem, jw::JordanWignerOrdering)::Bool
+    lastpos = 0
+    for label in subsystem
+        newpos = jw.ordering[label]
+        newpos > lastpos || return false
+        lastpos = newpos
+    end
+    return true
+end
 function ispartition(bs, b::FermionBasis)
     partition = map(keys, bs)
     ispartition(partition, b.jw)
@@ -30,12 +38,7 @@ end
 function isorderedpartition(partition, jw::JordanWignerOrdering)
     ispartition(partition, jw) || return false
     for subsystem in partition
-        lastpos = 0
-        for label in subsystem
-            newpos = jw.ordering[label]
-            newpos > lastpos || return false
-            lastpos = newpos
-        end
+        consistent_ordering(subsystem, jw) || return false
     end
     return true
 end
