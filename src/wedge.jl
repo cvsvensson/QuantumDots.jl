@@ -39,11 +39,11 @@ Compute the wedge product of matrices or vectors in `ms` with respect to the fer
 function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Array{T,N} is there as a fallback make if there aren't enough arguments
+    MT = Base.promote_type(Matrix, typeof.(ms)...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
     fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)
+        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
     else
         Ms = map(nbr_of_fermions, bs)
@@ -58,7 +58,6 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
-
 struct FockMapper{P}
     fermionpositions::P
 end
@@ -74,7 +73,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     jw = b.jw
     dimlengths = map(length ∘ get_fockstates, bs)
     inds = CartesianIndices(dimlengths)
-    partition = map(collect ∘ keys, bs)
+    partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
     for I in inds
         TI = Tuple(I)
@@ -565,11 +564,11 @@ end
 function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_op(kron, Array{T,N}, Array{T,N}, filter(!Base.Fix2(<:, UniformScaling), map(typeof, ms))...) # Array{T,N} is there as a fallback make if there aren't enough arguments
+    MT = Base.promote_type(Matrix, typeof.(ms)...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
     fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)
+        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
     else
         Ms = map(nbr_of_fermions, bs)
