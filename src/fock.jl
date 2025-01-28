@@ -187,6 +187,7 @@ function partial_transpose(m::AbstractMatrix, labels, b::FermionBasis)
     partial_transpose!(mout, m, labels, b)
 end
 function partial_transpose!(mout, m::AbstractMatrix, labels, b::FermionBasis{M}) where {M}
+    @warn "partial_transpose may not be physically meaningful" maxlog = 10
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
