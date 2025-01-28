@@ -19,7 +19,7 @@ Constructs an `AbelianFockSymmetry` object that represents the symmetry of a man
 - `fockstates`: The fockstates to iterate over
 - `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
 """
-function focksymmetry(fockstates::AbstractVector, qn)
+function focksymmetry(fockstates, qn)
     oldinds = eachindex(fockstates)
     qntooldinds = group(ind -> qn(fockstates[ind]), oldinds)
     sortkeys!(qntooldinds)
@@ -35,7 +35,7 @@ function focksymmetry(fockstates::AbstractVector, qn)
 end
 focksymmetry(::AbstractVector, ::NoSymmetry) = NoSymmetry()
 instantiate(::NoSymmetry, labels) = NoSymmetry()
-indtofock(ind, sym::AbelianFockSymmetry) = sym.indtofockdict[ind]
+indtofock(ind, sym::AbelianFockSymmetry) = FockNumber(sym.indtofockdict[ind])
 focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
 
 """
@@ -90,11 +90,11 @@ function blockdiagonal(::Type{T}, m::Hermitian, sym::AbelianFockSymmetry) where 
     Hermitian(BlockDiagonal([T(m[block, block]) for block in blockinds]))
 end
 
-focktoind(fs, b::AbstractBasis) = focktoind(fs, symmetry(b))
+focktoind(fs::FockNumber, b::AbstractBasis) = focktoind(fs, symmetry(b))
 indtofock(ind, b::AbstractBasis) = indtofock(ind, symmetry(b))
 
-focktoind(fs, ::NoSymmetry) = fs + 1
-indtofock(ind, ::NoSymmetry) = ind - 1
+focktoind(fs::FockNumber, ::NoSymmetry) = fs.f + 1
+indtofock(ind, ::NoSymmetry) = FockNumber(ind - 1)
 
 function nextfockstate_with_same_number(v)
     #http://graphics.stanford.edu/~seander/bithacks.html#NextBitPermutation
@@ -107,12 +107,12 @@ end
 Generate a list of Fock states with `n` occupied fermions in a system with `M` different fermions.
 """
 function fockstates(M, n)
-    v::Int = focknbr_from_bits(ntuple(i -> true, n))
+    v::Int = focknbr_from_bits(ntuple(i -> true, n)).f
     maxv = v * 2^(M - n)
-    states = Vector{Int}(undef, binomial(M, n))
+    states = Vector{FockNumber}(undef, binomial(M, n))
     count = 1
     while v <= maxv
-        states[count] = v
+        states[count] = FockNumber(v)
         v = nextfockstate_with_same_number(v)
         count += 1
     end
@@ -127,11 +127,11 @@ struct UninstantiatedFermionSubsetConservation{L} <: AbstractSymmetry
     labels::L
 end
 FermionSubsetConservation(::Nothing) = NoSymmetry()
-FermionConservation(labels, all_labels) = FermionSubsetConservation(focknbr_from_site_indices(siteindices(labels, all_labels)))
+FermionConservation(labels, jw::JordanWignerOrdering) = FermionSubsetConservation(focknbr_from_site_labels(labels, jw))
 FermionConservation(labels) = UninstantiatedFermionSubsetConservation(labels)
-instantiate(qn::UninstantiatedFermionSubsetConservation, labels) = FermionConservation(qn.labels, labels)
-instantiate(qn::FermionSubsetConservation, labels) = qn
-instantiate(qn::FermionConservation, labels) = qn
+instantiate(qn::UninstantiatedFermionSubsetConservation, jw::JordanWignerOrdering) = FermionConservation(qn.labels, jw)
+instantiate(qn::FermionSubsetConservation, ::JordanWignerOrdering) = qn
+instantiate(qn::FermionConservation, ::JordanWignerOrdering) = qn
 
 (qn::FermionSubsetConservation)(fs) = fermionnumber(fs, qn.mask)
 (qn::FermionConservation)(fs) = fermionnumber(fs)
@@ -139,7 +139,7 @@ instantiate(qn::FermionConservation, labels) = qn
 @testitem "ConservedFermions" begin
     labels = 1:4
     conservedlabels = 1:4
-    qn = FermionConservation(conservedlabels, labels)
+    qn = FermionConservation(conservedlabels) 
     c1 = FermionBasis(labels; qn)
     c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
     @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
@@ -172,15 +172,15 @@ instantiate(qn::ParityConservation, labels) = qn
     qn = FermionConservation() * ParityConservation()
     c = FermionBasis(labels; qn)
     @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
-    qn = prod(FermionConservation([l], labels) for l in labels)
+    qn = prod(FermionConservation([l], c.jw) for l in labels)
     @test all(FermionBasis(labels; qn).symmetry.qntoblocksizes .== 1)
 end
 
 struct IndexConservation{L} <: AbstractSymmetry
     labels::L
 end
-instantiate(qn::IndexConservation, all_labels) = IndexConservation(qn.labels, all_labels)
-IndexConservation(index, all_labels) = FermionConservation(filter(label -> index in label || index == label, all_labels), all_labels)
+instantiate(qn::IndexConservation, jw::JordanWignerOrdering) = IndexConservation(qn.labels, jw)
+IndexConservation(index, jw::JordanWignerOrdering) = FermionConservation(filter(label -> index in label || index == label, jw.labels), jw)
 @testitem "IndexConservation" begin
     labels = 1:4
     qn = IndexConservation(1)
