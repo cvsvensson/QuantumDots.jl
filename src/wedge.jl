@@ -109,7 +109,7 @@ end
 """
     embedding_unitary(partition, fockstates, jw)
 
-    Compute the unitary matrix that maps between the tensor embedding and the fermionic embedding in the physical. 
+    Compute the unitary matrix that maps between the tensor embedding and the fermionic embedding in the physical subspace. 
     # Arguments
     - `partition`: A partition of the labels in `jw` into disjoint sets.
     - `fockstates`: The fock states in the basis
@@ -224,9 +224,8 @@ Compute the ordered product of the fermionic embeddings of the matrices `ms` in 
 """
 function ordered_prod_of_embeddings(ms, bs, b)
     # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    # note that the multiplication is done in the reverse order
     isorderedpartition(bs, b) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
-    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip((ms), (bs)))
+    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip(ms, bs))
 end
 
 
