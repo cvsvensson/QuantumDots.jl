@@ -41,9 +41,16 @@ Compute the wedge product of matrices or vectors in `ms` with respect to the fer
 function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_type(Matrix, typeof.(ms)...)
+    MT = Base.promote_type(wedge_promote_type.(ms)...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
+    _mout = zeros(T, ntuple(j -> Nout, N))
+    mout = try
+        convert(MT, _mout)
+    catch
+        _mout
+    end
+
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
@@ -52,7 +59,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
-    mout = convert(MT, zeros(T, ntuple(j -> Nout, N)))
+
     if N == 1
         return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
@@ -60,6 +67,9 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
+wedge_promote_type(::M) where {M<:AbstractArray} = M
+wedge_promote_type(::UniformScaling{T}) where {T} = Matrix{T}
+
 struct FockMapper{P}
     fermionpositions::P
 end
@@ -382,6 +392,8 @@ end
         b3w = wedge(b1, b2)
         @test norm(map(-, b3w, b3)) == 0
         bs = [b1, b2]
+        @test typeof(wedge((b1[1], b2[2]), bs, b3)) == typeof(b1[1]) # keep sparsity
+        @test typeof(kron((b1[1], b2[2]), bs, b3)) == typeof(b1[1]) # keep sparsity
 
         O1 = isodd.(QuantumDots.numberoperator(b1))
         O2 = isodd.(QuantumDots.numberoperator(b2))
@@ -565,9 +577,15 @@ end
 function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_type(Matrix, typeof.(ms)...)
+    MT = Base.promote_type(wedge_promote_type.(ms)...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
+    _mout = zeros(T, ntuple(j -> Nout, N))
+    mout = try
+        convert(MT, _mout)
+    catch
+        _mout
+    end
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
@@ -576,7 +594,6 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
-    mout = convert(MT, zeros(T, ntuple(j -> Nout, N)))
     if N == 1
         return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
