@@ -239,11 +239,15 @@ Base.eltype(d::PauliDissipator) = eltype(d.total_master_matrix)
     P1 = PauliSystem(H, leads)
     P2 = update_coefficients(P1, Dict(:lead => Dict(:T => 0.2, :μ => 0.3)))
     P3 = update_coefficients(P1, (; lead=(; T=0.2, μ=0.3)))
-    @test all(getproperty(P2, s) == getproperty(P3, s) for s in [:total_master_matrix, :total_rate_matrix, :total_current_operator])
-    @test !any(getproperty(P1, s) == getproperty(P3, s) for s in [:total_master_matrix, :total_rate_matrix, :total_current_operator])
+    properties = [:total_master_matrix, :total_rate_matrix, :total_current_operator]
+    @test all(getproperty(P2, s) == getproperty(P3, s) for s in properties)
+    @test !any(getproperty(P1, s) == getproperty(P3, s) for s in properties)
 
-    update_coefficients!(P3, (; lead = (; T = 0.3, μ = 0.4)))
-    P4 = update_coefficients(P1, (; lead = (; T = 0.3, μ = 0.4)))
-    @test all(getproperty(P3, s) == getproperty(P4, s) for s in [:total_master_matrix, :total_rate_matrix, :total_current_operator])
-    @test !any(getproperty(P1, s) == getproperty(P4, s) for s in [:total_master_matrix, :total_rate_matrix, :total_current_operator])
+    update_coefficients!(P3, (; lead=(; T=0.3, μ=0.4)))
+    P4 = update_coefficients(P1, (; lead=(; T=0.3, μ=0.4)))
+    @test all(getproperty(P3, s) == getproperty(P4, s) for s in properties)
+    @test !any(getproperty(P1, s) == getproperty(P4, s) for s in properties)
+
+    @test P3.dissipators[:lead].lead.T == 0.3
+    @test P4.dissipators[:lead].lead.T == 0.3
 end
