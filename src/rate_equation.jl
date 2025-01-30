@@ -1,7 +1,5 @@
 struct Pauli <: AbstractOpenSolver end
 
-density_of_states(lead::NormalLead) = 1 #FIXME: put in some physics here
-
 
 struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     total_master_matrix::A
@@ -35,7 +33,6 @@ Constructs the Pauli dissipator for a given Hamiltonian and lead.
 function PauliDissipator(ham::H, lead; change_lead_basis=true) where {H<:DiagonalizedHamiltonian}
     energies = ham.values
     lead = change_lead_basis ? changebasis(lead, ham) : lead
-    # diaglead = changebasis(lead, ham) #map(lead -> changebasis(lead, ham), leads)
     Win, Wout = get_rates(energies, lead)
     D = Win + Wout
     Iin = vec(sum(Win, dims=1))
@@ -117,20 +114,19 @@ function update_total_operators!(P::PauliSystem)
 end
 
 function get_rates(E::AbstractVector, lead::NormalLead)
-    dos = density_of_states(lead)
     T = promote_type(eltype(E), eltype(lead.μ), eltype(lead.T), eltype(first(lead.jump_in)))
     Win = zeros(T, size(first(lead.jump_in))...)
     Wout = zeros(T, size(first(lead.jump_in))...)
-    update_rates!(Win, lead.jump_in, lead.T, lead.μ, E; dos)
-    update_rates!(Wout, lead.jump_out, lead.T, -lead.μ, E; dos)
+    update_rates!(Win, lead.jump_in, lead.T, lead.μ, E)
+    update_rates!(Wout, lead.jump_out, lead.T, -lead.μ, E)
     return Win, Wout
 end
 
-function update_rates!(W, ops, T, μ, E::AbstractVector; dos)
+function update_rates!(W, ops, T, μ, E::AbstractVector)
     for I in CartesianIndices(W)
         n1, n2 = Tuple(I)
         δE = E[n1] - E[n2]
-        pf = 2π * dos * fermidirac(δE, T, μ)
+        pf = fermidirac(δE, T, μ)
         for op in ops
             W[n1, n2] += pf * abs2(op[n1, n2])
         end
@@ -144,7 +140,6 @@ end
 
 get_currents(rho, eq::PauliSystem) = get_currents(internal_rep(rho, eq), eq)
 function get_currents(rho::AbstractVector, P::PauliSystem) #rho is the diagonal density matrix
-    # Dict(k => dot(d.Iin, rho) + dot(d.Iout, rho) for (k, d) in pairs(P.dissipators))
     ks = collect(keys(P.dissipators))
     AxisKeys.KeyedArray([dot(P.dissipators[k].Iin, rho) + dot(P.dissipators[k].Iout, rho) for k in ks], ks)
 end
@@ -194,20 +189,6 @@ function conductance_matrix(backend::AD.AbstractBackend, sys::PauliSystem, rho)
     T = real(eltype(sys))
     G = AxisKeys.wrapdims(AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter)), :∂Iᵢ, :∂μⱼ)
 
-    # mapreduce(hcat, key_iter) do k
-    #     d = sys.dissipators[k]
-    #     dD = chem_derivative(backend, func, d)
-    #     sol = solveDiffProblem!(linsolve, rho, dD[1])
-    #     rhodiff_currents = get_currents(sol, sys)
-    #     dissdiff_current = dot(dD[2], rho)
-    #     [real(rhodiff_currents[k2] + dissdiff_current * (k2 == k)) for k2 in key_iter]
-    # end
-
-    # linsolve = init(StationaryStateProblem(ls))
-    # key_iter = collect(keys(ls.dissipators))
-    # N = length(key_iter)
-    # T = real(eltype(ls))
-    # G = AxisKeys.KeyedArray(Matrix{T}(undef, N, N), (key_iter, key_iter))
     for k in key_iter
         d = sys.dissipators[k]
         dD = chem_derivative(backend, func, d)
