@@ -349,3 +349,23 @@ Base.size(ls::LindbladSystem) = size(ls.total)
 Base.size(ls::LindbladDissipator) = size(ls.superop)
 Base.eltype(ls::LindbladSystem) = eltype(ls.total)
 Base.eltype(ls::LindbladDissipator) = eltype(ls.superop)
+
+@testitem "Lindblad updating" begin
+    using LinearAlgebra
+    import QuantumDots: update_coefficients, update_coefficients!
+    H = Hermitian(rand(ComplexF64, 4, 4))
+    leads = Dict([:lead => NormalLead(rand(ComplexF64, 4, 4); T=0.1, μ=0.5)])
+    P1 = LindbladSystem(H, leads; usecache = true)
+    P2 = update_coefficients(P1, Dict(:lead => Dict(:T => 0.2, :μ => 0.3)))
+    P3 = update_coefficients(P1, (; lead=(; T=0.2, μ=0.3)))
+    @test P1.total !== P2.total
+    @test P2.total == P3.total
+
+    update_coefficients!(P3, (; lead = (; T = 0.3, μ = 0.4)))
+    P4 = update_coefficients(P1, (; lead = (; T = 0.3, μ = 0.4)))
+    @test P3.total == P4.total
+    @test P1.total !== P4.total
+
+    @test P3.dissipators[:lead].lead.T == 0.3
+    @test P4.dissipators[:lead].lead.T == 0.3
+end

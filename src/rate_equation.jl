@@ -79,9 +79,9 @@ function PauliSystem(ds)
     update_total_operators!(P)
     return P
 end
-update_coefficients(L::PauliSystem, p, tmp=nothing) = update_pauli_system(L, p)
-update_pauli_system(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-function update_pauli_system(L::PauliSystem, p)
+
+update_coefficients(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+function update_coefficients(L::PauliSystem, p)
     _newdissipators = Dict(k => update_coefficients(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
@@ -89,7 +89,14 @@ end
 function update_coefficients(d::PauliDissipator, p, tmp=nothing)
     PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
+update_coefficients!(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
+function update_coefficients!(L::PauliSystem, p)
+    for (k, v) in pairs(p)
+        L.dissipators[k] = update_coefficients(L.dissipators[k], v)
+    end
+    update_total_operators!(L)
+end
 
 function zero_total_operators!(P::PauliSystem)
     foreach(x -> fill!(x, zero(eltype(x))), (P.total_rate_matrix.in,
@@ -223,3 +230,24 @@ Base.size(d::PauliDissipator) = size(d.total_master_matrix)
 Base.size(d::PauliSystem) = size(d.total_master_matrix)
 Base.eltype(d::PauliSystem) = eltype(d.total_master_matrix)
 Base.eltype(d::PauliDissipator) = eltype(d.total_master_matrix)
+
+@testitem "Pauli updating" begin
+    using LinearAlgebra
+    import QuantumDots: update_coefficients, update_coefficients!
+    H = Hermitian(rand(ComplexF64, 4, 4))
+    leads = Dict([:lead => NormalLead(rand(ComplexF64, 4, 4); T=0.1, μ=0.5)])
+    P1 = PauliSystem(H, leads)
+    P2 = update_coefficients(P1, Dict(:lead => Dict(:T => 0.2, :μ => 0.3)))
+    P3 = update_coefficients(P1, (; lead=(; T=0.2, μ=0.3)))
+    properties = [:total_master_matrix, :total_rate_matrix, :total_current_operator]
+    @test all(getproperty(P2, s) == getproperty(P3, s) for s in properties)
+    @test !any(getproperty(P1, s) == getproperty(P3, s) for s in properties)
+
+    update_coefficients!(P3, (; lead=(; T=0.3, μ=0.4)))
+    P4 = update_coefficients(P1, (; lead=(; T=0.3, μ=0.4)))
+    @test all(getproperty(P3, s) == getproperty(P4, s) for s in properties)
+    @test !any(getproperty(P1, s) == getproperty(P4, s) for s in properties)
+
+    @test P3.dissipators[:lead].lead.T == 0.3
+    @test P4.dissipators[:lead].lead.T == 0.3
+end
