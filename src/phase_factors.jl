@@ -28,8 +28,7 @@ function isorderedpartition(bs, b::FermionBasis)
     isorderedpartition(partition, b.jw)
 end
 function ispartition(partition, jw::JordanWignerOrdering)
-    N = length(jw)
-    sum(length, partition) == N || return false
+    length(jw) == length(unique(Iterators.flatten(partition))) || return false
     # check that all elements in each subsystem is in jw
     injw = in(jw.labels)
     injw2 = Base.Fix1(all, injw)
@@ -49,6 +48,8 @@ end
     ispart = Base.Fix2(ispartition, jw)
     @test ispart([[1], [2], [3]])
     @test !ispart([[1], [2]])
+    @test !ispart([[1, 1, 1]])
+    @test !ispart([[1], [1], [2]])
     @test ispart([[1], [2, 3]])
     @test !ispart([[1], [2, 3, 4]])
     @test ispart([[1, 2, 3]])
