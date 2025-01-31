@@ -39,17 +39,8 @@ get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
 function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
-    T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_type(wedge_promote_type.(ms)...)
-    dimlengths = map(length ∘ get_fockstates, bs)
-    Nout = prod(dimlengths)
-    _mout = zeros(T, ntuple(j -> Nout, N))
-    mout = try
-        convert(MT, _mout)
-    catch
-        _mout
-    end
+    mout = allocate_wedge_result(ms, bs)
 
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
@@ -67,8 +58,22 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
-wedge_promote_type(::M) where {M<:AbstractArray} = M
-wedge_promote_type(::UniformScaling{T}) where {T} = Matrix{T}
+uniform_to_sparse_type(::Type{UniformScaling{T}}) where {T} = SparseMatrixCSC{T,Int}
+uniform_to_sparse_type(::Type{T}) where {T} = T
+function allocate_wedge_result(ms, bs)
+    T = Base.promote_eltype(ms...)
+    N = ndims(first(ms))
+    types = map(uniform_to_sparse_type ∘ typeof, ms)
+    MT = Base.promote_op(kron, types...)
+    dimlengths = map(length ∘ get_fockstates, bs)
+    Nout = prod(dimlengths)
+    _mout = zeros(T, ntuple(j -> Nout, N))
+    try
+        convert(MT, _mout)
+    catch
+        _mout
+    end
+end
 
 struct FockMapper{P}
     fermionpositions::P
@@ -381,6 +386,7 @@ end
 
 @testitem "Wedge" begin
     using Random, LinearAlgebra
+    import SparseArrays: SparseMatrixCSC
     Random.seed!(1234)
 
     for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
@@ -392,8 +398,14 @@ end
         b3w = wedge(b1, b2)
         @test norm(map(-, b3w, b3)) == 0
         bs = [b1, b2]
-        @test typeof(wedge((b1[1], b2[2]), bs, b3)) == typeof(b1[1]) # keep sparsity
-        @test typeof(kron((b1[1], b2[2]), bs, b3)) == typeof(b1[1]) # keep sparsity
+
+        #test that they keep sparsity
+        @test typeof(wedge((b1[1], b2[2]), bs, b3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], b2[2]), bs, b3)) == typeof(b1[1])
+        @test typeof(wedge((b1[1], I), bs, b3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], I), bs, b3)) == typeof(b1[1])
+        @test wedge((I, I), bs, b3) isa SparseMatrixCSC
+        @test kron((I, I), bs, b3) isa SparseMatrixCSC
 
         O1 = isodd.(QuantumDots.numberoperator(b1))
         O2 = isodd.(QuantumDots.numberoperator(b2))
@@ -478,7 +490,7 @@ end
         H1 = Matrix(QuantumDots.BD1_hamiltonian(b1; params1...))
         H2 = Matrix(QuantumDots.BD1_hamiltonian(b2; params2...))
 
-        H12w = wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w)
+        H12w = Matrix(wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w))
         H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
 
         v12w = wedge([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
@@ -575,17 +587,9 @@ end
 
 ## kron, i.e. wedge without phase factors
 function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
-    T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
-    MT = Base.promote_type(wedge_promote_type.(ms)...)
-    dimlengths = map(length ∘ get_fockstates, bs)
-    Nout = prod(dimlengths)
-    _mout = zeros(T, ntuple(j -> Nout, N))
-    mout = try
-        convert(MT, _mout)
-    catch
-        _mout
-    end
+    mout = allocate_wedge_result(ms, bs)
+
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
@@ -594,6 +598,7 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
+    
     if N == 1
         return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
@@ -640,7 +645,6 @@ end
 
 function canonical_embedding(m, b, bnew)
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))
-    # qn = promote_symmetry(b.symmetry, bnew.symmetry)
     qn = NoSymmetry()
     bbar = FermionBasis(bbar_labs; qn)
     return kron((m, I), (b, bbar), bnew)
