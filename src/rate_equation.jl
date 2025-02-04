@@ -78,7 +78,7 @@ function PauliSystem(ds)
 end
 
 update_coefficients(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-function update_coefficients(L::PauliSystem, p)
+function update_coefficients(L::PauliSystem, p, tmp=nothing)
     _newdissipators = Dict(k => update_coefficients(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
@@ -86,11 +86,23 @@ end
 function update_coefficients(d::PauliDissipator, p, tmp=nothing)
     PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
+function update_coefficients!(d::PauliDissipator{L,W,I,D,HD}, p) where {L,W,I,D,HD}
+    lead = update_lead(d.lead, p)
+    energies = d.H.values
+    update_rates!(d.Win, lead.jump_in, lead.T, lead.μ, energies)
+    update_rates!(d.Wout, lead.jump_out, lead.T, -lead.μ, energies)
+    d.total_master_matrix .= d.Win .+ d.Wout
+    sum!(d.Iin', d.Win)
+    sum!(d.Iout', d.Wout)
+    d.Iout .*= -1
+    d.total_master_matrix .-= Diagonal(d.Iin) .- Diagonal(d.Iout)
+    PauliDissipator{L,W,I,D,HD}(lead, d.Win, d.Wout, d.Iin, d.Iout, d.total_master_matrix, d.H)
+end
 update_coefficients!(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
 
 function update_coefficients!(L::PauliSystem, p)
     for (k, v) in pairs(p)
-        L.dissipators[k] = update_coefficients(L.dissipators[k], v)
+        L.dissipators[k] = update_coefficients!(L.dissipators[k], v)
     end
     update_total_operators!(L)
 end
@@ -128,7 +140,7 @@ function update_rates!(W, ops, T, μ, E::AbstractVector)
         δE = E[n1] - E[n2]
         pf = fermidirac(δE, T, μ)
         for op in ops
-            W[n1, n2] += pf * abs2(op[n1, n2])
+            W[n1, n2] = pf * abs2(op[n1, n2])
         end
     end
     return W
