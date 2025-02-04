@@ -78,12 +78,12 @@ function PauliSystem(ds)
 end
 
 update_coefficients(L::PauliSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-function update_coefficients(L::PauliSystem, p)
+function update_coefficients(L::PauliSystem, p, tmp=nothing)
     _newdissipators = Dict(k => update_coefficients(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     PauliSystem(newdissipators)
 end
-function update_coefficients(d::PauliDissipator, p)
+function update_coefficients(d::PauliDissipator, p, tmp=nothing)
     PauliDissipator(d.H, update_lead(d.lead, p); change_lead_basis=false)
 end
 function update_coefficients!(d::PauliDissipator{L,W,I,D,HD}, p) where {L,W,I,D,HD}
