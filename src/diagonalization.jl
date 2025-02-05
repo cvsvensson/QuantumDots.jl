@@ -1,5 +1,7 @@
 eigenvalues(H::DiagonalizedHamiltonian) = H.values
+eigvals(H::DiagonalizedHamiltonian) = H.values
 eigenvectors(H::DiagonalizedHamiltonian) = H.vectors
+eigvecs(H::DiagonalizedHamiltonian) = H.vectors
 diagonalize(eig::DiagonalizedHamiltonian) = eig
 diagonalize!(eig::DiagonalizedHamiltonian) = eig
 
