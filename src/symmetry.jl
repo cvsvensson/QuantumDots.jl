@@ -139,7 +139,7 @@ instantiate(qn::FermionConservation, ::JordanWignerOrdering) = qn
 @testitem "ConservedFermions" begin
     labels = 1:4
     conservedlabels = 1:4
-    qn = FermionConservation(conservedlabels) 
+    qn = FermionConservation(conservedlabels)
     c1 = FermionBasis(labels; qn)
     c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
     @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
@@ -198,3 +198,17 @@ IndexConservation(index, jw::JordanWignerOrdering) = FermionConservation(filter(
 end
 
 instantiate(f::F, labels) where {F} = f
+
+function restrict_symmetry_by_qns(symmetry::AbelianFockSymmetry, qns)
+    qntofockstates = getindices(symmetry.qntofockstates, Indices(qns))
+    fockstates = reduce(vcat, qntofockstates)
+    indtofockdict = fockstates
+    focktoinddict = Dictionary(fockstates, 1:length(fockstates))
+    qntoblocksizes = map(length, qntofockstates)
+    qntoinds = map(x -> collect(getindices(focktoinddict, Indices(x))), qntofockstates)
+    AbelianFockSymmetry(indtofockdict, focktoinddict, qntoblocksizes, qntofockstates, qntoinds, symmetry.conserved_quantity)
+end
+
+function restrict_symmetry_by_qns(basis::FermionBasis{A,B,C,D}, qns) where {A,B,C,D}
+    FermionBasis{A,B,C,D}(basis.dict, restrict_symmetry_by_qns(basis.symmetry, qns), basis.jw)
+end

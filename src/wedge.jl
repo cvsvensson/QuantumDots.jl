@@ -40,7 +40,7 @@ Compute the wedge product of matrices or vectors in `ms` with respect to the fer
 """
 function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     N = ndims(first(ms))
-    mout = allocate_wedge_result(ms, bs)
+    mout = allocate_wedge_result(ms, bs, b)
 
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
@@ -60,13 +60,13 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
 end
 uniform_to_sparse_type(::Type{UniformScaling{T}}) where {T} = SparseMatrixCSC{T,Int}
 uniform_to_sparse_type(::Type{T}) where {T} = T
-function allocate_wedge_result(ms, bs)
+function allocate_wedge_result(ms, bs, b)
     T = Base.promote_eltype(ms...)
     N = ndims(first(ms))
     types = map(uniform_to_sparse_type ∘ typeof, ms)
     MT = Base.promote_op(kron, types...)
-    dimlengths = map(length ∘ get_fockstates, bs)
-    Nout = prod(dimlengths)
+    #dimlengths = map(length ∘ get_fockstates, bs)
+    Nout = length(get_fockstates(b))#prod(dimlengths)
     _mout = zeros(T, ntuple(j -> Nout, N))
     try
         convert(MT, _mout)
@@ -588,7 +588,7 @@ end
 ## kron, i.e. wedge without phase factors
 function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     N = ndims(first(ms))
-    mout = allocate_wedge_result(ms, bs)
+    mout = allocate_wedge_result(ms, bs, b)
 
     fockmapper = if match_labels
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
@@ -598,7 +598,7 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
-    
+
     if N == 1
         return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
