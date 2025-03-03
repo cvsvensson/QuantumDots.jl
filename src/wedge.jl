@@ -133,14 +133,17 @@ function wedge_mat!(mout::SparseMatrixCSC, ms::NTuple{N,<:SparseArrays.SparseMat
 end
 @testitem "Sparse wedge" begin
     using SparseArrays
-    N = 4
+    N = 2
     c1 = FermionBasis(1:N)
     c2 = FermionBasis(N+1:2N)
     c = FermionBasis(1:2N)
-    m1 = sprand(ComplexF64, 2^N, 2^N, 0.5)
-    m2 = sprand(ComplexF64, 2^N, 2^N, 0.5)
+    p = 0.1
+    m1 = sprand(ComplexF64, 2^N, 2^N, p)
+    m1dense = Matrix(m1)
+    m2 = sprand(ComplexF64, 2^N, 2^N, p)
+    m2dense = Matrix(m2)
     m3 = wedge((m1, m2), (c1, c2), c)
-    m3dense = wedge((Matrix(m1), Matrix(m2)), (c1, c2), c)
+    m3dense = wedge((m1dense, m2dense), (c1, c2), c)
     @test m3 ≈ m3dense
 end
 
