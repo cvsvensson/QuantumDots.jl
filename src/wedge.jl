@@ -108,6 +108,42 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     end
     return mout
 end
+
+function wedge_mat!(mout::SparseMatrixCSC, ms::NTuple{N,<:SparseArrays.SparseMatrixCSC}, bs::Tuple, b::FermionBasis, fockmapper) where {N}
+    fill!(mout, zero(eltype(mout)))
+    jw = b.jw
+    partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
+    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
+    rows_cols_vals = Base.product(map(m -> zip(findnz(m)...), ms)...)#findnz.(ms)
+
+    for rcvs in rows_cols_vals
+        rows = map(first, rcvs)
+        cols = map(rcv -> rcv[2], rcvs)
+        fock1 = map(indtofock, rows, bs)
+        fullfock1 = fockmapper(fock1)
+        fock2 = map(indtofock, cols, bs)
+        fullfock2 = fockmapper(fock2)
+        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
+        v = prod(last, rcvs)
+        outind1 = focktoind(fullfock1, b)
+        outind2 = focktoind(fullfock2, b)
+        mout[outind1, outind2] += v * s
+    end
+    return mout
+end
+@testitem "Sparse wedge" begin
+    using SparseArrays
+    N = 4
+    c1 = FermionBasis(1:N)
+    c2 = FermionBasis(N+1:2N)
+    c = FermionBasis(1:2N)
+    m1 = sprand(ComplexF64, 2^N, 2^N, 0.5)
+    m2 = sprand(ComplexF64, 2^N, 2^N, 0.5)
+    m3 = wedge((m1, m2), (c1, c2), c)
+    m3dense = wedge((Matrix(m1), Matrix(m2)), (c1, c2), c)
+    @test m3 ≈ m3dense
+end
+
 function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
     U = embedding_unitary(bs, b)
@@ -598,7 +634,7 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
-    
+
     if N == 1
         return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
