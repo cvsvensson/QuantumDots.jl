@@ -85,13 +85,16 @@ end
 (fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
 shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 
+wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
+wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
+
 function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
 
-    inds = Base.product(map(m -> findall(!iszero, m), ms)...)
+    inds = Base.product(map(wedge_iterator, ms, bs)...) 
     for I in inds
         I1 = map(i -> i[1], I)
         I2 = map(i -> i[2], I)
