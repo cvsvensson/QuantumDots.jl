@@ -67,11 +67,11 @@ function allocate_wedge_result(ms, bs)
     MT = Base.promote_op(kron, types...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
-    _mout = zeros(T, ntuple(j -> Nout, N))
+    _mout = Zeros(T, ntuple(j -> Nout, N))
     try
         convert(MT, _mout)
     catch
-        _mout
+        Array(_mout)
     end
 end
 
@@ -85,52 +85,32 @@ end
 (fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
 shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 
+wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
+wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
+
 function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(dimlengths)
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
+
+    inds = Base.product(map(wedge_iterator, ms, bs)...)
     for I in inds
-        TI = Tuple(I)
-        fock1 = map(indtofock, TI, bs)
+        I1 = map(i -> i[1], I)
+        I2 = map(i -> i[2], I)
+        fock1 = map(indtofock, I1, bs)
         fullfock1 = fockmapper(fock1)
-        outind = focktoind(fullfock1, b)
-        for I2 in inds
-            TI2 = Tuple(I2)
-            fock2 = map(indtofock, TI2, bs)
-            fullfock2 = fockmapper(fock2)
-            s = phase_factor_h(fullfock1, fullfock2, partition, jw)
-            v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, TI, TI2)
-            mout[outind, focktoind(fullfock2, b)] += v * s
-        end
-    end
-    return mout
-end
-
-function wedge_mat!(mout::SparseMatrixCSC, ms::NTuple{N,<:SparseArrays.SparseMatrixCSC}, bs::Tuple, b::FermionBasis, fockmapper) where {N}
-    fill!(mout, zero(eltype(mout)))
-    jw = b.jw
-    partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
-    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
-    rows_cols_vals = Base.product(map(m -> zip(findnz(m)...), ms)...)#findnz.(ms)
-
-    for rcvs in rows_cols_vals
-        rows = map(first, rcvs)
-        cols = map(rcv -> rcv[2], rcvs)
-        fock1 = map(indtofock, rows, bs)
-        fullfock1 = fockmapper(fock1)
-        fock2 = map(indtofock, cols, bs)
-        fullfock2 = fockmapper(fock2)
-        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
-        v = prod(last, rcvs)
         outind1 = focktoind(fullfock1, b)
+        fock2 = map(indtofock, I2, bs)
+        fullfock2 = fockmapper(fock2)
         outind2 = focktoind(fullfock2, b)
+        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
+        v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, I1, I2)
         mout[outind1, outind2] += v * s
     end
     return mout
 end
+
 @testitem "Sparse wedge" begin
     using SparseArrays
     N = 2
@@ -613,11 +593,15 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     end
 
     c1 = FermionBasis(1:1)
-    c2 = FermionBasis(1:2)
+    c2 = FermionBasis(2:2)
+    c12 = FermionBasis(1:2)
     p1 = QuantumDots.LazyPhaseMap(1)
     p2 = QuantumDots.phase_map(2)
-    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c2[1]
-    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c1[1]), (p1, p1), p2) == c2[2]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c12[1]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c2[2]), (p1, p1), p2) == c12[2]
+
+    ms = (rand(2, 2), rand(2, 2))
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps(ms, (p1, p1), p2) == wedge(ms, (c1, c2), c12)
 end
 
 function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
