@@ -67,7 +67,7 @@ function allocate_wedge_result(ms, bs)
     MT = Base.promote_op(kron, types...)
     dimlengths = map(length ∘ get_fockstates, bs)
     Nout = prod(dimlengths)
-    _mout = zeros(T, ntuple(j -> Nout, N))
+    _mout = Zeros(T, ntuple(j -> Nout, N))
     try
         convert(MT, _mout)
     catch
@@ -88,49 +88,26 @@ shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(dimlengths)
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
+
+    inds = Base.product(map(m -> findall(!iszero, m), ms)...)
     for I in inds
-        TI = Tuple(I)
-        fock1 = map(indtofock, TI, bs)
+        I1 = map(i -> i[1], I)
+        I2 = map(i -> i[2], I)
+        fock1 = map(indtofock, I1, bs)
         fullfock1 = fockmapper(fock1)
-        outind = focktoind(fullfock1, b)
-        for I2 in inds
-            TI2 = Tuple(I2)
-            fock2 = map(indtofock, TI2, bs)
-            fullfock2 = fockmapper(fock2)
-            s = phase_factor_h(fullfock1, fullfock2, partition, jw)
-            v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, TI, TI2)
-            mout[outind, focktoind(fullfock2, b)] += v * s
-        end
-    end
-    return mout
-end
-
-function wedge_mat!(mout::SparseMatrixCSC, ms::NTuple{N,<:SparseArrays.SparseMatrixCSC}, bs::Tuple, b::FermionBasis, fockmapper) where {N}
-    fill!(mout, zero(eltype(mout)))
-    jw = b.jw
-    partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
-    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
-    rows_cols_vals = Base.product(map(m -> zip(findnz(m)...), ms)...)#findnz.(ms)
-
-    for rcvs in rows_cols_vals
-        rows = map(first, rcvs)
-        cols = map(rcv -> rcv[2], rcvs)
-        fock1 = map(indtofock, rows, bs)
-        fullfock1 = fockmapper(fock1)
-        fock2 = map(indtofock, cols, bs)
-        fullfock2 = fockmapper(fock2)
-        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
-        v = prod(last, rcvs)
         outind1 = focktoind(fullfock1, b)
+        fock2 = map(indtofock, I2, bs)
+        fullfock2 = fockmapper(fock2)
         outind2 = focktoind(fullfock2, b)
+        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
+        v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, I1, I2)
         mout[outind1, outind2] += v * s
     end
     return mout
 end
+
 @testitem "Sparse wedge" begin
     using SparseArrays
     N = 2
