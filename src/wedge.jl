@@ -71,7 +71,7 @@ function allocate_wedge_result(ms, bs)
     try
         convert(MT, _mout)
     catch
-        _mout
+        Array(_mout)
     end
 end
 
