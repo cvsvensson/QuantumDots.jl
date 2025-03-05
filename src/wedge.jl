@@ -94,7 +94,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
 
-    inds = Base.product(map(wedge_iterator, ms, bs)...) 
+    inds = Base.product(map(wedge_iterator, ms, bs)...)
     for I in inds
         I1 = map(i -> i[1], I)
         I2 = map(i -> i[2], I)
@@ -593,11 +593,15 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     end
 
     c1 = FermionBasis(1:1)
-    c2 = FermionBasis(1:2)
+    c2 = FermionBasis(2:2)
+    c12 = FermionBasis(1:2)
     p1 = QuantumDots.LazyPhaseMap(1)
     p2 = QuantumDots.phase_map(2)
-    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c2[1]
-    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c1[1]), (p1, p1), p2) == c2[2]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c12[1]
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c2[2]), (p1, p1), p2) == c12[2]
+
+    ms = (rand(2, 2), rand(2, 2))
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps(ms, (p1, p1), p2) == wedge(ms, (c1, c2), c12)
 end
 
 function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
