@@ -18,6 +18,7 @@ struct JordanWignerOrdering{L}
     end
 end
 Base.length(jw::JordanWignerOrdering) = length(jw.labels)
+Base.:(==)(jw1::JordanWignerOrdering, jw2::JordanWignerOrdering) = jw1.labels == jw2.labels && jw1.ordering == jw2.ordering
 
 """
     struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
@@ -63,6 +64,21 @@ handle_labels(iter, iters...) = Base.product(iter, iters...)
 handle_labels(iter) = iter
 nbr_of_fermions(::FermionBasis{M}) where {M} = M
 
+function Base.:(==)(b1::FermionBasis, b2::FermionBasis)
+    if b1 === b2
+        return true
+    end
+    if b1.jw != b2.jw
+        return false
+    end
+    if b1.symmetry != b2.symmetry
+        return false
+    end
+    if b1.dict != b2.dict
+        return false
+    end
+    return true
+end
 
 """
     struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
@@ -85,6 +101,8 @@ struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
     qntoinds::Dictionary{QN,Vector{Int}}
     conserved_quantity::QNfunc
 end
+
+Base.:(==)(sym1::AbelianFockSymmetry, sym2::AbelianFockSymmetry) = sym1.indtofockdict == sym2.indtofockdict && sym1.focktoinddict == sym2.focktoinddict && sym1.qntoblocksizes == sym2.qntoblocksizes && sym1.qntofockstates == sym2.qntofockstates && sym1.qntoinds == sym2.qntoinds && sym1.conserved_quantity == sym2.conserved_quantity
 
 ##BdG
 abstract type AbstractBdGFermion end

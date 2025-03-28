@@ -4,8 +4,8 @@
 Compute the wedge product of a list of `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
 """
 wedge(bs::AbstractVector{<:FermionBasis}) = foldl(wedge, bs,)
-wedge(bs::NTuple{N,B}) where {N,B<:FermionBasis} = foldl(wedge, bs)
-wedge(b1, bs::Vararg{B,N}) where {N,B<:FermionBasis} = foldl(wedge, bs, init=b1)
+wedge(bs::Tuple) = foldl(wedge, bs)
+# wedge(b1::B, bs::Vararg) where {N,B<:FermionBasis} = foldl(wedge, bs, init=b1)
 function wedge(b1::FermionBasis, b2::FermionBasis)
     newlabels = vcat(collect(keys(b1)), collect(keys(b2)))
     if length(unique(newlabels)) != length(newlabels)
@@ -415,6 +415,7 @@ end
         b2 = FermionBasis(2:3; qn)
         b3 = FermionBasis(1:3; qn)
         b3w = wedge(b1, b2)
+        @test b3w == wedge((b1, b2)) == wedge([b1, b2])
         @test norm(map(-, b3w, b3)) == 0
         bs = [b1, b2]
 
