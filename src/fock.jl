@@ -40,6 +40,16 @@ jwstring_anti(site, focknbr) = jwstring_right(site, focknbr)
 jwstring_right(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f >> site)) ? 1 : -1
 jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_ones(focknbr.f >> (site - 1))) ? 1 : -1
 
+struct FockMapper{P}
+    fermionpositions::P
+end
+struct FockShifter{M}
+    shifts::M
+end
+(fm::FockMapper)(f::NTuple{N,FockNumber}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
+(fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
+shift_right(f::FockNumber, M) = FockNumber(f.f << M)
+
 function insert_bits(_x::FockNumber, positions)
     x = _x.f
     result = 0
@@ -319,21 +329,22 @@ end
 
 @testitem "Reshape" begin
     using LinearAlgebra
-    qn = NoSymmetry()
-    b1 = FermionBasis(1:1; qn)
-    b2 = FermionBasis(2:2; qn)
-    bs = (b1, b2)
-    b = wedge(bs)
-    m = b[1]
-    t = reshape(m, b, bs)
-    m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
-    @test rank(m12) == 1
-    abs(dot(reshape(svd(m12).U, 2, 2, 4)[:, :, 1], b1[1])) ≈ 1
+    for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
+        b1 = FermionBasis(1:1; qn)
+        b2 = FermionBasis(2:2; qn)
+        bs = (b1, b2)
+        b = wedge(bs)
+        m = b[1]
+        t = reshape(m, b, bs)
+        m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test rank(m12) == 1
+        @test abs(dot(reshape(svd(m12).U, 2, 2, 4)[:, :, 1], b1[1])) ≈ 1
 
-    m = b[1] + b[2]
-    t = reshape(m, b, bs)
-    m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
-    @test rank(m12) == 2
+        m = b[1] + b[2]
+        t = reshape(m, b, bs)
+        m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test rank(m12) == 2
+    end
 end
 
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}

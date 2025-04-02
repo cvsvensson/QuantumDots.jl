@@ -75,16 +75,6 @@ function allocate_wedge_result(ms, bs)
     end
 end
 
-struct FockMapper{P}
-    fermionpositions::P
-end
-struct FockShifter{M}
-    shifts::M
-end
-(fm::FockMapper)(f::NTuple{N,FockNumber}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
-(fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
-shift_right(f::FockNumber, M) = FockNumber(f.f << M)
-
 wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
 wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
 
