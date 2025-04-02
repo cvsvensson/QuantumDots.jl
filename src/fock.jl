@@ -270,6 +270,32 @@ end
     @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
 end
 
+function FockSplitter(b::FermionBasis, bs)
+    fermionpositions = Tuple(map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ collect ∘ keys, bs))
+    Base.Fix2(split_focknumber, fermionpositions)
+end
+function split_focknumber(f::FockNumber, fermionpositions)
+    map(positions -> focknbr_from_bits(map(i -> _bit(f, i), positions)), fermionpositions)
+end
+function split_focknumber(f::FockNumber, fockmapper::FockMapper)
+    split_focknumber(f, fockmapper.fockpositions)
+end
+@testitem "Split focknumber" begin
+    import QuantumDots: focknbr_from_site_indices as fock
+    b1 = FermionBasis((1, 3))
+    b2 = FermionBasis((2, 4))
+    b = FermionBasis(1:4)
+    focksplitter = QuantumDots.FockSplitter(b, (b1, b2))
+    @test focksplitter(fock((1, 2, 3, 4))) == (fock((1, 2)), fock((1, 2)))
+    @test focksplitter(fock((1,))) == (fock((1,)), fock(()))
+    @test focksplitter(fock(())) == (fock(()), fock(()))
+    @test focksplitter(fock((1, 2, 3))) == (fock((1, 2)), fock((1,)))
+    @test focksplitter(fock((1, 3))) == (fock((1, 2)), fock(()))
+    @test focksplitter(fock((2, 4))) == (fock(()), fock((1, 2)))
+    @test focksplitter(fock((3, 2))) == (fock((2,)), fock((1,)))
+    @test focksplitter(fock((3, 4))) == (fock((2,)), fock((2,)))
+end
+
 
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
     rightindices::NTuple{N - NL,Int} = Tuple(setdiff(ntuple(identity, N), leftindices))
