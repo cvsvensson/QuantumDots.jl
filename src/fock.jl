@@ -297,6 +297,45 @@ end
 end
 
 
+function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs)
+    _reshape(m, b, bs, FockSplitter(b, bs))
+end
+
+function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter)
+    #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    dims = length.(get_fockstates.(bs))
+    fs = get_fockstates(b)
+    Is = map(f -> focktoind(f, b), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
+    t = Array{eltype(m),2 * length(bs)}(undef, dims..., dims...)
+    for (I1, Iout1) in zip(Is, Iouts)
+        for (I2, Iout2) in zip(Is, Iouts)
+            t[Iout1..., Iout2...] = m[I1, I2]
+        end
+    end
+    return t
+end
+
+@testitem "Reshape" begin
+    using LinearAlgebra
+    qn = NoSymmetry()
+    b1 = FermionBasis(1:1; qn)
+    b2 = FermionBasis(2:2; qn)
+    bs = (b1, b2)
+    b = wedge(bs)
+    m = b[1]
+    t = reshape(m, b, bs)
+    m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+    @test rank(m12) == 1
+    abs(dot(reshape(svd(m12).U, 2, 2, 4)[:, :, 1], b1[1])) ≈ 1
+
+    m = b[1] + b[2]
+    t = reshape(m, b, bs)
+    m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+    @test rank(m12) == 2
+end
+
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
     rightindices::NTuple{N - NL,Int} = Tuple(setdiff(ntuple(identity, N), leftindices))
     reshape_to_matrix(t, leftindices, rightindices)
