@@ -605,8 +605,7 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
     mout = allocate_wedge_result(ms, bs)
 
     fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
-        FockMapper(fermionpositions)
+        FockMapper(bs, b)
     else
         Ms = map(nbr_of_fermions, bs)
         shifts = (0, cumsum(Ms)...)

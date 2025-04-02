@@ -43,6 +43,10 @@ jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_
 struct FockMapper{P}
     fermionpositions::P
 end
+FockMapper(bs, b) = FockMapper_tuple(bs, b)
+FockMapper_collect(bs, b) = FockMapper(map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)) #faster construction
+FockMapper_tuple(bs, b) = FockMapper(map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)) #faster application
+
 struct FockShifter{M}
     shifts::M
 end
@@ -288,7 +292,7 @@ function split_focknumber(f::FockNumber, fermionpositions)
     map(positions -> focknbr_from_bits(map(i -> _bit(f, i), positions)), fermionpositions)
 end
 function split_focknumber(f::FockNumber, fockmapper::FockMapper)
-    split_focknumber(f, fockmapper.fockpositions)
+    split_focknumber(f, fockmapper.fermionpositions)
 end
 @testitem "Split focknumber" begin
     import QuantumDots: focknbr_from_site_indices as fock
@@ -304,6 +308,9 @@ end
     @test focksplitter(fock((2, 4))) == (fock(()), fock((1, 2)))
     @test focksplitter(fock((3, 2))) == (fock((2,)), fock((1,)))
     @test focksplitter(fock((3, 4))) == (fock((2,)), fock((2,)))
+
+    fockmapper = QuantumDots.FockMapper((b1, b2), b)
+    @test QuantumDots.split_focknumber(fock((1, 2, 4)), fockmapper) == focksplitter(fock((1, 2, 4)))
 end
 
 
