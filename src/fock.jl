@@ -314,11 +314,11 @@ end
 end
 
 
-function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs)
-    _reshape(m, b, bs, FockSplitter(b, bs))
+function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=Val(true))
+    _reshape(m, b, bs, FockSplitter(b, bs), phase_factors)
 end
 
-function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter)
+function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors=Val(true))
     #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
     isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
     dims = length.(get_fockstates.(bs))
@@ -326,9 +326,11 @@ function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter
     Is = map(f -> focktoind(f, b), fs)
     Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
     t = Array{eltype(m),2 * length(bs)}(undef, dims..., dims...)
-    for (I1, Iout1) in zip(Is, Iouts)
-        for (I2, Iout2) in zip(Is, Iouts)
-            t[Iout1..., Iout2...] = m[I1, I2]
+    partition = map(collect ∘ keys, bs)
+    for (I1, Iout1, f1) in zip(Is, Iouts, fs)
+        for (I2, Iout2, f2) in zip(Is, Iouts, fs)
+            s = phase_factors == Val{true}() ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            t[Iout1..., Iout2...] = m[I1, I2] * s
         end
     end
     return t
@@ -352,10 +354,18 @@ end
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
 
-        m = rand(ComplexF64, 2^2, 2^2)
-        t = reshape(m, b, bs)
-        m2 = QuantumDots.reshape_to_matrix(t, (1, 2))
-        @test svdvals(m) ≈ svdvals(m2)
+        # m = rand(ComplexF64, 2^2, 2^2)
+        # t = reshape(m, b, bs)
+        # m2 = QuantumDots.reshape_to_matrix(t, (1, 2))
+        # @test svdvals(m) ≈ svdvals(m2)
+
+        basisL = map(m -> m / norm(m), [b1[1]' + b1[1], b1[1]' - b1[1], I(2)]) #
+        basisR = map(m -> m / norm(m), [b2[2]' + b2[2], b2[2]' - b2[2], I(2)])
+        Hvirtual = rand(ComplexF64, length(basisL), length(basisR))
+        H = sum(Hvirtual[I] * wedge((basisL[I[1]], basisR[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
+        t = reshape(H, b, bs)
+        H2 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test norm(svdvals(Hvirtual)) ≈ norm(svdvals(H2))
     end
 end
 
