@@ -340,7 +340,7 @@ end
         b1 = FermionBasis(1:1; qn)
         b2 = FermionBasis(2:2; qn)
         bs = (b1, b2)
-        b = wedge(bs)
+        b = FermionBasis(1:2; qn)
         m = b[1]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
@@ -351,6 +351,11 @@ end
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
+
+        m = rand(ComplexF64, 2^2, 2^2)
+        t = reshape(m, b, bs)
+        m2 = QuantumDots.reshape_to_matrix(t, (1, 2))
+        @test svdvals(m) ≈ svdvals(m2)
     end
 end
 
