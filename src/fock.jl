@@ -413,14 +413,14 @@ end
         pushfirst!(basisops, I + 0 * first(basisops))
         map(x -> x / norm(x), basisops)
     end
-
-    for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
-        b1 = FermionBasis(1:2; qn)
-        b2 = FermionBasis(3:3; qn)
+    qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
+    for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
+        b1 = FermionBasis(1:2; qn=qn1)
+        b2 = FermionBasis(3:3; qn=qn2)
         d1 = 2^QuantumDots.nbr_of_fermions(b1)
         d2 = 2^QuantumDots.nbr_of_fermions(b2)
         bs = (b1, b2)
-        b = wedge(bs)
+        b = FermionBasis(vcat(keys(b1)..., keys(b2)...); qn=qn3)
         m = b[1]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
@@ -455,11 +455,11 @@ end
         @test svdvals(Hvirtual) ≈ svdvals(H2)
 
         ## Test consistency with partial trace
-        m = rand(ComplexF64, d1 * d2, d1 * d2) 
+        m = rand(ComplexF64, d1 * d2, d1 * d2)
         m2 = partial_trace(m, b2, b)
-        t = reshape(m, b, bs, true) 
+        t = reshape(m, b, bs, true)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
-        @test m2 ≈ tpt 
+        @test m2 ≈ tpt
     end
 end
 
