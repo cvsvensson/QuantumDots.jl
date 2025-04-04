@@ -311,6 +311,17 @@ end
 
     fockmapper = QuantumDots.FockMapper((b1, b2), b)
     @test QuantumDots.split_focknumber(fock((1, 2, 4)), fockmapper) == focksplitter(fock((1, 2, 4)))
+
+    b1 = FermionBasis((1, 2))
+    b2 = FermionBasis((3,))
+    b = FermionBasis(1:3)
+    focksplitter = QuantumDots.FockSplitter(b, (b1, b2))
+    @test focksplitter(fock((1, 2, 3))) == (fock((1, 2)), fock((1,)))
+    @test focksplitter(fock((1, 3))) == (fock((1,)), fock((1,)))
+    @test focksplitter(fock((1, 2))) == (fock((1, 2)), fock(()))
+    @test focksplitter(fock((2,))) == (fock((2,)), fock(()))
+    @test focksplitter(fock((2, 3))) == (fock((2,)), fock((1,)))
+    @test focksplitter(fock((3,))) == (fock(()), fock((1)))
 end
 
 
