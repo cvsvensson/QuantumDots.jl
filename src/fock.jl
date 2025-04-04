@@ -469,7 +469,7 @@ end
         m = rand(ComplexF64, d1 * d2 * d3, d1 * d2 * d3)
         t = reshape(m, b, (b1, b2, b3))
         @test ndims(t) == 6
-        @test m ≈ reshape(t, bs,b)
+        @test m ≈ reshape(t, bs, b)
     end
 end
 
