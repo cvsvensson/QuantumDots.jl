@@ -355,7 +355,7 @@ function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter)
     return t
 end
 
-function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors) 
+function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
     #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
     isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
     dims = length.(get_fockstates.(bs))
@@ -373,7 +373,7 @@ function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs,
     return t
 end
 
-function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors) 
+function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
     isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
     fs = Base.product(get_fockstates.(bs)...)
     fsb = map(fockmapper, fs)
@@ -416,7 +416,7 @@ end
 
     for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
         b1 = FermionBasis(1:2; qn)
-        b2 = FermionBasis(3:4; qn)
+        b2 = FermionBasis(3:3; qn)
         d1 = 2^QuantumDots.nbr_of_fermions(b1)
         d2 = 2^QuantumDots.nbr_of_fermions(b2)
         bs = (b1, b2)
@@ -455,14 +455,11 @@ end
         @test svdvals(Hvirtual) ≈ svdvals(H2)
 
         ## Test consistency with partial trace
-        P = parityoperator(b)
-        Peven = (P + I) / 2
-        Podd = (P - I) / 2
-        m = Peven * rand(ComplexF64, d1 * d2, d1 * d2) * Peven # Need to project on physical subspace or not?
+        m = rand(ComplexF64, d1 * d2, d1 * d2) 
         m2 = partial_trace(m, b2, b)
-        t = reshape(m, b, bs, true) #phase factors or not?
-        tpt = sum(t[k, k, :, :] for k in axes(t, 1))
-        @test_broken m2 ≈ tpt #does not work currently. Why?
+        t = reshape(m, b, bs, true) 
+        tpt = sum(t[k, :, k, :] for k in axes(t, 1))
+        @test m2 ≈ tpt 
     end
 end
 
@@ -473,8 +470,8 @@ end
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rightindices::NTuple{NR,Int}) where {N,NL,NR}
     @assert NL + NR == N
     tperm = permutedims(t, (leftindices..., rightindices...))
-    lsize = prod(i -> size(tperm, i), leftindices, init=1)
-    rsize = prod(i -> size(tperm, i), rightindices, init=1)
+    lsize = prod(i -> size(t, i), leftindices, init=1)
+    rsize = prod(i -> size(t, i), rightindices, init=1)
     reshape(tperm, lsize, rsize)
 end
 
