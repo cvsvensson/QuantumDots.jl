@@ -314,11 +314,37 @@ end
 end
 
 
-function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=Val(true))
-    _reshape(m, b, bs, FockSplitter(b, bs), phase_factors)
+function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=true)
+    _reshape_mat_to_tensor(m, b, bs, FockSplitter(b, bs), (phase_factors))
+end
+function Base.reshape(m::AbstractVector, b::AbstractManyBodyBasis, bs)
+    _reshape_vec_to_tensor(m, b, bs, FockSplitter(b, bs))
 end
 
-function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors=Val(true))
+function Base.reshape(t::AbstractArray, bs, b::AbstractManyBodyBasis, phase_factors=true)
+    if ndims(t) == 2 * length(bs)
+        return _reshape_tensor_to_mat(t, bs, b, FockMapper(bs, b), phase_factors)
+    elseif ndims(t) == length(bs)
+        return _reshape_tensor_to_vec(t, bs, b, FockMapper(bs, b))
+    else
+        throw(ArgumentError("The number of dimensions in the tensor must match the number of subsystems"))
+    end
+end
+
+function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter)
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    dims = length.(get_fockstates.(bs))
+    fs = get_fockstates(b)
+    Is = map(f -> focktoind(f, b), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
+    t = Array{eltype(v),length(bs)}(undef, dims...)
+    for (I, Iout) in zip(Is, Iouts)
+        t[Iout...] = v[I...]
+    end
+    return t
+end
+
+function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors) 
     #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
     isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
     dims = length.(get_fockstates.(bs))
@@ -329,43 +355,103 @@ function _reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter
     partition = map(collect ∘ keys, bs)
     for (I1, Iout1, f1) in zip(Is, Iouts, fs)
         for (I2, Iout2, f2) in zip(Is, Iouts, fs)
-            s = phase_factors == Val{true}() ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
             t[Iout1..., Iout2...] = m[I1, I2] * s
         end
     end
     return t
 end
 
+function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors) 
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    fs = Base.product(get_fockstates.(bs)...)
+    fsb = map(fockmapper, fs)
+    Is = map(f -> focktoind.(f, bs), fs)
+    Iouts = map(f -> focktoind(f, b), fsb)
+    m = Matrix{eltype(t)}(undef, length(fsb), length(fsb))
+    partition = map(collect ∘ keys, bs)
+
+    for (I1, Iout1, f1) in zip(Is, Iouts, fsb)
+        for (I2, Iout2, f2) in zip(Is, Iouts, fsb)
+            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            m[Iout1, Iout2] = t[I1..., I2...] * s
+        end
+    end
+    return m
+end
+
+function _reshape_tensor_to_vec(t, bs, b::AbstractManyBodyBasis, fockmapper)
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    fs = Base.product(get_fockstates.(bs)...)
+    v = Vector{eltype(t)}(undef, length(fs))
+    for fs in fs
+        Is = focktoind.(fs, bs)
+        fb = fockmapper(fs)
+        Iout = focktoind(fb, b)
+        v[Iout] = t[Is...]
+    end
+    return v
+end
+
 @testitem "Reshape" begin
     using LinearAlgebra
+    function majorana_basis(b)
+        majoranas = Dict((l, s) => (s == :- ? 1im : 1) * b[l] + hc for (l, s) in Base.product(keys(b), [:+, :-]))
+        labels = collect(keys(majoranas))
+        basisops = mapreduce(vec, vcat, [[prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
+        pushfirst!(basisops, I + 0 * first(basisops))
+        map(x -> x / norm(x), basisops)
+    end
+
     for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
-        b1 = FermionBasis(1:1; qn)
-        b2 = FermionBasis(2:2; qn)
+        b1 = FermionBasis(1:2; qn)
+        b2 = FermionBasis(3:4; qn)
+        d1 = 2^QuantumDots.nbr_of_fermions(b1)
+        d2 = 2^QuantumDots.nbr_of_fermions(b2)
         bs = (b1, b2)
-        b = FermionBasis(1:2; qn)
+        b = wedge(bs)
         m = b[1]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 1
-        @test abs(dot(reshape(svd(m12).U, 2, 2, 4)[:, :, 1], b1[1])) ≈ 1
+        @test abs(dot(reshape(svd(m12).U, d1, d1, d2^2)[:, :, 1], b1[1])) ≈ norm(b1[1])
 
-        m = b[1] + b[2]
+        m = b[1] + b[3]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
 
-        # m = rand(ComplexF64, 2^2, 2^2)
-        # t = reshape(m, b, bs)
-        # m2 = QuantumDots.reshape_to_matrix(t, (1, 2))
-        # @test svdvals(m) ≈ svdvals(m2)
+        m = rand(ComplexF64, d1 * d2, d1 * d2)
+        t = reshape(m, b, bs)
+        m2 = reshape(t, bs, b)
+        @test m ≈ m2
+        t = reshape(m, b, bs, false) #without phase factors (standard decomposition)
+        m2 = reshape(t, bs, b, false)
+        @test m ≈ m2
 
-        basisL = map(m -> m / norm(m), [b1[1]' + b1[1], b1[1]' - b1[1], I(2)]) #
-        basisR = map(m -> m / norm(m), [b2[2]' + b2[2], b2[2]' - b2[2], I(2)])
-        Hvirtual = rand(ComplexF64, length(basisL), length(basisR))
-        H = sum(Hvirtual[I] * wedge((basisL[I[1]], basisR[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
+        v = rand(ComplexF64, d1 * d2)
+        tv = reshape(v, b, bs)
+        v2 = reshape(tv, bs, b)
+        @test v ≈ v2
+
+        basis1 = majorana_basis(b1)
+        basis2 = majorana_basis(b2)
+        @test map(tr, basis1 * basis1') ≈ I
+        Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
+        H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
         t = reshape(H, b, bs)
         H2 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test norm(svdvals(Hvirtual)) ≈ norm(svdvals(H2))
+
+        ## Test consistency with partial trace
+        P = parityoperator(b)
+        Peven = (P + I) / 2
+        Podd = (P - I) / 2
+        m = Peven * rand(ComplexF64, d1 * d2, d1 * d2) * Peven # Need to project on physical subspace or not?
+        m2 = partial_trace(m, b2, b)
+        t = reshape(m, b, bs, true) #phase factors or not?
+        tpt = sum(t[k, k, :, :] for k in axes(t, 1))
+        @test_broken m2 ≈ tpt #does not work currently. Why?
     end
 end
 
