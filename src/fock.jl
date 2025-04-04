@@ -441,7 +441,7 @@ end
         H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
         t = reshape(H, b, bs)
         H2 = QuantumDots.reshape_to_matrix(t, (1, 3))
-        @test norm(svdvals(Hvirtual)) ≈ norm(svdvals(H2))
+        @test svdvals(Hvirtual) ≈ svdvals(H2)
 
         ## Test consistency with partial trace
         P = parityoperator(b)
