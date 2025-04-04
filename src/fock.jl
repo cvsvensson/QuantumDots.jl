@@ -460,6 +460,16 @@ end
         t = reshape(m, b, bs, true)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
+
+        ## More bases
+        b3 = FermionBasis(4:4; qn3)
+        d3 = 2^QuantumDots.nbr_of_fermions(b3)
+        bs = (b1, b2, b3)
+        b = wedge(bs)
+        m = rand(ComplexF64, d1 * d2 * d3, d1 * d2 * d3)
+        t = reshape(m, b, (b1, b2, b3))
+        @test ndims(t) == 6
+        @test m ≈ reshape(t, bs,b)
     end
 end
 
