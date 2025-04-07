@@ -443,9 +443,9 @@ end
         m2 = rand(ComplexF64, d1 * d2, d1 * d2)
         t1 = reshape(m1, b, bs, false)
         t2 = reshape(m2, b, bs, false)
-        t3 = Array{ComplexF64}(undef, d1, d2, d1, d2)
-        for i in 1:d1, j in 1:d2, k in 1:d1, l in 1:d2
-            t3[i, j, k, l] += sum(t1[i, j, k1, k2] * t2[k1, k2, k, l] for k1 in 1:d1, k2 in 1:d2)
+        t3 = zeros(ComplexF64, d1, d2, d1, d2)
+        for i in 1:d1, j in 1:d2, k in 1:d1, l in 1:d2, k1 in 1:d1, k2 in 1:d2
+            t3[i, j, k, l] += t1[i, j, k1, k2] * t2[k1, k2, k, l]
         end
         @test reshape(m1 * m2, b, bs, false) ≈ t3
         @test m1 * m2 ≈ reshape(t3, bs, b, false)

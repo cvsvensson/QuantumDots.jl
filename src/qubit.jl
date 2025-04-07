@@ -99,15 +99,16 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = QubitBasis(1:3)
+    as = (QubitBasis(1:1), QubitBasis(2:2), QubitBasis(3:3))
     @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
-    a = QubitBasis(1:3; qn=QuantumDots.parity)
+    a = QubitBasis(1:3; qn=ParityConservation())
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 

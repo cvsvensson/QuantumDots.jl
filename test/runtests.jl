@@ -77,15 +77,16 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = FermionBasis(1:3)
+    as = (FermionBasis(1:1), FermionBasis(2:2), FermionBasis(3:3))
     @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
     a = FermionBasis(1:3; qn=QuantumDots.parity)
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
