@@ -61,6 +61,7 @@ get_fockstates(b::QubitBasis) = get_fockstates(b.symmetry)
 use_partial_trace_phase_factors(b1::QubitBasis, b2::QubitBasis) = false
 use_partial_transpose_phase_factors(::QubitBasis) = false
 use_wedge_phase_factors(bs, b::QubitBasis) = false
+use_reshape_phase_factors(b::QubitBasis, bs) = false
 
 nbr_of_modes(::QubitBasis{M}) where {M} = M
 
@@ -111,7 +112,9 @@ end
     @test t1 == FockNumber.(t2)
 
     v2 = rand(8)
-    @test sort(QuantumDots.svd(v2, (1,), a).S .^ 2) ≈ eigvals(partial_trace(v2, a, QubitBasis(1:1)))
+    a1 = QubitBasis(1:1)
+    a2 = QubitBasis(2:3)
+    @test sort(svdvals(reshape(v2, a, (a1, a2))) .^ 2) ≈ eigvals(partial_trace(v2, a, a1))
 
     c = QubitBasis(1:2, (:a, :b))
     cparity = QubitBasis(1:2, (:a, :b); qn=QuantumDots.parity)

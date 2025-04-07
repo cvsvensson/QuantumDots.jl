@@ -124,21 +124,6 @@ end
 end
 
 
-"""
-    tensor(v::AbstractVector, b::AbstractBasis)
-
-Return a tensor representation of the vector `v` in the basis `b`, with one index for each site.
-"""
-function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
-    M = length(b)
-    @assert length(v) == 2^M
-    t = Array{T,M}(undef, ntuple(i -> 2, M))
-    for I in CartesianIndices(t)
-        fs = focknbr_from_bits(Bool.(Tuple(I) .- 1))
-        t[I] = v[focktoind(fs, b)] #* parity(fs)
-    end
-    return t
-end
 ##https://iopscience.iop.org/article/10.1088/1751-8121/ac0646/pdf (10c)
 _bit(f::FockNumber, k) = Bool((f.f >> (k - 1)) & 1)
 
@@ -285,7 +270,7 @@ use_partial_transpose_phase_factors(::FermionBasis) = true
     @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
 end
 
-function FockSplitter(b::FermionBasis, bs)
+function FockSplitter(b::AbstractManyBodyBasis, bs)
     fermionpositions = Tuple(map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ collect ∘ keys, bs))
     Base.Fix2(split_focknumber, fermionpositions)
 end
@@ -325,26 +310,28 @@ end
     @test focksplitter(fock((3,))) == (fock(()), fock((1)))
 end
 
-
-function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=true)
-    _reshape_mat_to_tensor(m, b, bs, FockSplitter(b, bs), (phase_factors))
+use_reshape_phase_factors(b::FermionBasis, bs) = true
+function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=use_reshape_phase_factors(b, bs))
+    _reshape_mat_to_tensor(m, b, bs, FockSplitter(b, bs), phase_factors)
 end
-function Base.reshape(m::AbstractVector, b::AbstractManyBodyBasis, bs)
-    _reshape_vec_to_tensor(m, b, bs, FockSplitter(b, bs))
+function Base.reshape(m::AbstractVector, b::AbstractManyBodyBasis, bs, phase_factors=use_reshape_phase_factors(b, bs))
+    _reshape_vec_to_tensor(m, b, bs, FockSplitter(b, bs), phase_factors)
 end
 
-function Base.reshape(t::AbstractArray, bs, b::AbstractManyBodyBasis, phase_factors=true)
+function Base.reshape(t::AbstractArray, bs, b::AbstractManyBodyBasis, phase_factors=use_reshape_phase_factors(b, bs))
     if ndims(t) == 2 * length(bs)
         return _reshape_tensor_to_mat(t, bs, b, FockMapper(bs, b), phase_factors)
     elseif ndims(t) == length(bs)
-        return _reshape_tensor_to_vec(t, bs, b, FockMapper(bs, b))
+        return _reshape_tensor_to_vec(t, bs, b, FockMapper(bs, b), phase_factors)
     else
         throw(ArgumentError("The number of dimensions in the tensor must match the number of subsystems"))
     end
 end
 
-function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter)
-    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
+    if phase_factors
+        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    end
     dims = length.(get_fockstates.(bs))
     fs = get_fockstates(b)
     Is = map(f -> focktoind(f, b), fs)
@@ -358,7 +345,9 @@ end
 
 function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
     #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
-    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    if phase_factors
+        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    end
     dims = length.(get_fockstates.(bs))
     fs = get_fockstates(b)
     Is = map(f -> focktoind(f, b), fs)
@@ -375,7 +364,9 @@ function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs,
 end
 
 function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
-    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    if phase_factors
+        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    end
     fs = Base.product(get_fockstates.(bs)...)
     fsb = map(fockmapper, fs)
     Is = map(f -> focktoind.(f, bs), fs)
@@ -392,7 +383,7 @@ function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, pha
     return m
 end
 
-function _reshape_tensor_to_vec(t, bs, b::AbstractManyBodyBasis, fockmapper)
+function _reshape_tensor_to_vec(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
     isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
     fs = Base.product(get_fockstates.(bs)...)
     v = Vector{eltype(t)}(undef, length(fs))
@@ -477,7 +468,7 @@ end
 
         ## More bases
         b3 = FermionBasis(4:4; qn3)
-        d3 = 2^QuantumDots.nbr_of_fermions(b3)
+        d3 = 2^QuantumDots.nbr_of_modes(b3)
         bs = (b1, b2, b3)
         b = wedge(bs)
         m = rand(ComplexF64, d1 * d2 * d3, d1 * d2 * d3)
@@ -503,4 +494,20 @@ end
 #     linds = siteindices(leftlabels, b)
 #     t = tensor(v, b)
 #     svd(reshape_to_matrix(t, linds))
+# end
+
+# """
+#     tensor(v::AbstractVector, b::AbstractBasis)
+
+# Return a tensor representation of the vector `v` in the basis `b`, with one index for each site.
+# """
+# function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
+#     M = length(b)
+#     @assert length(v) == 2^M
+#     t = Array{T,M}(undef, ntuple(i -> 2, M))
+#     for I in CartesianIndices(t)
+#         fs = focknbr_from_bits(Bool.(Tuple(I) .- 1))
+#         t[I] = v[focktoind(fs, b)] #* parity(fs)
+#     end
+#     return t
 # end
