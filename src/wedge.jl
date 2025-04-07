@@ -46,7 +46,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
     else
-        Ms = map(nbr_of_fermions, bs)
+        Ms = map(nbr_of_modes, bs)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
@@ -372,7 +372,7 @@ end
     B = rand(ComplexF64, 2^N, 2^N)
     cX = cs_rough[1]
     lhs = tr(fermionic_embedding(A, cX, c)' * B)
-    rhs = tr(A' * partial_trace(B, cX, c))
+    rhs = tr(A' * partial_trace(B, c, cX))
     @test lhs ≈ rhs
 
     # Eq. 39
@@ -383,13 +383,13 @@ end
     bY = cs_rough[1]
     bZ = c
     Z = 1:N
-    rhs = partial_trace(A, bX, bZ)
-    lhs = partial_trace(partial_trace(A, bY, bZ), bX, bY)
+    rhs = partial_trace(A, bZ, bX)
+    lhs = partial_trace(partial_trace(A, bZ, bY), bY, bX)
     @test lhs ≈ rhs
 
     # Eq. 41
     bY = c
-    @test partial_trace(A', bX, bY) ≈ partial_trace(A, bX, bY)'
+    @test partial_trace(A', bY, bX) ≈ partial_trace(A, bY, bX,)'
 
     # Eq. 95
     ξ = rough_partitions
@@ -490,11 +490,10 @@ end
         rmul!(rho3, 1 / tr(rho3))
         rho3w = wedge([rho1, rho2], bs, b3)
         @test rho3w ≈ rho3
-        bs = [b1, b2]
-        @test partial_trace(wedge([rho1, rho2], bs, b3), b1, b3) ≈ rho1
-        @test partial_trace(wedge([rho1, rho2], bs, b3), b2, b3) ≈ rho2
+        @test partial_trace(rho3, b3, b1) ≈ rho1
+        @test partial_trace(rho3, b3, b2) ≈ rho2
         @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([blockdiagonal(rho1, b1), rho2], bs, b3)
-        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([rho1, rho2], bs, b3)
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ rho3
 
         # Test BD1_hamiltonian
         b1 = FermionBasis(1:2, (:↑, :↓); qn)
@@ -618,7 +617,7 @@ function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
     else
-        Ms = map(nbr_of_fermions, bs)
+        Ms = map(nbr_of_modes, bs)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
@@ -633,7 +632,7 @@ end
 
 function kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
-    Ms = map(nbr_of_fermions, bs)
+    Ms = map(nbr_of_modes, bs)
     Mout = sum(Ms)
     dimlengths = map(length ∘ get_fockstates, bs)
     inds = CartesianIndices(dimlengths)

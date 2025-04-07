@@ -45,7 +45,7 @@ Base.keys(b::FermionBdGBasis) = keys(b.position)
 Base.keys(qp::QuasiParticle) = keys(qp.weights)
 basis(qp::QuasiParticle) = qp.basis
 function _left_half_labels(basis::FermionBdGBasis)
-    N = nbr_of_fermions(basis)
+    N = nbr_of_modes(basis)
     collect(keys(basis))[1:Int(ceil(N / 2))]
 end
 function majorana_polarization(f::QuasiParticle, labels=_left_half_labels(basis(f)))

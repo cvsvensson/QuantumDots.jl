@@ -129,48 +129,47 @@ end
 _bit(f::FockNumber, k) = Bool((f.f >> (k - 1)) & 1)
 
 
-"""
-    partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis)
-
-Compute the partial trace of a matrix `v`, leaving the subsystem defined by the basis `bsub`.
-"""
-partial_trace(v::AbstractMatrix, bsub::AbstractBasis, bfull::AbstractBasis) = partial_trace(v, Tuple(keys(bsub)), bfull, symmetry(bsub))
-
 partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
 
 """
-    partial_trace(m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+    partial_trace(m::AbstractMatrix,  bfull::AbstractBasis, bsub::AbstractBasis)
 
-Compute the partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. `sym` determines the ordering of the basis states.
+Compute the partial trace of a matrix `m`, leaving the subsystem defined by the basis `bsub`.
 """
-function partial_trace(m::AbstractMatrix{T}, labels, b::AbstractBasis, sym::AbstractSymmetry=NoSymmetry()) where {T}
-    N = length(labels)
-    mout = zeros(T, 2^N, 2^N)
-    partial_trace!(mout, m, labels, b, sym)
+function partial_trace(m::AbstractMatrix{T}, b::AbstractBasis, bout::AbstractBasis, phase_factors=use_partial_trace_phase_factors(b, bout)) where {T}
+    N = length(get_fockstates(bout))
+    mout = zeros(T, N, N)
+    partial_trace!(mout, m, b, bout)
 end
 
-"""
-    partial_trace!(mout, m::AbstractMatrix, labels, b::FermionBasis, sym::AbstractSymmetry=NoSymmetry())
+use_partial_trace_phase_factors(b1::FermionBasis, b2::FermionBasis) = true
 
-Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `sym` determines the ordering of the basis states.
 """
-function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
-    consistent_ordering(labels, b.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
+    partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors)
+
+Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `bout` determines the ordering of the basis states.
+"""
+function partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors=use_partial_trace_phase_factors(b, bout))
+    M = nbr_of_modes(b)
+    sym = symmetry(bout)
+    labels = collect(keys(bout))
+    if phase_factors
+        consistent_ordering(labels, b.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
+    end
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b.jw)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    for _f1 in UnitRange{UInt64}(0, 2^M - 1), _f2 in UnitRange{UInt64}(0, 2^M - 1)
-        f1 = FockNumber(_f1)
-        f2 = FockNumber(_f2)
+    fockstates = get_fockstates(b)
+    for f1 in fockstates, f2 in fockstates
         if (f1 & bitmask) != (f2 & bitmask)
             continue
         end
         newfocknbr1 = focknbr_from_bits(outbits(f1))
         newfocknbr2 = focknbr_from_bits(outbits(f2))
-        s1 = phase_factor_f(f1, f2, M)
-        s2 = phase_factor_f(newfocknbr1, newfocknbr2, N)
+        s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
+        s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, N) : 1
         s = s2 * s1
         mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]
     end
@@ -178,37 +177,39 @@ function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::FermionBasis{M}, 
 end
 
 """
-    partial_transpose(m::AbstractMatrix, labels, b::FermionBasis{M})
+    partial_transpose(m::AbstractMatrix, b::AbstractManyBodyBasis, labels)
 
 Compute the fermionic partial transpose of a matrix `m` in subsystem denoted by `labels`.
 """
-function partial_transpose(m::AbstractMatrix, labels, b::FermionBasis)
+function partial_transpose(m::AbstractMatrix, b::AbstractManyBodyBasis, labels, phase_factors=use_partial_transpose_phase_factors(b))
     mout = zero(m)
-    partial_transpose!(mout, m, labels, b)
+    partial_transpose!(mout, m, b, labels, phase_factors)
 end
-function partial_transpose!(mout, m::AbstractMatrix, labels, b::FermionBasis{M}) where {M}
+function partial_transpose!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, labels, phase_factors=use_partial_transpose_phase_factors(b))
     @warn "partial_transpose may not be physically meaningful" maxlog = 10
+    M = nbr_of_modes(b)
     fill!(mout, zero(eltype(mout)))
     outinds = siteindices(labels, b)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
     fockstates = get_fockstates(b)
-    for f1 in fockstates#UnitRange{UInt64}(0, 2^M - 1)
+    for f1 in fockstates
         f1R = (f1 & bitmask)
         f1L = (f1 & ~bitmask)
-        for f2 in fockstates#UnitRange{UInt64}(0, 2^M - 1)
+        for f2 in fockstates
             f2R = (f2 & bitmask)
             f2L = (f2 & ~bitmask)
             newfocknbr1 = f2L + f1R
             newfocknbr2 = f1L + f2R
-            s1 = phase_factor_f(f1, f2, M)
-            s2 = phase_factor_f(newfocknbr1, newfocknbr2, M)
+            s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
+            s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, M) : 1
             s = s2 * s1
             mout[focktoind(newfocknbr1, b), focktoind(newfocknbr2, b)] = s * m[focktoind(f1, b), focktoind(f2, b)]
         end
     end
     return mout
 end
+use_partial_transpose_phase_factors(::FermionBasis) = true
 
 @testitem "Partial transpose" begin
     using LinearAlgebra
@@ -221,7 +222,7 @@ end
     A = rand(ComplexF64, 2, 2)
     B = rand(ComplexF64, 2, 2)
     C = wedge((A, B), (c1, c2), c12)
-    Cpt = partial_transpose(C, (1,), c12)
+    Cpt = partial_transpose(C, c12, (1,))
     Cpt2 = wedge((transpose(A), B), (c1, c2), c12)
     @test Cpt ≈ Cpt2
 
@@ -235,30 +236,30 @@ end
 
     single_subsystems = [(i,) for i in 1:4]
     for (k,) in single_subsystems
-        Mpt = partial_transpose(M, (k,), cN)
+        Mpt = partial_transpose(M, cN, (k,))
         Mpt2 = wedge([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i != j]
     triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if length(unique((i, j, k))) == 3]
     for (i, j) in pair_iterator
-        Mpt = partial_transpose(M, (i, j), cN)
+        Mpt = partial_transpose(M, cN, (i, j))
         Mpt2 = wedge([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     for (i, j, k) in triple_iterator
-        Mpt = partial_transpose(M, (i, j, k), cN)
+        Mpt = partial_transpose(M, cN, (i, j, k))
         Mpt2 = wedge([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
-    Mpt = partial_transpose(M, labels, cN)
+    Mpt = partial_transpose(M, cN, labels)
     Mpt2 = wedge([transpose(M) for M in Ms], cs, cN)
     @test Mpt ≈ Mpt2
     @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
-    @test M ≈ partial_transpose(M, (), cN)
+    @test M ≈ partial_transpose(M, cN, ())
 
     M = rand(ComplexF64, 2^N, 2^N)
-    pt(l, M) = partial_transpose(M, l, cN)
+    pt(l, M) = partial_transpose(M, cN, l)
     for (i, j) in pair_iterator
         @test pt((i, j), M) ≈ pt((j, i), M) ≈ pt(j, pt(i, M)) ≈ pt(i, pt(j, M))
     end
