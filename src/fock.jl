@@ -40,6 +40,20 @@ jwstring_anti(site, focknbr) = jwstring_right(site, focknbr)
 jwstring_right(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f >> site)) ? 1 : -1
 jwstring_left(site, focknbr::FockNumber) = iseven(count_ones(focknbr.f) - count_ones(focknbr.f >> (site - 1))) ? 1 : -1
 
+struct FockMapper{P}
+    fermionpositions::P
+end
+FockMapper(bs, b) = FockMapper_tuple(bs, b)
+FockMapper_collect(bs, b) = FockMapper(map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)) #faster construction
+FockMapper_tuple(bs, b) = FockMapper(map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ keys, bs)) #faster application
+
+struct FockShifter{M}
+    shifts::M
+end
+(fm::FockMapper)(f::NTuple{N,FockNumber}) where {N} = mapreduce(insert_bits, +, f, fm.fermionpositions)
+(fs::FockShifter)(f::NTuple{N,FockNumber}) where {N} = mapreduce((f, M) -> shift_right(f, M), +, f, fs.shifts)
+shift_right(f::FockNumber, M) = FockNumber(f.f << M)
+
 function insert_bits(_x::FockNumber, positions)
     x = _x.f
     result = 0
@@ -270,6 +284,194 @@ end
     @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
 end
 
+function FockSplitter(b::FermionBasis, bs)
+    fermionpositions = Tuple(map(Base.Fix2(siteindices, b.jw) ∘ Tuple ∘ collect ∘ keys, bs))
+    Base.Fix2(split_focknumber, fermionpositions)
+end
+function split_focknumber(f::FockNumber, fermionpositions)
+    map(positions -> focknbr_from_bits(map(i -> _bit(f, i), positions)), fermionpositions)
+end
+function split_focknumber(f::FockNumber, fockmapper::FockMapper)
+    split_focknumber(f, fockmapper.fermionpositions)
+end
+@testitem "Split focknumber" begin
+    import QuantumDots: focknbr_from_site_indices as fock
+    b1 = FermionBasis((1, 3))
+    b2 = FermionBasis((2, 4))
+    b = FermionBasis(1:4)
+    focksplitter = QuantumDots.FockSplitter(b, (b1, b2))
+    @test focksplitter(fock((1, 2, 3, 4))) == (fock((1, 2)), fock((1, 2)))
+    @test focksplitter(fock((1,))) == (fock((1,)), fock(()))
+    @test focksplitter(fock(())) == (fock(()), fock(()))
+    @test focksplitter(fock((1, 2, 3))) == (fock((1, 2)), fock((1,)))
+    @test focksplitter(fock((1, 3))) == (fock((1, 2)), fock(()))
+    @test focksplitter(fock((2, 4))) == (fock(()), fock((1, 2)))
+    @test focksplitter(fock((3, 2))) == (fock((2,)), fock((1,)))
+    @test focksplitter(fock((3, 4))) == (fock((2,)), fock((2,)))
+
+    fockmapper = QuantumDots.FockMapper((b1, b2), b)
+    @test QuantumDots.split_focknumber(fock((1, 2, 4)), fockmapper) == focksplitter(fock((1, 2, 4)))
+
+    b1 = FermionBasis((1, 2))
+    b2 = FermionBasis((3,))
+    b = FermionBasis(1:3)
+    focksplitter = QuantumDots.FockSplitter(b, (b1, b2))
+    @test focksplitter(fock((1, 2, 3))) == (fock((1, 2)), fock((1,)))
+    @test focksplitter(fock((1, 3))) == (fock((1,)), fock((1,)))
+    @test focksplitter(fock((1, 2))) == (fock((1, 2)), fock(()))
+    @test focksplitter(fock((2,))) == (fock((2,)), fock(()))
+    @test focksplitter(fock((2, 3))) == (fock((2,)), fock((1,)))
+    @test focksplitter(fock((3,))) == (fock(()), fock((1)))
+end
+
+
+function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=true)
+    _reshape_mat_to_tensor(m, b, bs, FockSplitter(b, bs), (phase_factors))
+end
+function Base.reshape(m::AbstractVector, b::AbstractManyBodyBasis, bs)
+    _reshape_vec_to_tensor(m, b, bs, FockSplitter(b, bs))
+end
+
+function Base.reshape(t::AbstractArray, bs, b::AbstractManyBodyBasis, phase_factors=true)
+    if ndims(t) == 2 * length(bs)
+        return _reshape_tensor_to_mat(t, bs, b, FockMapper(bs, b), phase_factors)
+    elseif ndims(t) == length(bs)
+        return _reshape_tensor_to_vec(t, bs, b, FockMapper(bs, b))
+    else
+        throw(ArgumentError("The number of dimensions in the tensor must match the number of subsystems"))
+    end
+end
+
+function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter)
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    dims = length.(get_fockstates.(bs))
+    fs = get_fockstates(b)
+    Is = map(f -> focktoind(f, b), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
+    t = Array{eltype(v),length(bs)}(undef, dims...)
+    for (I, Iout) in zip(Is, Iouts)
+        t[Iout...] = v[I...]
+    end
+    return t
+end
+
+function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
+    #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    dims = length.(get_fockstates.(bs))
+    fs = get_fockstates(b)
+    Is = map(f -> focktoind(f, b), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
+    t = Array{eltype(m),2 * length(bs)}(undef, dims..., dims...)
+    partition = map(collect ∘ keys, bs)
+    for (I1, Iout1, f1) in zip(Is, Iouts, fs)
+        for (I2, Iout2, f2) in zip(Is, Iouts, fs)
+            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            t[Iout1..., Iout2...] = m[I1, I2] * s
+        end
+    end
+    return t
+end
+
+function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    fs = Base.product(get_fockstates.(bs)...)
+    fsb = map(fockmapper, fs)
+    Is = map(f -> focktoind.(f, bs), fs)
+    Iouts = map(f -> focktoind(f, b), fsb)
+    m = Matrix{eltype(t)}(undef, length(fsb), length(fsb))
+    partition = map(collect ∘ keys, bs)
+
+    for (I1, Iout1, f1) in zip(Is, Iouts, fsb)
+        for (I2, Iout2, f2) in zip(Is, Iouts, fsb)
+            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            m[Iout1, Iout2] = t[I1..., I2...] * s
+        end
+    end
+    return m
+end
+
+function _reshape_tensor_to_vec(t, bs, b::AbstractManyBodyBasis, fockmapper)
+    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+    fs = Base.product(get_fockstates.(bs)...)
+    v = Vector{eltype(t)}(undef, length(fs))
+    for fs in fs
+        Is = focktoind.(fs, bs)
+        fb = fockmapper(fs)
+        Iout = focktoind(fb, b)
+        v[Iout] = t[Is...]
+    end
+    return v
+end
+
+@testitem "Reshape" begin
+    using LinearAlgebra
+    function majorana_basis(b)
+        majoranas = Dict((l, s) => (s == :- ? 1im : 1) * b[l] + hc for (l, s) in Base.product(keys(b), [:+, :-]))
+        labels = collect(keys(majoranas))
+        basisops = mapreduce(vec, vcat, [[prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
+        pushfirst!(basisops, I + 0 * first(basisops))
+        map(x -> x / norm(x), basisops)
+    end
+    qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
+    for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
+        b1 = FermionBasis(1:2; qn=qn1)
+        b2 = FermionBasis(3:3; qn=qn2)
+        d1 = 2^QuantumDots.nbr_of_fermions(b1)
+        d2 = 2^QuantumDots.nbr_of_fermions(b2)
+        bs = (b1, b2)
+        b = FermionBasis(vcat(keys(b1)..., keys(b2)...); qn=qn3)
+        m = b[1]
+        t = reshape(m, b, bs)
+        m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test rank(m12) == 1
+        @test abs(dot(reshape(svd(m12).U, d1, d1, d2^2)[:, :, 1], b1[1])) ≈ norm(b1[1])
+
+        m = b[1] + b[3]
+        t = reshape(m, b, bs)
+        m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test rank(m12) == 2
+
+        m = rand(ComplexF64, d1 * d2, d1 * d2)
+        t = reshape(m, b, bs)
+        m2 = reshape(t, bs, b)
+        @test m ≈ m2
+        t = reshape(m, b, bs, false) #without phase factors (standard decomposition)
+        m2 = reshape(t, bs, b, false)
+        @test m ≈ m2
+
+        v = rand(ComplexF64, d1 * d2)
+        tv = reshape(v, b, bs)
+        v2 = reshape(tv, bs, b)
+        @test v ≈ v2
+
+        basis1 = majorana_basis(b1)
+        basis2 = majorana_basis(b2)
+        @test map(tr, basis1 * basis1') ≈ I
+        Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
+        H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
+        t = reshape(H, b, bs)
+        H2 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test svdvals(Hvirtual) ≈ svdvals(H2)
+
+        ## Test consistency with partial trace
+        m = rand(ComplexF64, d1 * d2, d1 * d2)
+        m2 = partial_trace(m, b2, b)
+        t = reshape(m, b, bs, true)
+        tpt = sum(t[k, :, k, :] for k in axes(t, 1))
+        @test m2 ≈ tpt
+
+        ## More bases
+        b3 = FermionBasis(4:4; qn3)
+        d3 = 2^QuantumDots.nbr_of_fermions(b3)
+        bs = (b1, b2, b3)
+        b = wedge(bs)
+        m = rand(ComplexF64, d1 * d2 * d3, d1 * d2 * d3)
+        t = reshape(m, b, (b1, b2, b3))
+        @test ndims(t) == 6
+        @test m ≈ reshape(t, bs, b)
+    end
+end
 
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}) where {N,NL}
     rightindices::NTuple{N - NL,Int} = Tuple(setdiff(ntuple(identity, N), leftindices))
@@ -278,8 +480,8 @@ end
 function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int}, rightindices::NTuple{NR,Int}) where {N,NL,NR}
     @assert NL + NR == N
     tperm = permutedims(t, (leftindices..., rightindices...))
-    lsize = prod(i -> size(tperm, i), leftindices, init=1)
-    rsize = prod(i -> size(tperm, i), rightindices, init=1)
+    lsize = prod(i -> size(t, i), leftindices, init=1)
+    rsize = prod(i -> size(t, i), rightindices, init=1)
     reshape(tperm, lsize, rsize)
 end
 
