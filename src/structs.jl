@@ -62,7 +62,7 @@ symmetry(b::FermionBasis) = b.symmetry
 
 handle_labels(iter, iters...) = Base.product(iter, iters...)
 handle_labels(iter) = iter
-nbr_of_fermions(::FermionBasis{M}) where {M} = M
+nbr_of_modes(::FermionBasis{M}) where {M} = M
 
 function Base.:(==)(b1::FermionBasis, b2::FermionBasis)
     if b1 === b2
@@ -135,7 +135,7 @@ Constructs a sparse vector representation of a `BdGFermion` object.
 """
 function rep(f::BdGFermion)
     b = basis(f)
-    N = nbr_of_fermions(b)
+    N = nbr_of_modes(b)
     sparsevec([indexpos(f, b)], f.amp, 2N)
 end
 """
@@ -162,10 +162,10 @@ struct FermionBdGBasis{M,L} <: AbstractBasis
     end
 end
 FermionBdGBasis(labels...) = FermionBdGBasis(collect(Base.product(labels...)))
-nbr_of_fermions(::FermionBdGBasis{M}) where {M} = M
+nbr_of_modes(::FermionBdGBasis{M}) where {M} = M
 Base.getindex(b::FermionBdGBasis, i) = BdGFermion(i, b)
 Base.getindex(b::FermionBdGBasis, args...) = BdGFermion(args, b)
-indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole * nbr_of_fermions(b)
+indexpos(f::BdGFermion, b::FermionBdGBasis) = b.position[f.id] + !f.hole * nbr_of_modes(b)
 
 Base.iterate(b::FermionBdGBasis) = ((result, state) = iterate(keys(b.position)); (b[result], state));
 Base.iterate(b::FermionBdGBasis, state) = (res = iterate(keys(b.position), state); isnothing(res) ? nothing : (b[res[1]], res[2]))

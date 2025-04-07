@@ -51,9 +51,9 @@ end
     Random.seed!(1234)
     N = 2
     B = FermionBasis(1:N)
-    @test QuantumDots.nbr_of_fermions(B) == N
+    @test QuantumDots.nbr_of_modes(B) == N
     Bspin = FermionBasis(1:N, (:↑, :↓); qn=QuantumDots.fermionnumber)
-    @test QuantumDots.nbr_of_fermions(Bspin) == 2N
+    @test QuantumDots.nbr_of_modes(Bspin) == 2N
     @test B[1] isa SparseMatrixCSC
     @test Bspin[1, :↑] isa SparseMatrixCSC
     @test parityoperator(B) isa SparseMatrixCSC
@@ -77,15 +77,16 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = FermionBasis(1:3)
+    as = (FermionBasis(1:1), FermionBasis(2:2), FermionBasis(3:3))
     @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
     a = FermionBasis(1:3; qn=QuantumDots.parity)
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
@@ -100,7 +101,7 @@ end
     end
     function bilinear_equality(c, csub, ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = partial_trace(ρ, csub, c)
+        ρsub = partial_trace(ρ, c, csub)
         @test tr(ρsub) ≈ 1
         all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
     end
@@ -140,14 +141,15 @@ end
     G2 = (opdm_bdg[[1, 2, 1 + N, 2 + N], [1, 2, 1 + N, 2 + N]])
     G3 = (opdm_bdg[[1, 2, 3, 1 + N, 2 + N, 3 + N], [1, 2, 3, 1 + N, 2 + N, 3 + N]])
     G13 = (opdm_bdg[[1, 3, 1 + N, 3 + N], [1, 3, 1 + N, 3 + N]])
-    @test norm(partial_trace(gs, (1,), c)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(G1)
+    c1 = FermionBasis(1:1)
+    @test norm(partial_trace(gs, c, c1)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(G1)
     @test one_particle_density_matrix(gs * gs', c, (1, 2)) ≈ G2
     @test one_particle_density_matrix(gs * gs', c, (1, 2, 3)) == one_particle_density_matrix(gs * gs', c) ≈ G3
 
-    reduced_density_matrix = partial_trace(gs, (1,), c)
-    reduced_density_matrix2 = partial_trace(gs, (1, 2), c)
-    reduced_density_matrix3 = partial_trace(gs, (1, 2, 3), c)
-    reduced_density_matrix13 = partial_trace(gs, (1, 3), c)
+    reduced_density_matrix = partial_trace(gs, c, FermionBasis((1,)))
+    reduced_density_matrix2 = partial_trace(gs, c, FermionBasis((1, 2)))
+    reduced_density_matrix3 = partial_trace(gs, c, FermionBasis((1, 2, 3)))
+    reduced_density_matrix13 = partial_trace(gs, c, FermionBasis((1, 3)))
     c1 = FermionBasis(1:1)
     c12 = FermionBasis(1:2)
     @test reduced_density_matrix ≈ many_body_density_matrix(G1, c1)
@@ -188,14 +190,14 @@ end
         c23 = FermionBasis(2:3; qn)
         γ = Hermitian([0I rand(ComplexF64, 4, 4); rand(ComplexF64, 4, 4) 0I])
         f = c[1]
-        @test tr(c1[1] * partial_trace(γ, c1, c)) ≈ tr(f * γ)
-        @test tr(c12[1] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
-        @test tr(c13[1] * partial_trace(γ, c13, c)) ≈ tr(f * γ)
+        @test tr(c1[1] * partial_trace(γ, c, c1,)) ≈ tr(f * γ)
+        @test tr(c12[1] * partial_trace(γ, c, c12,)) ≈ tr(f * γ)
+        @test tr(c13[1] * partial_trace(γ, c, c13,)) ≈ tr(f * γ)
 
         f = c[2]
-        @test tr(c2[2] * partial_trace(γ, c2, c)) ≈ tr(f * γ)
-        @test tr(c12[2] * partial_trace(γ, c12, c)) ≈ tr(f * γ)
-        @test tr(c23[2] * partial_trace(γ, c23, c)) ≈ tr(f * γ)
+        @test tr(c2[2] * partial_trace(γ, c, c2)) ≈ tr(f * γ)
+        @test tr(c12[2] * partial_trace(γ, c, c12)) ≈ tr(f * γ)
+        @test tr(c23[2] * partial_trace(γ, c, c23)) ≈ tr(f * γ)
     end
 end
 
@@ -564,10 +566,10 @@ end
 
     N = 5
     params = rand(3)
-    hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_fermions(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
+    _hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_modes(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
 
     a = FermionBasis(1:N)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian(params...) = _hamiltonian(a, params...)
     fastham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
     fastham!(mat, params...)
@@ -575,7 +577,7 @@ end
 
     #parity conservation
     a = FermionBasis(1:N; qn=QuantumDots.parity)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian(params...) = _hamiltonian(a, params...)
     parityham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
     parityham!(mat, params...)
@@ -604,7 +606,7 @@ end
 
     #number conservation
     a = FermionBasis(1:N; qn=QuantumDots.fermionnumber)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian(params...) = _hamiltonian(a, params...)
 
     numberham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)

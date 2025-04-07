@@ -58,29 +58,16 @@ Base.keytype(b::QubitBasis) = keytype(b.dict)
 
 get_fockstates(::QubitBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
 get_fockstates(b::QubitBasis) = get_fockstates(b.symmetry)
+use_partial_trace_phase_factors(b1::QubitBasis, b2::QubitBasis) = false
+use_partial_transpose_phase_factors(::QubitBasis) = false
+use_wedge_phase_factors(bs, b::QubitBasis) = false
+use_reshape_phase_factors(b::QubitBasis, bs) = false
 
-function partial_trace!(mout, m::AbstractMatrix{T}, labels, b::QubitBasis{M}, sym::AbstractSymmetry=NoSymmetry()) where {T,M}
-    N = length(labels)
-    fill!(mout, zero(eltype(mout)))
-    outinds::NTuple{N,Int} = siteindices(labels, b)
-    bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
-    outbits(f) = map(i -> _bit(f, i), outinds)
-    fockstates = get_fockstates(b)
-    for f1 in get_fockstates(b), f2 in get_fockstates(b)
-        if (f1 & bitmask) != (f2 & bitmask)
-            continue
-        end
-        newfocknbr1 = focknbr_from_bits(outbits(f1))
-        newfocknbr2 = focknbr_from_bits(outbits(f2))
-        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += m[focktoind(f1, b), focktoind(f2, b)]
-    end
-    return mout
-end
+nbr_of_modes(::QubitBasis{M}) where {M} = M
 
 function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
     map(op -> real(tr(ρ * basis[label, op])), [:X, :Y, :Z]) / 2^length(basis)
 end
-
 
 @testitem "QubitBasis" begin
     using SparseArrays, Random, LinearAlgebra
@@ -112,20 +99,23 @@ end
     @test c2 == Bspin[1, :↓]
 
     a = QubitBasis(1:3)
+    as = (QubitBasis(1:1), QubitBasis(2:2), QubitBasis(3:3))
     @test all(f == a[n] for (n, f) in enumerate(a))
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
-    a = QubitBasis(1:3; qn=QuantumDots.parity)
+    a = QubitBasis(1:3; qn=ParityConservation())
     v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = QuantumDots.tensor(v, a)
+    t1 = reshape(v, a, as)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
     v2 = rand(8)
-    @test sort(QuantumDots.svd(v2, (1,), a).S .^ 2) ≈ eigvals(partial_trace(v2, (1,), a))
+    a1 = QubitBasis(1:1)
+    a2 = QubitBasis(2:3)
+    @test sort(svdvals(reshape(v2, a, (a1, a2))) .^ 2) ≈ eigvals(partial_trace(v2, a, a1))
 
     c = QubitBasis(1:2, (:a, :b))
     cparity = QubitBasis(1:2, (:a, :b); qn=QuantumDots.parity)
@@ -137,7 +127,7 @@ end
     end
     function bilinear_equality(c, csub, ρ)
         subsystem = Tuple(keys(csub))
-        ρsub = partial_trace(ρ, csub, c)
+        ρsub = partial_trace(ρ, c, csub)
         @test tr(ρsub) ≈ 1
         all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
     end
@@ -151,5 +141,5 @@ end
         @test all(bilinear_equality(c, QubitBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(cparity, N))
         @test all(bilinear_equality(c, QubitBasis(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
     end
-    bilinear_equality(c, QubitBasis(((1, :b), (1, :a))), ρ)
+    @test bilinear_equality(c, QubitBasis(((1, :b), (1, :a))), ρ)
 end

@@ -38,7 +38,7 @@ get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
+function wedge(ms, bs, b::FermionBasis=wedge(bs), phase_factors=use_wedge_phase_factors(bs, b); match_labels=true)
     N = ndims(first(ms))
     mout = allocate_wedge_result(ms, bs)
 
@@ -46,7 +46,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
         fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
         FockMapper(fermionpositions)
     else
-        Ms = map(nbr_of_fermions, bs)
+        Ms = map(nbr_of_modes, bs)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
@@ -54,7 +54,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     if N == 1
         return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
-        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper, phase_factors)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
@@ -78,7 +78,9 @@ end
 wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
 wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
 
-function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+use_wedge_phase_factors(bs, b::FermionBasis) = true
+
+function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, phase_factors=use_wedge_phase_factors(bs, b))
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
@@ -94,7 +96,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
         fock2 = map(indtofock, I2, bs)
         fullfock2 = fockmapper(fock2)
         outind2 = focktoind(fullfock2, b)
-        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
+        s = phase_factors ? phase_factor_h(fullfock1, fullfock2, partition, jw) : 1
         v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, I1, I2)
         mout[outind1, outind2] += v * s
     end
@@ -335,8 +337,8 @@ end
     @test canonical_embedding(A, cX, c) * canonical_embedding(B, cX, c) ≈ canonical_embedding(A * B, cX, c)
     for cmode in modebases
         #Eq 5bl
-        A = rand(ComplexF64, 2, 2)
-        B = rand(ComplexF64, 2, 2)
+        local A = rand(ComplexF64, 2, 2)
+        local B = rand(ComplexF64, 2, 2)
         @test fermionic_embedding(A, cmode, c) * fermionic_embedding(B, cmode, c) ≈ fermionic_embedding(A * B, cmode, c)
     end
 
@@ -362,7 +364,7 @@ end
     B = rand(ComplexF64, 2^N, 2^N)
     cX = cs_rough[1]
     lhs = tr(fermionic_embedding(A, cX, c)' * B)
-    rhs = tr(A' * partial_trace(B, cX, c))
+    rhs = tr(A' * partial_trace(B, c, cX))
     @test lhs ≈ rhs
 
     # Eq. 39
@@ -373,13 +375,13 @@ end
     bY = cs_rough[1]
     bZ = c
     Z = 1:N
-    rhs = partial_trace(A, bX, bZ)
-    lhs = partial_trace(partial_trace(A, bY, bZ), bX, bY)
+    rhs = partial_trace(A, bZ, bX)
+    lhs = partial_trace(partial_trace(A, bZ, bY), bY, bX)
     @test lhs ≈ rhs
 
     # Eq. 41
     bY = c
-    @test partial_trace(A', bX, bY) ≈ partial_trace(A, bX, bY)'
+    @test partial_trace(A', bY, bX) ≈ partial_trace(A, bY, bX,)'
 
     # Eq. 95
     ξ = rough_partitions
@@ -480,11 +482,10 @@ end
         rmul!(rho3, 1 / tr(rho3))
         rho3w = wedge([rho1, rho2], bs, b3)
         @test rho3w ≈ rho3
-        bs = [b1, b2]
-        @test partial_trace(wedge([rho1, rho2], bs, b3), b1, b3) ≈ rho1
-        @test partial_trace(wedge([rho1, rho2], bs, b3), b2, b3) ≈ rho2
+        @test partial_trace(rho3, b3, b1) ≈ rho1
+        @test partial_trace(rho3, b3, b2) ≈ rho2
         @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([blockdiagonal(rho1, b1), rho2], bs, b3)
-        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([rho1, rho2], bs, b3)
+        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ rho3
 
         # Test BD1_hamiltonian
         b1 = FermionBasis(1:2, (:↑, :↓); qn)
@@ -600,61 +601,7 @@ function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
 end
 
 ## kron, i.e. wedge without phase factors
-function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
-    N = ndims(first(ms))
-    mout = allocate_wedge_result(ms, bs)
-
-    fockmapper = if match_labels
-        FockMapper(bs, b)
-    else
-        Ms = map(nbr_of_fermions, bs)
-        shifts = (0, cumsum(Ms)...)
-        FockShifter(shifts)
-    end
-
-    if N == 1
-        return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
-    elseif N == 2
-        return kron_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
-    end
-    throw(ArgumentError("Only 1D or 2D arrays are supported"))
-end
-
-function kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
-    fill!(mout, zero(eltype(mout)))
-    Ms = map(nbr_of_fermions, bs)
-    Mout = sum(Ms)
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(dimlengths)
-    for I in inds
-        TI = Tuple(I)
-        fock1 = map(indtofock, TI, bs)
-        fullfock1 = fockmapper(fock1)
-        outind = focktoind(fullfock1, b)
-        for I2 in inds
-            TI2 = Tuple(I2)
-            fock2 = map(indtofock, TI2, bs)
-            fullfock2 = fockmapper(fock2)
-            v = mapreduce((m, b, i1, i2) -> m[i1, i2], *, ms, bs, TI, TI2)
-            mout[outind, focktoind(fullfock2, b)] += v
-        end
-    end
-    return mout
-end
-
-function kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
-    fill!(mout, zero(eltype(mout)))
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(Tuple(dimlengths))
-    for I in inds
-        TI = Tuple(I)
-        fock = map(indtofock, TI, bs)
-        fullfock = fockmapper(fock)
-        outind = focktoind(fullfock, b)
-        mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
-    end
-    return mout
-end
+Base.kron(ms, bs, b; kwargs...) = wedge(ms, bs, b, false; kwargs...)
 
 function canonical_embedding(m, b, bnew)
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))

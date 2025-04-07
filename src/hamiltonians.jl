@@ -36,7 +36,7 @@ _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pa
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
-    N = nbr_of_fermions(c)
+    N = nbr_of_modes(c)
     h1s = (_kitaev_1site(c[j]; μ=getvalue(μ, j, N)) for j in 1:N)
     h2s = (_kitaev_2site(c[j], c[mod1(j + 1, N)]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
     sum(h1s) + sum(h2s)
@@ -111,7 +111,7 @@ getvalue(v::Union{<:AbstractVector,<:Tuple}, i, N; size=1) = v[i]
 getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
-    M = nbr_of_fermions(c)
+    M = nbr_of_modes(c)
     spatial_indices = first_labels(c)
     @assert length(cell(first(spatial_indices), c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M, 2)
@@ -122,7 +122,7 @@ end
 
 
 function TSL_hamiltonian(c::AbstractBasis; μL, μC, μR, h, t, Δ, U, tsoc)
-    @assert nbr_of_fermions(c) == 6 "This basis has the wrong number of fermions for this hamiltonian $(nbr_of_fermions(c)) != 6"
+    @assert nbr_of_modes(c) == 6 "This basis has the wrong number of fermions for this hamiltonian $(nbr_of_modes(c)) != 6"
     fermions = [(c[j, :↑], c[j, :↓]) for j in (:L, :C, :R)]
     TSL_hamiltonian(fermions...; μL, μC, μR, h, t, Δ, U, tsoc)
 end

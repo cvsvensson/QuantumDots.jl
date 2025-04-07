@@ -64,7 +64,7 @@ PrecompileTools.@compile_workload begin
     blockdiagonal(c2[1, :s], c2)
     c3 = FermionBasis(2:2; qn=FermionConservation())
     vals, vecs = eigen(Matrix(c1[1]' * c1[1]))
-    partial_trace(vecs[1, :], (1,), c1)
+    partial_trace(vecs[1, :], c1, FermionBasis(1:1))
     wedge(c1, c2)
     cbdg = FermionBdGBasis(1:1, (:s,))
     diagonalize(BdGMatrix(cbdg[1, :s]' * cbdg[1, :s]))

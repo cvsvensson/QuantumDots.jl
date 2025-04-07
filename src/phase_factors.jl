@@ -178,7 +178,7 @@ end
     partitions = [[[3, 2, 7, 5, 1], [4, 6]], [[7, 3, 2], [1, 5], [4, 6]]]
     for p in partitions
         subinds = map(p -> Tuple(siteindices(p, jw)), p)
-        N = length(jw)
+        local N = length(jw)
         @test h(p, fockstates, jw) == phf(fockstates, subinds, N)
     end
 
