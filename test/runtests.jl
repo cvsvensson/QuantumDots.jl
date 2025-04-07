@@ -565,10 +565,10 @@ end
 
     N = 5
     params = rand(3)
-    hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_modes(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
+    _hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_modes(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
 
     a = FermionBasis(1:N)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian= Base.Fix1(_hamiltonian, a)
     fastham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
     fastham!(mat, params...)
@@ -576,7 +576,7 @@ end
 
     #parity conservation
     a = FermionBasis(1:N; qn=QuantumDots.parity)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian = Base.Fix1(_hamiltonian, a)
     parityham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
     parityham!(mat, params...)
@@ -605,7 +605,7 @@ end
 
     #number conservation
     a = FermionBasis(1:N; qn=QuantumDots.fermionnumber)
-    hamiltonian(params...) = hamiltonian(a, params...)
+    hamiltonian = Base.Fix1(_hamiltonian, a)
 
     numberham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
