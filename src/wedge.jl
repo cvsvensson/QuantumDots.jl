@@ -337,8 +337,8 @@ end
     @test canonical_embedding(A, cX, c) * canonical_embedding(B, cX, c) ≈ canonical_embedding(A * B, cX, c)
     for cmode in modebases
         #Eq 5bl
-        A = rand(ComplexF64, 2, 2)
-        B = rand(ComplexF64, 2, 2)
+        local A = rand(ComplexF64, 2, 2)
+        local B = rand(ComplexF64, 2, 2)
         @test fermionic_embedding(A, cmode, c) * fermionic_embedding(B, cmode, c) ≈ fermionic_embedding(A * B, cmode, c)
     end
 

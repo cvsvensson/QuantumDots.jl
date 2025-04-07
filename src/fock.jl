@@ -418,8 +418,8 @@ end
     for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
         b1 = FermionBasis(1:2; qn=qn1)
         b2 = FermionBasis(3:3; qn=qn2)
-        d1 = 2^QuantumDots.nbr_of_fermions(b1)
-        d2 = 2^QuantumDots.nbr_of_fermions(b2)
+        d1 = 2^QuantumDots.nbr_of_modes(b1)
+        d2 = 2^QuantumDots.nbr_of_modes(b2)
         bs = (b1, b2)
         b = FermionBasis(vcat(keys(b1)..., keys(b2)...); qn=qn3)
         m = b[1]
