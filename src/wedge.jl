@@ -38,7 +38,7 @@ get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
 
 Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
+function wedge(ms, bs, b::FermionBasis=wedge(bs), phase_factors=use_wedge_phase_factors(bs, b); match_labels=true)
     N = ndims(first(ms))
     mout = allocate_wedge_result(ms, bs)
 
@@ -54,7 +54,7 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs); match_labels=true)
     if N == 1
         return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
-        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper, phase_factors)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
@@ -88,7 +88,9 @@ shift_right(f::FockNumber, M) = FockNumber(f.f << M)
 wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
 wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
 
-function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+use_wedge_phase_factors(bs, b::FermionBasis) = true
+
+function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, phase_factors=use_wedge_phase_factors(bs, b))
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
@@ -104,7 +106,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
         fock2 = map(indtofock, I2, bs)
         fullfock2 = fockmapper(fock2)
         outind2 = focktoind(fullfock2, b)
-        s = phase_factor_h(fullfock1, fullfock2, partition, jw)
+        s = phase_factors ? phase_factor_h(fullfock1, fullfock2, partition, jw) : 1
         v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, I1, I2)
         mout[outind1, outind2] += v * s
     end
@@ -609,62 +611,7 @@ function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
 end
 
 ## kron, i.e. wedge without phase factors
-function Base.kron(ms, bs, b::FermionBasis=wedge(bs...); match_labels=true)
-    N = ndims(first(ms))
-    mout = allocate_wedge_result(ms, bs)
-
-    fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
-        FockMapper(fermionpositions)
-    else
-        Ms = map(nbr_of_modes, bs)
-        shifts = (0, cumsum(Ms)...)
-        FockShifter(shifts)
-    end
-
-    if N == 1
-        return kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
-    elseif N == 2
-        return kron_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
-    end
-    throw(ArgumentError("Only 1D or 2D arrays are supported"))
-end
-
-function kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
-    fill!(mout, zero(eltype(mout)))
-    Ms = map(nbr_of_modes, bs)
-    Mout = sum(Ms)
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(dimlengths)
-    for I in inds
-        TI = Tuple(I)
-        fock1 = map(indtofock, TI, bs)
-        fullfock1 = fockmapper(fock1)
-        outind = focktoind(fullfock1, b)
-        for I2 in inds
-            TI2 = Tuple(I2)
-            fock2 = map(indtofock, TI2, bs)
-            fullfock2 = fockmapper(fock2)
-            v = mapreduce((m, b, i1, i2) -> m[i1, i2], *, ms, bs, TI, TI2)
-            mout[outind, focktoind(fullfock2, b)] += v
-        end
-    end
-    return mout
-end
-
-function kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
-    fill!(mout, zero(eltype(mout)))
-    dimlengths = map(length ∘ get_fockstates, bs)
-    inds = CartesianIndices(Tuple(dimlengths))
-    for I in inds
-        TI = Tuple(I)
-        fock = map(indtofock, TI, bs)
-        fullfock = fockmapper(fock)
-        outind = focktoind(fullfock, b)
-        mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
-    end
-    return mout
-end
+Base.kron(ms, bs, b; kwargs...) = wedge(ms, bs, b, false; kwargs...)
 
 function canonical_embedding(m, b, bnew)
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))

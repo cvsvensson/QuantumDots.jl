@@ -60,6 +60,8 @@ get_fockstates(::QubitBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockN
 get_fockstates(b::QubitBasis) = get_fockstates(b.symmetry)
 use_partial_trace_phase_factors(b1::QubitBasis, b2::QubitBasis) = false
 use_partial_transpose_phase_factors(::QubitBasis) = false
+use_wedge_phase_factors(bs, b::QubitBasis) = false
+
 nbr_of_modes(::QubitBasis{M}) where {M} = M
 
 function bloch_vector(ρ::AbstractMatrix, label, basis::QubitBasis)
