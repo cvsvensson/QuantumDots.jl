@@ -407,19 +407,19 @@ end
     end
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
     for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
-        b1 = FermionBasis(1:2; qn=qn1)
-        b2 = FermionBasis(3:3; qn=qn2)
+        b1 = FermionBasis((1, 3); qn=qn1)
+        b2 = FermionBasis((2,); qn=qn2)
         d1 = 2^QuantumDots.nbr_of_modes(b1)
         d2 = 2^QuantumDots.nbr_of_modes(b2)
         bs = (b1, b2)
-        b = FermionBasis(vcat(keys(b1)..., keys(b2)...); qn=qn3)
+        b = FermionBasis(sort(vcat(keys(b1)..., keys(b2)...)); qn=qn3)
         m = b[1]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 1
         @test abs(dot(reshape(svd(m12).U, d1, d1, d2^2)[:, :, 1], b1[1])) ≈ norm(b1[1])
 
-        m = b[1] + b[3]
+        m = b[1] + b[2]
         t = reshape(m, b, bs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
@@ -475,6 +475,25 @@ end
         t = reshape(m, b, bs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         @test partial_trace(m * kron((m1, I), (b1, b2), b), b, b2, false) ≈ tpt
+        
+        P1 = parityoperator(b1)
+        Peven1, Podd1 = (P1 + I) / 2, (P1 - I) / 2
+        P = parityoperator(b)
+        Peven, Podd = (P + I) / 2, (P - I) / 2
+        meven = Peven * m * Peven + Podd * m * Podd
+        modd = Podd * m * Peven + Peven * m * Podd
+        teven = reshape(meven, b, bs, true)
+        todd = reshape(modd, b, bs, true)
+        m1even = Peven1 * m1 * Peven1 + Podd1 * m1 * Podd1
+        m1odd = Podd1 * m1 * Peven1 + Peven1 * m1 * Podd1
+        tpteven = sum(teven[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        tptodd = sum(todd[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        tptevenodd = sum(teven[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        tptoddeven = sum(todd[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        @test partial_trace(meven * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tpteven #Needs superselection
+        @test partial_trace(modd * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptodd
+        # @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenodd #is not true
+        # @test partial_trace(modd * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tptoddeven #is not true
 
         ## More bases
         b3 = FermionBasis(4:4; qn3)
