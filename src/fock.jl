@@ -153,7 +153,7 @@ Compute the partial trace of a matrix `m`, leaving the subsystem defined by the 
 function partial_trace(m::AbstractMatrix{T}, b::AbstractBasis, bout::AbstractBasis, phase_factors=use_partial_trace_phase_factors(b, bout)) where {T}
     N = length(get_fockstates(bout))
     mout = zeros(T, N, N)
-    partial_trace!(mout, m, b, bout)
+    partial_trace!(mout, m, b, bout, phase_factors)
 end
 
 use_partial_trace_phase_factors(b1::FermionBasis, b2::FermionBasis) = true
@@ -465,12 +465,12 @@ end
         Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
         H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
         t = reshape(H, b, bs)
-        H2 = QuantumDots.reshape_to_matrix(t, (1, 3))
-        @test svdvals(Hvirtual) ≈ svdvals(H2)
+        Hvirtual2 = QuantumDots.reshape_to_matrix(t, (1, 3))
+        @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
-        m2 = partial_trace(m, b2, b)
+        m2 = partial_trace(m, b, b2)
         t = reshape(m, b, bs, true)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
