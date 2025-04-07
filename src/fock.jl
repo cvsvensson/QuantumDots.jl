@@ -461,10 +461,20 @@ end
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
-        m2 = partial_trace(m, b, b2)
+        m2 = partial_trace(m, b, b2, true)
         t = reshape(m, b, bs, true)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
+
+        m2 = partial_trace(m, b, b2, false)
+        t = reshape(m, b, bs, false)
+        tpt = sum(t[k, :, k, :] for k in axes(t, 1))
+        @test m2 ≈ tpt
+
+        m1 = rand(ComplexF64, d1, d1)
+        t = reshape(m, b, bs, false)
+        tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        @test partial_trace(m * kron((m1, I), (b1, b2), b), b, b2, false) ≈ tpt
 
         ## More bases
         b3 = FermionBasis(4:4; qn3)
