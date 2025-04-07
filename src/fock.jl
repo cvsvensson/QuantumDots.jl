@@ -489,25 +489,3 @@ function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int
     rsize = prod(i -> size(t, i), rightindices, init=1)
     reshape(tperm, lsize, rsize)
 end
-
-# function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
-#     linds = siteindices(leftlabels, b)
-#     t = tensor(v, b)
-#     svd(reshape_to_matrix(t, linds))
-# end
-
-# """
-#     tensor(v::AbstractVector, b::AbstractBasis)
-
-# Return a tensor representation of the vector `v` in the basis `b`, with one index for each site.
-# """
-# function tensor(v::AbstractVector{T}, b::AbstractBasis) where {T}
-#     M = length(b)
-#     @assert length(v) == 2^M
-#     t = Array{T,M}(undef, ntuple(i -> 2, M))
-#     for I in CartesianIndices(t)
-#         fs = focknbr_from_bits(Bool.(Tuple(I) .- 1))
-#         t[I] = v[focktoind(fs, b)] #* parity(fs)
-#     end
-#     return t
-# end
