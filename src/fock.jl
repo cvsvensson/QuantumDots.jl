@@ -444,6 +444,8 @@ end
         tv = reshape(v, b, bs)
         v2 = reshape(tv, bs, b)
         @test v ≈ v2
+        # Note the how reshaping without phase factors is used in a contraction
+        @test sum(reshape(m, b, bs, false)[:, :, i, j] * tv[i, j] for i in 1:d1, j in 1:d2) ≈ reshape(m * v, b, bs)
 
         basis1 = majorana_basis(b1)
         basis2 = majorana_basis(b2)
