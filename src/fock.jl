@@ -499,8 +499,8 @@ function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int
     reshape(tperm, lsize, rsize)
 end
 
-function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
-    linds = siteindices(leftlabels, b)
-    t = tensor(v, b)
-    svd(reshape_to_matrix(t, linds))
-end
+# function LinearAlgebra.svd(v::AbstractVector, leftlabels::NTuple, b::AbstractBasis)
+#     linds = siteindices(leftlabels, b)
+#     t = tensor(v, b)
+#     svd(reshape_to_matrix(t, linds))
+# end
