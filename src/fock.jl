@@ -450,14 +450,31 @@ end
         @test reshape(m1 * m2, b, bs, false) ≈ t3
         @test m1 * m2 ≈ reshape(t3, bs, b, false)
 
+
+        P1 = parityoperator(b1)
+        Peven1, Podd1 = (P1 + I) / 2, (P1 - I) / 2
+        P2 = parityoperator(b2)
+        Peven2, Podd2 = (P2 + I) / 2, (P2 - I) / 2
+        P = parityoperator(b)
+        Peven, Podd = (P + I) / 2, (P - I) / 2
+      
         basis1 = majorana_basis(b1)
         basis2 = majorana_basis(b2)
+        basis12 = [wedge((basis1[i], basis2[j]), bs, b) for (i,j) in Base.product(1:length(basis1), 1:length(basis2))]
+        basis12 = map(x->x/sqrt(tr(x^2) +0im),basis12)
         @test map(tr, basis1 * basis1') ≈ I
         Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
-        H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
+        H = sum(Hvirtual[I] * basis12[I] for I in CartesianIndices(Hvirtual))
         t = reshape(H, b, bs)
         Hvirtual2 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
+        Hvirtual3 = [tr(H * Γ) for Γ in basis12]
+        @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
+        
+        Heven = Peven * H * Peven + Podd * H * Podd
+        Hevenvirtual3 = [tr(Heven * Γ) for Γ in basis12]
+        teven = reshape(Heven, b, bs)
+        Hevenvirtual2 = QuantumDots.reshape_to_matrix(teven, (1, 3))
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
@@ -475,24 +492,38 @@ end
         t = reshape(m, b, bs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         @test partial_trace(m * kron((m1, I), (b1, b2), b), b, b2, false) ≈ tpt
-        
-        P1 = parityoperator(b1)
-        Peven1, Podd1 = (P1 + I) / 2, (P1 - I) / 2
-        P = parityoperator(b)
-        Peven, Podd = (P + I) / 2, (P - I) / 2
-        meven = Peven * m * Peven + Podd * m * Podd
+
+          meven = Peven * m * Peven + Podd * m * Podd
         modd = Podd * m * Peven + Peven * m * Podd
         teven = reshape(meven, b, bs, true)
+        tevenfalse = reshape(meven, b, bs, false)
         todd = reshape(modd, b, bs, true)
         m1even = Peven1 * m1 * Peven1 + Podd1 * m1 * Podd1
         m1odd = Podd1 * m1 * Peven1 + Peven1 * m1 * Podd1
         tpteven = sum(teven[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         tptodd = sum(todd[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         tptevenodd = sum(teven[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
+        tptevenfalseodd = sum(tevenfalse[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         tptoddeven = sum(todd[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
         @test partial_trace(meven * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tpteven #Needs superselection
         @test partial_trace(modd * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptodd
-        # @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenodd #is not true
+        partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2)  == ???
+        @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenodd #is not true
+        @test partial_trace(meven * kron((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenodd #is not true
+        @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenfalseodd #is not true
+        @test partial_trace(meven * kron((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenfalseodd #is not true
+        @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2, false) ≈ tptevenodd #is not true
+        @test partial_trace(meven * kron((m1odd, I), (b1, b2), b), b, b2, false) ≈ tptevenodd #is not true
+        @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2, false) ≈ tptevenfalseodd #is not true
+        @test partial_trace(meven * kron((m1odd, I), (b1, b2), b), b, b2, false) ≈ tptevenfalseodd #is not true
+        @test partial_trace(wedge((m1odd, I), (b1, b2), b) * meven, b, b2) ≈ tptevenodd #is not true
+        @test partial_trace(kron((m1odd, I), (b1, b2), b) * meven, b, b2) ≈ tptevenodd #is not true
+        @test partial_trace(wedge((m1odd, I), (b1, b2), b) * meven, b, b2) ≈ tptevenfalseodd #is not true
+        @test partial_trace(kron((m1odd, I), (b1, b2), b) * meven, b, b2) ≈ tptevenfalseodd #is not true
+        @test partial_trace(wedge((m1odd, I), (b1, b2), b) * meven, b, b2, false) ≈ tptevenodd #is not true
+        @test partial_trace(kron((m1odd, I), (b1, b2), b) * meven, b, b2, false) ≈ tptevenodd #is not true
+        @test partial_trace(wedge((m1odd, I), (b1, b2), b) * meven, b, b2, false) ≈ tptevenfalseodd #is not true
+        @test partial_trace(kron((m1odd, I), (b1, b2), b) * meven, b, b2, false) ≈ tptevenfalseodd #is not true
         # @test partial_trace(modd * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tptoddeven #is not true
 
         ## More bases
