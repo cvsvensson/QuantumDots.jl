@@ -401,9 +401,9 @@ end
     function majorana_basis(b)
         majoranas = Dict((l, s) => (s == :- ? 1im : 1) * b[l] + hc for (l, s) in Base.product(keys(b), [:+, :-]))
         labels = collect(keys(majoranas))
-        basisops = mapreduce(vec, vcat, [[prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
+        basisops = mapreduce(vec, vcat, [[(1 + 1im) * prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
         pushfirst!(basisops, I + 0 * first(basisops))
-        map(x -> x / norm(x), basisops)
+        map((x -> x / sqrt(tr(x' * x))) ∘ Hermitian, basisops)
     end
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
     for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
@@ -452,29 +452,52 @@ end
 
 
         P1 = parityoperator(b1)
-        Peven1, Podd1 = (P1 + I) / 2, (P1 - I) / 2
+        Peven1, Podd1 = (P1 + I) / 2, -(P1 - I) / 2
         P2 = parityoperator(b2)
-        Peven2, Podd2 = (P2 + I) / 2, (P2 - I) / 2
+        Peven2, Podd2 = (P2 + I) / 2, -(P2 - I) / 2
         P = parityoperator(b)
-        Peven, Podd = (P + I) / 2, (P - I) / 2
-      
+        Peven, Podd = (P + I) / 2, -(P - I) / 2
+
         basis1 = majorana_basis(b1)
         basis2 = majorana_basis(b2)
-        basis12 = [wedge((basis1[i], basis2[j]), bs, b) for (i,j) in Base.product(1:length(basis1), 1:length(basis2))]
-        basis12 = map(x->x/sqrt(tr(x^2) +0im),basis12)
-        @test map(tr, basis1 * basis1') ≈ I
+        basis12all = [wedge((Γ1, Γ2), bs, b) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12oddodd = [wedge((Γ1, Γ2), bs, b) * (Podd1 * Γ1 * Peven1 + Peven1 * Γ1 * Podd1 ≈ Γ1 && Podd2 * Γ2 * Peven2 + Peven2 * Γ2 * Podd2 ≈ Γ2) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12oddeven = [wedge((Γ1, Γ2), bs, b) * (Podd1 * Γ1 * Peven1 + Peven1 * Γ1 * Podd1 ≈ Γ1 && Peven2 * Γ2 * Peven2 + Podd2 * Γ2 * Podd2 ≈ Γ2) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12evenodd = [wedge((Γ1, Γ2), bs, b) * (Podd1 * Γ1 * Peven1 + Peven1 * Γ1 * Podd1 ≈ Γ1 && Podd2 * Γ2 * Podd2 + Peven2 * Γ2 * Peven2 ≈ Γ2) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12eveneven = [wedge((Γ1, Γ2), bs, b) * (Peven1 * Γ1 * Peven1 + Podd1 * Γ1 * Podd1 ≈ Γ1 && Peven2 * Γ2 * Peven2 + Podd2 * Γ2 * Podd2 ≈ Γ2) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12normalized = map(x -> x / sqrt(tr(x^2) + 0im), basis12all)
+        @test all(map(tr, basis1 .* basis1) .≈ 1)
+        @test all(map(abs ∘ tr, basis12all .* basis12all) .≈ 1)
+        @test all(map(tr, basis12normalized .* basis12normalized) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12oddodd .* basis12oddodd)) .≈ -1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12eveneven .* basis12eveneven)) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12evenodd .* basis12evenodd)) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12oddeven .* basis12oddeven)) .≈ 1)
+
         Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
-        H = sum(Hvirtual[I] * basis12[I] for I in CartesianIndices(Hvirtual))
+        Hoddoddvirtual = [Hvirtual[I] * norm(basis12oddodd[I]) for I in CartesianIndices(Hvirtual)]
+        Hvirtual_no_oddodd = Hvirtual - Hoddoddvirtual
+        H = sum(Hvirtual[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
+        H_no_oddodd = sum(Hvirtual_no_oddodd[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
+        Hotherbasis = sum(Hvirtual[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
+        H_no_oddodd_otherbasis = sum(Hvirtual_no_oddodd[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
+        @test H_no_oddodd_otherbasis ≈ H_no_oddodd
+
         t = reshape(H, b, bs)
         Hvirtual2 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
-        Hvirtual3 = [tr(H * Γ) for Γ in basis12]
-        @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
-        
-        Heven = Peven * H * Peven + Podd * H * Podd
-        Hevenvirtual3 = [tr(Heven * Γ) for Γ in basis12]
-        teven = reshape(Heven, b, bs)
-        Hevenvirtual2 = QuantumDots.reshape_to_matrix(teven, (1, 3))
+        Hvirtual3 = [tr(Γ' * H) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
+        @test svdvals(Hvirtual) ≈ svdvals(Hvirtual3)
+        Hvirtual4 = [tr(Γ' * Hotherbasis) for Γ in basis12normalized]
+        @test svdvals(Hvirtual) ≈ svdvals(Hvirtual4)
+
+        t_no_oddodd = reshape(H_no_oddodd, b, bs, true)
+        Hvirtual_no_oddodd2 = QuantumDots.reshape_to_matrix(t_no_oddodd, (1, 3))
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd2)
+        Hvirtual_no_oddodd3 = [tr(Γ' * H_no_oddodd) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd3)
+        Hvirtual_no_oddodd4 = [tr(Γ' * H_no_oddodd_otherbasis) for Γ in basis12normalized]
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd4)
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
