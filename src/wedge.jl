@@ -287,9 +287,7 @@ end
     lhs = kron([kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
     @test lhs ≈ rhs
 
-    even_projectors = [(parityoperator(c) + I) / 2 for c in cs_rough]
-    odd_projectors = [(parityoperator(c) - I) / 2 for c in cs_rough]
-    physical_ops_rough = map((op, c, Pe, Po) -> Pe * op * Pe + Po * op * Po, ops_rough, cs_rough, even_projectors, odd_projectors)
+    physical_ops_rough = [QuantumDots.project_on_parity(op, c, 1) for (op, c) in zip(ops_rough, cs_rough)]
 
     # Eq. 18
     As = ops_rough
@@ -356,7 +354,7 @@ end
     # Eq. 32
     @test ordered_prod_of_embeddings(As_modes, modebases, c) ≈ wedge(As_modes, modebases, c)
 
-    # Fermionic partial trace
+    ## Fermionic partial trace
 
     # Eq. 36
     X = rough_partitions[1]
@@ -387,11 +385,24 @@ end
     ξ = rough_partitions
     Asphys = physical_ops_rough
     Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
-    Bsphys = map((B, Po, Pe) -> Pe * B * Pe + Po * B * Po, Bs, odd_projectors, even_projectors)
+    Bsphys = [QuantumDots.project_on_parity(B, c, 1) for (B, c) in zip(Bs, cs_rough)]
     lhs1 = ordered_prod_of_embeddings(Asphys, cs_rough, c) * ordered_prod_of_embeddings(Bsphys, cs_rough, c)
     rhs1 = ordered_prod_of_embeddings(Asphys .* Bsphys, cs_rough, c)
     @test lhs1 ≈ rhs1
     @test ordered_prod_of_embeddings(Asphys, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(Asphys), cs_rough, c)
+
+    ## Unitary equivalence between wedge and kron
+    ops = reduce(vcat, ops_fine)
+    cs = reduce(vcat, cs_fine)
+    physical_ops = [QuantumDots.project_on_parity(op, c, 1) for (op, c) in zip(ops, cs)]
+    # Eq. 93 implies that the unitary equivalence holds for the physical operators
+    @test svdvals(Matrix(ordered_prod_of_embeddings(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
+    # However, it is more general. The unitary equivalence holds as long as all except at most one of the operators has a definite parity:
+    for parities in Base.product([[-1, 1] for _ in 1:length(cs)]...)
+        projected_ops = [QuantumDots.project_on_parity(op, c, p) for (op, c, p) in zip(ops, cs, parities)] # project on local parity
+        opsk = [[projected_ops[1:k-1]..., ops[k], projected_ops[k+1:end]...] for k in 1:length(ops)] # switch out one operator of definite parity for an operator of indefinite parity
+        @test all(svdvals(Matrix(ordered_prod_of_embeddings(ops, cs, c))) ≈ svdvals(Matrix(kron(ops, cs, c))) for ops in opsk)
+    end
 end
 
 
