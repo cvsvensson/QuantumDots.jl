@@ -572,3 +572,52 @@ function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int
     rsize = prod(i -> size(t, i), rightindices, init=1)
     reshape(tperm, lsize, rsize)
 end
+
+function project_on_parities(op::AbstractMatrix, b, bs, parities)
+    length(bs) == length(parities) || throw(ArgumentError("The number of parities must match the number of subsystems"))
+    for (bsub, parity) in zip(bs, parities)
+        op = project_on_subparity(op, b, bsub, parity)
+    end
+    return op
+end
+
+function project_on_subparity(op::AbstractMatrix, b::FermionBasis, bsub::FermionBasis, parity)
+    P = fermionic_embedding(parityoperator(bsub), bsub, b)
+    Peven = (I + P) / 2
+    Podd = (I - P) / 2
+    if parity == 1
+        return Peven * op * Peven + Podd * op * Podd
+    elseif parity == -1
+        return Podd * op * Peven + Peven * op * Podd
+    else
+        throw(ArgumentError("Parity must be either 1 or -1"))
+    end
+end
+function project_on_parity(op::AbstractMatrix, b::FermionBasis, parity)
+    P = parityoperator(b)
+    Peven = (I + P) / 2
+    Podd = (I - P) / 2
+    if parity == 1
+        return Peven * op * Peven + Podd * op * Podd
+    elseif parity == -1
+        return Podd * op * Peven + Peven * op * Podd
+    else
+        throw(ArgumentError("Parity must be either 1 or -1"))
+    end
+end
+
+@testitem "Parity projection" begin
+    bs = [FermionBasis(2k-1:2k) for k in 1:3]
+    b = wedge(bs)
+    op = rand(ComplexF64, size(first(b)))
+    local_parity_iter = (1, -1)
+    all_parities = Base.product([local_parity_iter for _ in 1:length(bs)]...)
+    @test sum(QuantumDots.project_on_parities(op, b, bs, parities) for parities in all_parities) ≈ op
+
+    ops = [rand(ComplexF64, size(first(b))) for b in bs]
+    for parities in all_parities
+        projected_ops = [QuantumDots.project_on_parity(op, bsub, parity) for (op, bsub, parity) in zip(ops, bs, parities)]
+        op = wedge(projected_ops, bs, b)
+        @test op ≈ QuantumDots.project_on_parities(op, b, bs, parities)
+    end
+end
