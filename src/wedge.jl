@@ -398,11 +398,36 @@ end
     # Eq. 93 implies that the unitary equivalence holds for the physical operators
     @test svdvals(Matrix(ordered_prod_of_embeddings(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
     # However, it is more general. The unitary equivalence holds as long as all except at most one of the operators has a definite parity:
+
+    numberops = map(numberoperator, cs)
+    Uemb = embedding_unitary(cs, c)
+    fine_partition = reduce(vcat, fine_partitions)
     for parities in Base.product([[-1, 1] for _ in 1:length(cs)]...)
         projected_ops = [project_on_parity(op, c, p) for (op, c, p) in zip(ops, cs, parities)] # project on local parity
         opsk = [[projected_ops[1:k-1]..., ops[k], projected_ops[k+1:end]...] for k in 1:length(ops)] # switch out one operator of definite parity for an operator of indefinite parity
-        @test all(svdvals(Matrix(ordered_prod_of_embeddings(ops, cs, c))) ≈ svdvals(Matrix(kron(ops, cs, c))) for ops in opsk)
+        embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+        kron_prods = [kron(ops, cs, c) for ops in opsk]
+
+        @test all(svdvals(Matrix(op1)) ≈ svdvals(Matrix(op2)) for (op1, op2) in zip(embedding_prods, kron_prods))
     end
+
+    # Explicit construction of unitary equivalence in case of all even (except one) 
+    function phase(k, f)
+        Xkmask = QuantumDots.focknbr_from_site_labels(fine_partition[k], c.jw)
+        iseven(count_ones(f & Xkmask)) && return 1
+        phase = 1
+        for r in 1:k-1
+            Xrmask = QuantumDots.focknbr_from_site_labels(fine_partition[r], c.jw)
+            phase *= (-1)^(count_ones(f & Xrmask))
+        end
+        return phase
+    end
+    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
+    opsk = [[physical_ops[1:k-1]..., ops[k], physical_ops[k+1:end]...] for k in 1:length(ops)]
+    embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+    kron_prods = [kron(ops, cs, c) for ops in opsk]
+    @test all(op1 ≈ U * op2 * U for (op1, op2, U) in zip(embedding_prods, kron_prods, unitaries))
+
 end
 
 
