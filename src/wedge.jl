@@ -422,8 +422,8 @@ end
         end
         return phase
     end
-    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
     opsk = [[physical_ops[1:k-1]..., ops[k], physical_ops[k+1:end]...] for k in 1:length(ops)]
+    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
     embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
     kron_prods = [kron(ops, cs, c) for ops in opsk]
     @test all(op1 ≈ U * op2 * U for (op1, op2, U) in zip(embedding_prods, kron_prods, unitaries))
