@@ -350,6 +350,13 @@ end
     rhs = tr(A' * partial_trace(B, c, cX))
     @test lhs ≈ rhs
 
+    # Eq. 38 (using A, X, cX, cXbar from above)
+    B = rand(ComplexF64, 2^length(Xbar), 2^length(Xbar))
+    cs = [cX, cXbar]
+    ops = [A, B]
+    @test partial_trace(fermionic_kron(ops, cs, c), c, cX) ≈ partial_trace(wedge(ops, cs, c), c, cX) ≈
+    partial_trace(wedge(reverse(ops), reverse(cs), c), c, cX) ≈ A * tr(B)
+
     # Eq. 39
     A = rand(ComplexF64, 2^N, 2^N)
     X = fine_partitions[1][1]
