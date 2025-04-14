@@ -220,9 +220,9 @@ use_partial_transpose_phase_factors(::FermionBasis) = true
 
     A = rand(ComplexF64, 2, 2)
     B = rand(ComplexF64, 2, 2)
-    C = wedge((A, B), (c1, c2), c12)
+    C = fermionic_kron((A, B), (c1, c2), c12)
     Cpt = partial_transpose(C, c12, (1,))
-    Cpt2 = wedge((transpose(A), B), (c1, c2), c12)
+    Cpt2 = fermionic_kron((transpose(A), B), (c1, c2), c12)
     @test Cpt ≈ Cpt2
 
     ## Larger system
@@ -231,28 +231,28 @@ use_partial_transpose_phase_factors(::FermionBasis) = true
     cN = FermionBasis(labels; qn)
     cs = [FermionBasis(i:i; qn) for i in labels]
     Ms = [rand(ComplexF64, 2, 2) for _ in labels]
-    M = wedge(Ms, cs, cN)
+    M = fermionic_kron(Ms, cs, cN)
 
     single_subsystems = [(i,) for i in 1:4]
     for (k,) in single_subsystems
         Mpt = partial_transpose(M, cN, (k,))
-        Mpt2 = wedge([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        Mpt2 = fermionic_kron([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i != j]
     triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if length(unique((i, j, k))) == 3]
     for (i, j) in pair_iterator
         Mpt = partial_transpose(M, cN, (i, j))
-        Mpt2 = wedge([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        Mpt2 = fermionic_kron([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     for (i, j, k) in triple_iterator
         Mpt = partial_transpose(M, cN, (i, j, k))
-        Mpt2 = wedge([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        Mpt2 = fermionic_kron([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
         @test Mpt ≈ Mpt2
     end
     Mpt = partial_transpose(M, cN, labels)
-    Mpt2 = wedge([transpose(M) for M in Ms], cs, cN)
+    Mpt2 = fermionic_kron([transpose(M) for M in Ms], cs, cN)
     @test Mpt ≈ Mpt2
     @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
     @test M ≈ partial_transpose(M, cN, ())
@@ -462,7 +462,7 @@ end
 
         basis1 = majorana_basis(b1)
         basis2 = majorana_basis(b2)
-        basis12all = [wedge((Γ1, Γ2), bs, b) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12all = [fermionic_kron((Γ1, Γ2), bs, b) for (Γ1, Γ2) in Base.product(basis1, basis2)]
         basis12oddodd = [project_on_parities(Γ, b, bs, (-1, -1)) for Γ in basis12all]
         basis12oddeven = [project_on_parities(Γ, b, bs, (-1, 1)) for Γ in basis12all]
         basis12evenodd = [project_on_parities(Γ, b, bs, (1, -1)) for Γ in basis12all]
@@ -530,8 +530,8 @@ end
         mEE = project_on_parities(m, b, bs, (1, 1))
         mOO = project_on_parities(m, b, bs, (-1, -1))
 
-        F = partial_trace(m * wedge((m1, I), bs, b), b, b2)
-        @test tr(F * m2) ≈ tr(m * wedge((m1, I), bs, b) * wedge((I, m2), bs, b))
+        F = partial_trace(m * fermionic_kron((m1, I), bs, b), b, b2)
+        @test tr(F * m2) ≈ tr(m * fermionic_kron((m1, I), bs, b) * fermionic_kron((I, m2), bs, b))
 
         t = reshape(m, b, bs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))

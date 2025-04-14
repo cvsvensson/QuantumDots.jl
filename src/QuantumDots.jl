@@ -20,7 +20,7 @@ export FockNumber, JordanWignerOrdering, bits, FermionBasis, parityoperator, num
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
-export partial_trace, wedge, many_body_density_matrix
+export partial_trace, fermionic_kron, wedge, many_body_density_matrix
 export QubitBasis
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
@@ -51,7 +51,7 @@ include("majorana.jl")
 include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
-include("wedge.jl")
+include("fermionic_tensor_product.jl")
 include("symbolics/muladd.jl")
 include("symbolics/symbolic_fermions.jl")
 include("symbolics/symbolic_majoranas.jl")
@@ -66,7 +66,7 @@ PrecompileTools.@compile_workload begin
     c3 = FermionBasis(2:2; qn=FermionConservation())
     vals, vecs = eigen(Matrix(c1[1]' * c1[1]))
     partial_trace(vecs[1, :], c1, FermionBasis(1:1))
-    wedge(c1, c2)
+    fermionic_kron(c1, c2)
     cbdg = FermionBdGBasis(1:1, (:s,))
     diagonalize(BdGMatrix(cbdg[1, :s]' * cbdg[1, :s]))
     @fermions f

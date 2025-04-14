@@ -3,7 +3,7 @@
 
 Compute the wedge product of a list of `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
 """
-wedge(bs::AbstractVector{<:FermionBasis}) = foldl(wedge, bs,)
+wedge(bs::AbstractVector{<:FermionBasis}) = foldl(wedge, bs)
 wedge(bs::Tuple) = foldl(wedge, bs)
 # wedge(b1::B, bs::Vararg) where {N,B<:FermionBasis} = foldl(wedge, bs, init=b1)
 function wedge(b1::FermionBasis, b2::FermionBasis)
@@ -33,12 +33,14 @@ end
 get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
 get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
+get_fockstates(::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = get_fockstates(sym)
+get_fockstates(b::FermionBasisTemplate{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(keys(b))-1)
 """
-    wedge(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs))
+    fermionic_kron(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs))
 
-Compute the wedge product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
+Compute the fermionic tensor product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function wedge(ms, bs, b::FermionBasis=wedge(bs), phase_factors=use_wedge_phase_factors(bs, b); match_labels=true)
+function fermionic_kron(ms, bs, b::FermionBasis=fermionic_kron(bs), phase_factors=use_wedge_phase_factors(bs, b); match_labels=true)
     N = ndims(first(ms))
     mout = allocate_wedge_result(ms, bs)
 
@@ -52,9 +54,9 @@ function wedge(ms, bs, b::FermionBasis=wedge(bs), phase_factors=use_wedge_phase_
     end
 
     if N == 1
-        return wedge_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+        return fermionic_kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
     elseif N == 2
-        return wedge_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper, phase_factors)
+        return fermionic_kron_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper, phase_factors)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
@@ -76,11 +78,12 @@ function allocate_wedge_result(ms, bs)
 end
 
 wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
-wedge_iterator(::UniformScaling, b::FermionBasis) = wedge_iterator(I(length(get_fockstates(b))), b)
+wedge_iterator(::UniformScaling, b::FermionBasis) = diagind(I(length(get_fockstates(b))), IndexCartesian())
+wedge_iterator(::UniformScaling, b::FermionBasisTemplate) = diagind(I(length(get_fockstates(b))), IndexCartesian())
 
 use_wedge_phase_factors(bs, b::FermionBasis) = true
 
-function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, phase_factors=use_wedge_phase_factors(bs, b))
+function fermionic_kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, phase_factors=use_wedge_phase_factors(bs, b))
     fill!(mout, zero(eltype(mout)))
     jw = b.jw
     partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
@@ -103,23 +106,7 @@ function wedge_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, pha
     return mout
 end
 
-@testitem "Sparse wedge" begin
-    using SparseArrays
-    N = 2
-    c1 = FermionBasis(1:N)
-    c2 = FermionBasis(N+1:2N)
-    c = FermionBasis(1:2N)
-    p = 0.1
-    m1 = sprand(ComplexF64, 2^N, 2^N, p)
-    m1dense = Matrix(m1)
-    m2 = sprand(ComplexF64, 2^N, 2^N, p)
-    m2dense = Matrix(m2)
-    m3 = wedge((m1, m2), (c1, c2), c)
-    m3dense = wedge((m1dense, m2dense), (c1, c2), c)
-    @test m3 ≈ m3dense
-end
-
-function wedge_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+function fermionic_kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
     fill!(mout, zero(eltype(mout)))
     U = embedding_unitary(bs, b)
     dimlengths = map(length ∘ get_fockstates, bs)
@@ -147,8 +134,7 @@ function embedding_unitary(partition, fockstates, jw::JordanWignerOrdering)
     #for locally physical algebra, ie only for even operators or states of well-defined parity
     #if ξ is ordered, the phases are +1. 
     # Note that the jordan wigner modes are ordered in reverse from the labels, but this is taken care of by direction of the jwstring below
-    sum(length, partition) == length(jw.labels) || throw(ArgumentError("The union of the labels in the partition must be the same as the labels in jw"))
-    all(haskey(jw.ordering, k) for k in Iterators.flatten(partition)) || throw(ArgumentError("The labels in the partition must be the same as the labels in jw"))
+    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
 
     phases = ones(Int, length(fockstates))
     for (s, Xs) in enumerate(partition)
@@ -171,8 +157,9 @@ embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis)
 
 function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrdering)
     #(122a)
-    length(X) + length(Xbar) == length(jw.labels) || throw(ArgumentError("The union of the labels in X and Xbar must be the same as the labels in jw"))
-    all(haskey(jw.ordering, k) for k in Iterators.flatten((X, Xbar))) || throw(ArgumentError("The labels in X and Xbar must be the same as the labels in jw"))
+    ispartition((X, Xbar), jw) || throw(ArgumentError("The partition must be ordered according to jw"))
+    # length(X) + length(Xbar) == length(jw.labels) || throw(ArgumentError("The union of the labels in X and Xbar must be the same as the labels in jw"))
+    # all(haskey(jw.ordering, k) for k in Iterators.flatten((X, Xbar))) || throw(ArgumentError("The labels in X and Xbar must be the same as the labels in jw"))
     phases = ones(Int, length(fockstates))
     mask = focknbr_from_site_labels(X, jw)
     for li in Xbar
@@ -222,7 +209,7 @@ bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis
     cB = FermionBasis((2, 4))
     c = FermionBasis((1, 2, 3, 4))
     @test embedding_unitary((cA, cB), c) == embedding_unitary([[1, 3], [2, 4]], c)
-    @test fermionic_embedding(cA[1], cA, c) ≈ wedge((cA[1], I), (cA, cB), c) ≈ wedge((I, cA[1]), (cB, cA), c)
+    @test fermionic_embedding(cA[1], cA, c) ≈ fermionic_kron((cA[1], I), (cA, cB), c) ≈ fermionic_kron((I, cA[1]), (cB, cA), c)
     Ux = embedding_unitary((cA, cB), c)
     Ux2 = bipartite_embedding_unitary(cA, cB, c)
     @test Ux ≈ Ux2
@@ -237,31 +224,29 @@ Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis 
 function fermionic_embedding(m, b, bnew)
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
-    # qn = promote_symmetry(b.symmetry, bnew.symmetry)
     qn = NoSymmetry()
-    bbar = FermionBasis(bbar_labs; qn)
+    bbar = FermionBasisTemplate(JordanWignerOrdering(bbar_labs), qn)
     bs = (b, bbar)
-    isorderedpartition(bs, bnew) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
-    return wedge((m, I), bs, bnew)
+    return fermionic_kron((m, I), bs, bnew)
 end
 
 """
-    ordered_prod_of_embeddings(ms, bs, b)
+    wedge(ms, bs, b)
 
 Compute the ordered product of the fermionic embeddings of the matrices `ms` in the bases `bs` into the basis `b`.
 """
-function ordered_prod_of_embeddings(ms, bs, b)
+function wedge(ms, bs, b)
     # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
     isorderedpartition(bs, b) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
     return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip(ms, bs))
 end
 
 
-@testitem "Wedge properties" begin
+@testitem "Fermionic tensor product properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
     using Random, Base.Iterators, LinearAlgebra
-    import QuantumDots: fermionic_embedding, ordered_prod_of_embeddings, embedding_unitary, canonical_embedding
+    import QuantumDots: fermionic_embedding, wedge, embedding_unitary, canonical_embedding
 
     Random.seed!(1)
     N = 7
@@ -278,9 +263,9 @@ end
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
 
     # Associativity (Eq. 16)
-    rhs = wedge(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
-    finewedges = [wedge(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)]
-    lhs = wedge(finewedges, cs_rough, c)
+    rhs = fermionic_kron(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
+    finewedges = [fermionic_kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)]
+    lhs = fermionic_kron(finewedges, cs_rough, c)
     @test lhs ≈ rhs
 
     rhs = kron(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
@@ -292,7 +277,7 @@ end
     # Eq. 18
     As = ops_rough
     Bs = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
-    lhs = tr(wedge(As, cs_rough, c)' * wedge(Bs, cs_rough, c))
+    lhs = tr(fermionic_kron(As, cs_rough, c)' * fermionic_kron(Bs, cs_rough, c))
     rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
     @test lhs ≈ rhs
 
@@ -305,7 +290,7 @@ end
     modebases = [FermionBasis(j:j) for j in 1:N]
     lhs = prod(j -> fermionic_embedding(As_modes[j], modebases[j], c), 1:N)
     rhs_ordered_prod(X, basis) = mapreduce(j -> fermionic_embedding(As_modes[j], modebases[j], basis), *, X)
-    rhs = wedge([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
+    rhs = fermionic_kron([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
     @test lhs ≈ rhs
 
     # Associativity (Eq. 21)
@@ -323,7 +308,7 @@ end
     @test Ux !== I
     @test fermionic_embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
     # Eq. 93
-    @test ordered_prod_of_embeddings(physical_ops_rough, cs_rough, c) ≈ Ux * kron(physical_ops_rough, cs_rough, c) * Ux'
+    @test wedge(physical_ops_rough, cs_rough, c) ≈ Ux * kron(physical_ops_rough, cs_rough, c) * Ux'
 
     # Eq. 23
     X = rough_partitions[1]
@@ -349,10 +334,10 @@ end
     cX = cs_rough[1]
     cXbar = FermionBasis(Xbar)
     corr = fermionic_embedding(A, cX, c)
-    @test corr ≈ wedge([A, I], [cX, cXbar], c) ≈ ordered_prod_of_embeddings([A, I], [cX, cXbar], c) ≈ ordered_prod_of_embeddings([I, A], [cXbar, cX], c)
+    @test corr ≈ fermionic_kron([A, I], [cX, cXbar], c) ≈ wedge([A, I], [cX, cXbar], c) ≈ wedge([I, A], [cXbar, cX], c)
 
     # Eq. 32
-    @test ordered_prod_of_embeddings(As_modes, modebases, c) ≈ wedge(As_modes, modebases, c)
+    @test wedge(As_modes, modebases, c) ≈ fermionic_kron(As_modes, modebases, c)
 
     ## Fermionic partial trace
 
@@ -386,17 +371,17 @@ end
     Asphys = physical_ops_rough
     Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
     Bsphys = [project_on_parity(B, c, 1) for (B, c) in zip(Bs, cs_rough)]
-    lhs1 = ordered_prod_of_embeddings(Asphys, cs_rough, c) * ordered_prod_of_embeddings(Bsphys, cs_rough, c)
-    rhs1 = ordered_prod_of_embeddings(Asphys .* Bsphys, cs_rough, c)
+    lhs1 = wedge(Asphys, cs_rough, c) * wedge(Bsphys, cs_rough, c)
+    rhs1 = wedge(Asphys .* Bsphys, cs_rough, c)
     @test lhs1 ≈ rhs1
-    @test ordered_prod_of_embeddings(Asphys, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(Asphys), cs_rough, c)
+    @test wedge(Asphys, cs_rough, c)' ≈ wedge(adjoint.(Asphys), cs_rough, c)
 
     ## Unitary equivalence between wedge and kron
     ops = reduce(vcat, ops_fine)
     cs = reduce(vcat, cs_fine)
     physical_ops = [project_on_parity(op, c, 1) for (op, c) in zip(ops, cs)]
     # Eq. 93 implies that the unitary equivalence holds for the physical operators
-    @test svdvals(Matrix(ordered_prod_of_embeddings(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
+    @test svdvals(Matrix(wedge(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
     # However, it is more general. The unitary equivalence holds as long as all except at most one of the operators has a definite parity:
 
     numberops = map(numberoperator, cs)
@@ -405,7 +390,7 @@ end
     for parities in Base.product([[-1, 1] for _ in 1:length(cs)]...)
         projected_ops = [project_on_parity(op, c, p) for (op, c, p) in zip(ops, cs, parities)] # project on local parity
         opsk = [[projected_ops[1:k-1]..., ops[k], projected_ops[k+1:end]...] for k in 1:length(ops)] # switch out one operator of definite parity for an operator of indefinite parity
-        embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+        embedding_prods = [wedge(ops, cs, c) for ops in opsk]
         kron_prods = [kron(ops, cs, c) for ops in opsk]
 
         @test all(svdvals(Matrix(op1)) ≈ svdvals(Matrix(op2)) for (op1, op2) in zip(embedding_prods, kron_prods))
@@ -424,7 +409,7 @@ end
     end
     opsk = [[physical_ops[1:k-1]..., ops[k], physical_ops[k+1:end]...] for k in 1:length(ops)]
     unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
-    embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+    embedding_prods = [wedge(ops, cs, c) for ops in opsk]
     kron_prods = [kron(ops, cs, c) for ops in opsk]
     @test all(op1 ≈ U * op2 * U for (op1, op2, U) in zip(embedding_prods, kron_prods, unitaries))
 
@@ -460,13 +445,13 @@ end
         for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
             v1 = P1 * rand(2)
             v2 = P2 * rand(4)
-            v3 = wedge([v1, v2], bs)
+            v3 = fermionic_kron([v1, v2], bs, b3)
             for k1 in keys(b1), k2 in keys(b2)
                 b1f = b1[k1]
                 b2f = b2[k2]
                 b3f = b3[k2] * b3[k1]
                 b3fw = wedge([b1f, b2f], bs, b3)
-                v3w = wedge([b1f * v1, b2f * v2], bs, b3)
+                v3w = fermionic_kron([b1f * v1, b2f * v2], bs, b3)
                 v3f = b3f * v3
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
             end
@@ -506,7 +491,7 @@ end
         p = sortperm(vals3w)
         vals3w[p] ≈ vals3
 
-        vecs3w = vec(map(v12 -> wedge([v12[1], v12[2]], bs, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
+        vecs3w = vec(map(v12 -> fermionic_kron([v12[1], v12[2]], bs, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
         @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
 
         β = 0.7
@@ -540,7 +525,7 @@ end
         H12w = Matrix(wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w))
         H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
 
-        v12w = wedge([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
+        v12w = fermionic_kron([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
         v12 = eigvecs(H12)[:, 1]
         v12ww = eigvecs(H12w)[:, 1]
         sort(abs.(v12w)) - sort(abs.(v12))
@@ -630,7 +615,7 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((I(2), c2[2]), (p1, p1), p2) == c12[2]
 
     ms = (rand(2, 2), rand(2, 2))
-    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps(ms, (p1, p1), p2) == wedge(ms, (c1, c2), c12)
+    @test QuantumDots.fermionic_tensor_product_with_kron_and_maps(ms, (p1, p1), p2) == fermionic_kron(ms, (c1, c2), c12)
 end
 
 function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
@@ -638,7 +623,7 @@ function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
 end
 
 ## kron, i.e. wedge without phase factors
-Base.kron(ms, bs, b; kwargs...) = wedge(ms, bs, b, false; kwargs...)
+Base.kron(ms, bs, b; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
 
 function canonical_embedding(m, b, bnew)
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))

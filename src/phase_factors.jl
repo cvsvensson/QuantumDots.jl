@@ -28,8 +28,8 @@ function isorderedpartition(bs, b::FermionBasis)
     isorderedpartition(partition, b.jw)
 end
 function ispartition(partition, jw::JordanWignerOrdering)
-    length(jw) == length(unique(Iterators.flatten(partition))) || return false
-    # check that all elements in each subsystem is in jw
+    length(jw) == sum(length, partition) || return false
+    allunique(Iterators.flatten(partition)) || return false
     injw = in(jw.labels)
     injw2 = Base.Fix1(all, injw)
     all(injw2, partition)
