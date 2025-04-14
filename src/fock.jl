@@ -530,7 +530,7 @@ end
         @test partial_trace(m * kron((m1, I), bs, b), b, b2, false) ≈ tpt
 
         ## More bases
-        b3 = FermionBasis(4:4; qn3)
+        b3 = FermionBasis(5:5; qn3)
         d3 = 2^QuantumDots.nbr_of_modes(b3)
         bs = (b1, b2, b3)
         b = wedge(bs)
