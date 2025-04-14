@@ -33,7 +33,7 @@ end
 get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
 get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
-get_fockstates(::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = get_fockstates(sym)
+get_fockstates(b::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = get_fockstates(b.sym)
 get_fockstates(b::FermionBasisTemplate{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(keys(b))-1)
 """
     fermionic_kron(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs))
