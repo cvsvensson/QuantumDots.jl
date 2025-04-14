@@ -403,12 +403,22 @@ end
         labels = collect(keys(majoranas))
         basisops = mapreduce(vec, vcat, [[prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
         pushfirst!(basisops, I + 0 * first(basisops))
-        map(x -> x / norm(x), basisops)
+        map(Hermitian ∘ (x -> x / sqrt(complex(tr(x * x)))), basisops)
     end
+
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
+    for qn in qns
+        b = FermionBasis(1:2; qn)
+        majbasis = majorana_basis(b)
+        @test all(map(ishermitian, majbasis))
+        overlaps = [tr(Γ1' * Γ2) for (Γ1, Γ2) in Base.product(majbasis, majbasis)]
+        @test overlaps ≈ I
+        @test rank(mapreduce(vec, hcat, majbasis)) == length(majbasis)
+    end
+
     for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
         b1 = FermionBasis((1, 3); qn=qn1)
-        b2 = FermionBasis((2,); qn=qn2)
+        b2 = FermionBasis((2, 4); qn=qn2)
         d1 = 2^QuantumDots.nbr_of_modes(b1)
         d2 = 2^QuantumDots.nbr_of_modes(b2)
         bs = (b1, b2)
@@ -452,12 +462,50 @@ end
 
         basis1 = majorana_basis(b1)
         basis2 = majorana_basis(b2)
-        @test map(tr, basis1 * basis1') ≈ I
+        basis12all = [wedge((Γ1, Γ2), bs, b) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12oddodd = [project_on_parities(Γ, b, bs, (-1, -1)) for Γ in basis12all]
+        basis12oddeven = [project_on_parities(Γ, b, bs, (-1, 1)) for Γ in basis12all]
+        basis12evenodd = [project_on_parities(Γ, b, bs, (1, -1)) for Γ in basis12all]
+        basis12eveneven = [project_on_parities(Γ, b, bs, (1, 1)) for Γ in basis12all]
+        basis12normalized = map(x -> x / sqrt(tr(x^2) + 0im), basis12all)
+
+        @test all(map(tr, map(adjoint, basis12all) .* basis12all) .≈ 1)
+        overlaps = [tr(Γ1' * Γ2) for (Γ1, Γ2) in Base.product(vec(basis12all), vec(basis12all))]
+        @test overlaps ≈ I
+        @test all(ishermitian, basis12normalized)
+        @test all(map(tr, basis12normalized .* basis12normalized) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12oddodd .* basis12oddodd)) .≈ -1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12eveneven .* basis12eveneven)) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12evenodd .* basis12evenodd)) .≈ 1)
+        @test all(filter(x -> abs(x) > 0.01, map(tr, basis12oddeven .* basis12oddeven)) .≈ 1)
+
         Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
-        H = sum(Hvirtual[I] * wedge((basis1[I[1]], basis2[I[2]]), bs, b) for I in CartesianIndices(Hvirtual))
+        Hoddoddvirtual = [Hvirtual[I] * norm(basis12oddodd[I]) for I in CartesianIndices(Hvirtual)]
+        Hvirtual_no_oddodd = Hvirtual - Hoddoddvirtual
+        H = sum(Hvirtual[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
+        H_no_oddodd = sum(Hvirtual_no_oddodd[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
+        Hotherbasis = sum(Hvirtual[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
+        H_no_oddodd_otherbasis = sum(Hvirtual_no_oddodd[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
+        @test H_no_oddodd_otherbasis ≈ H_no_oddodd
+
         t = reshape(H, b, bs)
         Hvirtual2 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
+        Hvirtual3 = [tr(Γ' * H) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
+        @test Hvirtual3 ≈ Hvirtual
+        Hvirtual4 = [tr(Γ' * Hotherbasis) for Γ in basis12normalized]
+        @test Hvirtual4 ≈ Hvirtual
+        # @test svdvals(Hvirtual) ≈ svdvals(Hvirtual4)
+
+        t_no_oddodd = reshape(H_no_oddodd, b, bs, true)
+        Hvirtual_no_oddodd2 = QuantumDots.reshape_to_matrix(t_no_oddodd, (1, 3))
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd2)
+        Hvirtual_no_oddodd3 = [tr(Γ' * H_no_oddodd) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd3)
+        Hvirtual_no_oddodd4 = [tr(Γ' * H_no_oddodd_otherbasis) for Γ in basis12normalized]
+        @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd4)
+
+
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
@@ -471,32 +519,26 @@ end
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
 
+        mE = project_on_parity(m, b, 1)
+        mO = project_on_parity(m, b, -1)
         m1 = rand(ComplexF64, d1, d1)
+        m2 = rand(ComplexF64, d2, d2)
+        m2O = project_on_parity(m2, b2, -1)
+        m2E = project_on_parity(m2, b2, 1)
+        m1O = project_on_parity(m1, b1, -1)
+        m1E = project_on_parity(m1, b1, 1)
+        mEE = project_on_parities(m, b, bs, (1, 1))
+        mOO = project_on_parities(m, b, bs, (-1, -1))
+
+        F = partial_trace(m * wedge((m1, I), bs, b), b, b2)
+        @test tr(F * m2) ≈ tr(m * wedge((m1, I), bs, b) * wedge((I, m2), bs, b))
+
         t = reshape(m, b, bs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        @test partial_trace(m * kron((m1, I), (b1, b2), b), b, b2, false) ≈ tpt
-        
-        P1 = parityoperator(b1)
-        Peven1, Podd1 = (P1 + I) / 2, (P1 - I) / 2
-        P = parityoperator(b)
-        Peven, Podd = (P + I) / 2, (P - I) / 2
-        meven = Peven * m * Peven + Podd * m * Podd
-        modd = Podd * m * Peven + Peven * m * Podd
-        teven = reshape(meven, b, bs, true)
-        todd = reshape(modd, b, bs, true)
-        m1even = Peven1 * m1 * Peven1 + Podd1 * m1 * Podd1
-        m1odd = Podd1 * m1 * Peven1 + Peven1 * m1 * Podd1
-        tpteven = sum(teven[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        tptodd = sum(todd[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        tptevenodd = sum(teven[k1, :, k2, :] * m1odd[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        tptoddeven = sum(todd[k1, :, k2, :] * m1even[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        @test partial_trace(meven * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tpteven #Needs superselection
-        @test partial_trace(modd * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptodd
-        # @test partial_trace(meven * wedge((m1odd, I), (b1, b2), b), b, b2) ≈ tptevenodd #is not true
-        # @test partial_trace(modd * wedge((m1even, I), (b1, b2), b), b, b2) ≈ tptoddeven #is not true
+        @test partial_trace(m * kron((m1, I), bs, b), b, b2, false) ≈ tpt
 
         ## More bases
-        b3 = FermionBasis(4:4; qn3)
+        b3 = FermionBasis(5:5; qn3)
         d3 = 2^QuantumDots.nbr_of_modes(b3)
         bs = (b1, b2, b3)
         b = wedge(bs)
@@ -517,4 +559,53 @@ function reshape_to_matrix(t::AbstractArray{<:Any,N}, leftindices::NTuple{NL,Int
     lsize = prod(i -> size(t, i), leftindices, init=1)
     rsize = prod(i -> size(t, i), rightindices, init=1)
     reshape(tperm, lsize, rsize)
+end
+
+function project_on_parities(op::AbstractMatrix, b, bs, parities)
+    length(bs) == length(parities) || throw(ArgumentError("The number of parities must match the number of subsystems"))
+    for (bsub, parity) in zip(bs, parities)
+        op = project_on_subparity(op, b, bsub, parity)
+    end
+    return op
+end
+
+function project_on_subparity(op::AbstractMatrix, b::FermionBasis, bsub::FermionBasis, parity)
+    P = fermionic_embedding(parityoperator(bsub), bsub, b)
+    Peven = (I + P) / 2
+    Podd = (I - P) / 2
+    if parity == 1
+        return Peven * op * Peven + Podd * op * Podd
+    elseif parity == -1
+        return Podd * op * Peven + Peven * op * Podd
+    else
+        throw(ArgumentError("Parity must be either 1 or -1"))
+    end
+end
+function project_on_parity(op::AbstractMatrix, b::FermionBasis, parity)
+    P = parityoperator(b)
+    Peven = (I + P) / 2
+    Podd = (I - P) / 2
+    if parity == 1
+        return Peven * op * Peven + Podd * op * Podd
+    elseif parity == -1
+        return Podd * op * Peven + Peven * op * Podd
+    else
+        throw(ArgumentError("Parity must be either 1 or -1"))
+    end
+end
+
+@testitem "Parity projection" begin
+    bs = [FermionBasis(2k-1:2k) for k in 1:3]
+    b = wedge(bs)
+    op = rand(ComplexF64, size(first(b)))
+    local_parity_iter = (1, -1)
+    all_parities = Base.product([local_parity_iter for _ in 1:length(bs)]...)
+    @test sum(project_on_parities(op, b, bs, parities) for parities in all_parities) ≈ op
+
+    ops = [rand(ComplexF64, size(first(b))) for b in bs]
+    for parities in all_parities
+        projected_ops = [project_on_parity(op, bsub, parity) for (op, bsub, parity) in zip(ops, bs, parities)]
+        op = wedge(projected_ops, bs, b)
+        @test op ≈ project_on_parities(op, b, bs, parities)
+    end
 end

@@ -24,6 +24,7 @@ export partial_trace, wedge, many_body_density_matrix
 export QubitBasis
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
+export project_on_parity, project_on_parities
 
 function fastgenerator end
 function fastblockdiagonal end

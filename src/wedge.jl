@@ -287,9 +287,7 @@ end
     lhs = kron([kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
     @test lhs ≈ rhs
 
-    even_projectors = [(parityoperator(c) + I) / 2 for c in cs_rough]
-    odd_projectors = [(parityoperator(c) - I) / 2 for c in cs_rough]
-    physical_ops_rough = map((op, c, Pe, Po) -> Pe * op * Pe + Po * op * Po, ops_rough, cs_rough, even_projectors, odd_projectors)
+    physical_ops_rough = [project_on_parity(op, c, 1) for (op, c) in zip(ops_rough, cs_rough)]
 
     # Eq. 18
     As = ops_rough
@@ -356,7 +354,7 @@ end
     # Eq. 32
     @test ordered_prod_of_embeddings(As_modes, modebases, c) ≈ wedge(As_modes, modebases, c)
 
-    # Fermionic partial trace
+    ## Fermionic partial trace
 
     # Eq. 36
     X = rough_partitions[1]
@@ -387,11 +385,49 @@ end
     ξ = rough_partitions
     Asphys = physical_ops_rough
     Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
-    Bsphys = map((B, Po, Pe) -> Pe * B * Pe + Po * B * Po, Bs, odd_projectors, even_projectors)
+    Bsphys = [project_on_parity(B, c, 1) for (B, c) in zip(Bs, cs_rough)]
     lhs1 = ordered_prod_of_embeddings(Asphys, cs_rough, c) * ordered_prod_of_embeddings(Bsphys, cs_rough, c)
     rhs1 = ordered_prod_of_embeddings(Asphys .* Bsphys, cs_rough, c)
     @test lhs1 ≈ rhs1
     @test ordered_prod_of_embeddings(Asphys, cs_rough, c)' ≈ ordered_prod_of_embeddings(adjoint.(Asphys), cs_rough, c)
+
+    ## Unitary equivalence between wedge and kron
+    ops = reduce(vcat, ops_fine)
+    cs = reduce(vcat, cs_fine)
+    physical_ops = [project_on_parity(op, c, 1) for (op, c) in zip(ops, cs)]
+    # Eq. 93 implies that the unitary equivalence holds for the physical operators
+    @test svdvals(Matrix(ordered_prod_of_embeddings(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
+    # However, it is more general. The unitary equivalence holds as long as all except at most one of the operators has a definite parity:
+
+    numberops = map(numberoperator, cs)
+    Uemb = embedding_unitary(cs, c)
+    fine_partition = reduce(vcat, fine_partitions)
+    for parities in Base.product([[-1, 1] for _ in 1:length(cs)]...)
+        projected_ops = [project_on_parity(op, c, p) for (op, c, p) in zip(ops, cs, parities)] # project on local parity
+        opsk = [[projected_ops[1:k-1]..., ops[k], projected_ops[k+1:end]...] for k in 1:length(ops)] # switch out one operator of definite parity for an operator of indefinite parity
+        embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+        kron_prods = [kron(ops, cs, c) for ops in opsk]
+
+        @test all(svdvals(Matrix(op1)) ≈ svdvals(Matrix(op2)) for (op1, op2) in zip(embedding_prods, kron_prods))
+    end
+
+    # Explicit construction of unitary equivalence in case of all even (except one) 
+    function phase(k, f)
+        Xkmask = QuantumDots.focknbr_from_site_labels(fine_partition[k], c.jw)
+        iseven(count_ones(f & Xkmask)) && return 1
+        phase = 1
+        for r in 1:k-1
+            Xrmask = QuantumDots.focknbr_from_site_labels(fine_partition[r], c.jw)
+            phase *= (-1)^(count_ones(f & Xrmask))
+        end
+        return phase
+    end
+    opsk = [[physical_ops[1:k-1]..., ops[k], physical_ops[k+1:end]...] for k in 1:length(ops)]
+    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
+    embedding_prods = [ordered_prod_of_embeddings(ops, cs, c) for ops in opsk]
+    kron_prods = [kron(ops, cs, c) for ops in opsk]
+    @test all(op1 ≈ U * op2 * U for (op1, op2, U) in zip(embedding_prods, kron_prods, unitaries))
+
 end
 
 
@@ -557,6 +593,7 @@ function phase_map(fockstates, M::Int)
     PhaseMap(phases, fockstates)
 end
 phase_map(N::Int) = phase_map(map(FockNumber, 0:2^N-1), N)
+phase_map(b::FermionBasis) = phase_map(collect(get_fockstates(b)), nbr_of_modes(b))
 LazyPhaseMap(N::Int) = LazyPhaseMap{N}(map(FockNumber, 0:2^N-1))
 SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest...) = SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(rest...)
 (p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
