@@ -20,7 +20,7 @@ export FockNumber, JordanWignerOrdering, bits, FermionBasis, parityoperator, num
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
-export partial_trace, fermionic_kron, wedge, many_body_density_matrix
+export partial_trace, fermionic_kron, wedge, fermionic_embedding, many_body_density_matrix
 export QubitBasis
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation

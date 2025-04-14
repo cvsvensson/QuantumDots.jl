@@ -178,7 +178,7 @@ bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis
 
 @testitem "Embedding unitary" begin
     # Appendix C.4
-    import QuantumDots: embedding_unitary, fermionic_embedding, canonical_embedding, bipartite_embedding_unitary
+    import QuantumDots: embedding_unitary, canonical_embedding, bipartite_embedding_unitary
     using LinearAlgebra
     jw = JordanWignerOrdering(1:2)
     fockstates = sort(map(FockNumber, 0:3), by=Base.Fix2(bits, 2))
@@ -221,13 +221,13 @@ end
 
 Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis `bnew`.
 """
-function fermionic_embedding(m, b, bnew)
+function fermionic_embedding(m, b, bnew, phase_factors=true)
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
     bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
     qn = NoSymmetry()
     bbar = FermionBasisTemplate(JordanWignerOrdering(bbar_labs), qn)
     bs = (b, bbar)
-    return fermionic_kron((m, I), bs, bnew)
+    return fermionic_kron((m, I), bs, bnew, phase_factors)
 end
 
 """
@@ -625,9 +625,4 @@ end
 ## kron, i.e. wedge without phase factors
 Base.kron(ms, bs, b; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
 
-function canonical_embedding(m, b, bnew)
-    bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b)))
-    qn = NoSymmetry()
-    bbar = FermionBasis(bbar_labs; qn)
-    return kron((m, I), (b, bbar), bnew)
-end
+canonical_embedding(m, b, bnew) = fermionic_embedding(m, b, bnew, false)
