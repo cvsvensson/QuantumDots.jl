@@ -19,6 +19,14 @@ struct JordanWignerOrdering{L}
 end
 Base.length(jw::JordanWignerOrdering) = length(jw.labels)
 Base.:(==)(jw1::JordanWignerOrdering, jw2::JordanWignerOrdering) = jw1.labels == jw2.labels && jw1.ordering == jw2.ordering
+Base.keys(jw::JordanWignerOrdering) = jw.labels
+
+struct FermionBasisTemplate{L,S}
+    jw::JordanWignerOrdering{L}
+    sym::S
+end
+Base.keys(b::FermionBasisTemplate) = keys(b.jw)
+indtofock(ind, b::FermionBasisTemplate) = indtofock(ind, b.sym)
 
 """
     struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
