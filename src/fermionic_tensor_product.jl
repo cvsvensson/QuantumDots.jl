@@ -630,6 +630,6 @@ function fermionic_tensor_product_with_kron_and_maps(ops, phis, phi)
 end
 
 ## kron, i.e. wedge without phase factors
-Base.kron(ms, bs, b; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
+Base.kron(ms, bs, b::AbstractManyBodyBasis; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
 
 canonical_embedding(m, b, bnew) = fermionic_embedding(m, b, bnew, false)
