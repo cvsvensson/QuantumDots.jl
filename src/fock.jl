@@ -571,18 +571,12 @@ end
 
 function project_on_subparity(op::AbstractMatrix, b::FermionBasis, bsub::FermionBasis, parity)
     P = fermionic_embedding(parityoperator(bsub), bsub, b)
-    Peven = (I + P) / 2
-    Podd = (I - P) / 2
-    if parity == 1
-        return Peven * op * Peven + Podd * op * Podd
-    elseif parity == -1
-        return Podd * op * Peven + Peven * op * Podd
-    else
-        throw(ArgumentError("Parity must be either 1 or -1"))
-    end
+    return project_on_parity(op, P, parity)
 end
-function project_on_parity(op::AbstractMatrix, b::FermionBasis, parity)
-    P = parityoperator(b)
+
+project_on_parity(op::AbstractMatrix, b::FermionBasis, parity) = project_on_parity(op, parityoperator(b), parity)
+
+function project_on_parity(op::AbstractMatrix, P::AbstractMatrix, parity)
     Peven = (I + P) / 2
     Podd = (I - P) / 2
     if parity == 1
