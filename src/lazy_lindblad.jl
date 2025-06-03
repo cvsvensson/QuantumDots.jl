@@ -18,19 +18,19 @@ function LazyLindbladDissipator(_lead::NormalLead, diagham::DiagonalizedHamilton
 end
 Base.adjoint(d::LazyLindbladDissipator) = LazyLindbladDissipator(map(Base.Fix1(map, adjoint), d.op), d.opsquare, d.rate, adjoint(d.lead), adjoint(d.hamiltonian), d.cache)
 
-update_dissipator(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
-update_dissipator!(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
-function update_dissipator!(d::LazyLindbladDissipator, p, cache=d.cache)
+__update_coefficients(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
+__update_coefficients!(d::LazyLindbladDissipator, ::Union{Nothing,SciMLBase.NullParameters}, cache=d.cache) = d
+function __update_coefficients!(d::LazyLindbladDissipator, p, cache=d.cache)
     rate = get(p, :rate, d.rate)
-    newlead = update_lead(d.lead, p)
+    newlead = __update_coefficients(d.lead, p)
     op = (; in=map((out, op) -> complex(ratetransform!(out, cache, op, d.hamiltonian, newlead.T, newlead.μ)), d.op.in, newlead.jump_in),
         out=map((out, op) -> complex(ratetransform!(out, cache, op, d.hamiltonian, newlead.T, -newlead.μ)), d.op.out, newlead.jump_out))
     opsquare = map((outops, leadops) -> map((out, x) -> mul!(out, x', x), outops, leadops), d.opsquare, op)
     LazyLindbladDissipator(op, opsquare, rate, newlead, d.hamiltonian, d.cache)
 end
-function update_dissipator(d::LazyLindbladDissipator, p, cache=d.cache)
+function __update_coefficients(d::LazyLindbladDissipator, p, cache=d.cache)
     rate = get(p, :rate, d.rate)
-    newlead = update_lead(d.lead, p)
+    newlead = __update_coefficients(d.lead, p)
     op = (; in=map((out, op) -> complex(ratetransform!(similar(out), cache, op, d.hamiltonian, newlead.T, newlead.μ)), d.op.in, newlead.jump_in),
         out=map((out, op) -> complex(ratetransform!(similar(out), cache, op, d.hamiltonian, newlead.T, -newlead.μ)), d.op.out, newlead.jump_out))
     opsquare = map((outops, leadops) -> map((out, x) -> mul!(similar(out), x', x), outops, leadops), d.opsquare, op)
@@ -38,13 +38,13 @@ function update_dissipator(d::LazyLindbladDissipator, p, cache=d.cache)
 end
 
 (d::LazyLindbladDissipator)(rho) = d * rho
-function (d::LazyLindbladDissipator)(rho, p, t)
+function (d::LazyLindbladDissipator)(rho, p)
     T = promote_type(eltype(d), eltype(rho))
     out = similar(rho, T)
-    d(out, rho, p, t)
+    d(out, rho, p)
 end
-function (d::LazyLindbladDissipator)(out, rho, p, t)
-    d = update_dissipator!(d, p)
+function (d::LazyLindbladDissipator)(out, rho, p)
+    d = __update_coefficients!(d, p)
     mul!(out, d, rho)
     return out
 end
@@ -89,28 +89,28 @@ function _nonhermitian_hamiltonian!(out, H, dissipators)
     return out
 end
 
-function (d::LazyLindbladSystem)(rho, p, t)
-    d = update_coefficients(d, p)
+function (d::LazyLindbladSystem)(rho, p)
+    d = __update_coefficients(d, p)
     d * rho
 end
-function (d::LazyLindbladSystem)(out, rho, p, t)
-    d = update_coefficients!(d, p)
+function (d::LazyLindbladSystem)(out, rho, p)
+    d = __update_coefficients!(d, p)
     mul!(out, d, rho)
     return out
 end
 (d::LazyLindbladSystem)(rho) = d * rho
 
-update_lazy_lindblad_system(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_lazy_lindblad_system!(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-function update_lazy_lindblad_system(L::LazyLindbladSystem, p)
-    _newdissipators = Dict(k => update_dissipator(L.dissipators[k], v) for (k, v) in pairs(p))
+__update_coefficients(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+__update_coefficients!(L::LazyLindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
+function __update_coefficients(L::LazyLindbladSystem, p)
+    _newdissipators = Dict(k => __update_coefficients(L.dissipators[k], v) for (k, v) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     nonhermitian_hamiltonian = _nonhermitian_hamiltonian(L.hamiltonian.original, newdissipators)
     LazyLindbladSystem(newdissipators, L.hamiltonian, nonhermitian_hamiltonian, L.cache)
 end
-function update_lazy_lindblad_system!(L::LazyLindbladSystem, p, cache=L.cache)
+function __update_coefficients!(L::LazyLindbladSystem, p, cache=L.cache)
     for (k, v) in pairs(p)
-        L.dissipators[k] = update_dissipator!(L.dissipators[k], v, cache)
+        L.dissipators[k] = __update_coefficients!(L.dissipators[k], v, cache)
     end
     _nonhermitian_hamiltonian!(L.nonhermitian_hamiltonian, L.hamiltonian.original, L.dissipators)
     L
@@ -183,15 +183,15 @@ tomatrix(rho::AbstractVector, ls::LazyLindbladSystem) = reshape(rho, size(ls.ham
 
 ## Stationary state and vector action
 function LinearOperator(L::LazyLindbladSystem, p=SciMLBase.NullParameters(); normalizer=false, kwargs...)
-    L = update_lazy_lindblad_system(L, p)
+    L = __update_coefficients(L, p)
     normalizer || return vec_FunctionOperator(L; p, kwargs...)
     return FunctionOperatorWithNormalizer(L; p, kwargs...)
 end
 
 function vec_action(d::LazyLindbladSystem)
     sz = size(d.hamiltonian)
-    _vec_action(u, p, t) = vec(d(reshape(u, sz...), p, t))
-    _vec_action(v, u, p, t) = vec(d(reshape(v, sz...), reshape(u, sz...), p, t))
+    _vec_action(u, _, p, t) = vec(d(reshape(u, sz...), p, t))
+    _vec_action(v, u, _, p, t) = vec(d(reshape(v, sz...), reshape(u, sz...), p, t))
     return _vec_action
 end
 
@@ -202,32 +202,32 @@ function vec_FunctionOperator(d::LazyLindbladSystem; p=SciMLBase.NullParameters(
 end
 function FunctionOperatorWithNormalizer(d::LazyLindbladSystem; p=SciMLBase.NullParameters(), kwargs...)
     sz = size(d.hamiltonian)
-    function vec_action(u, p, t)
-        um = reshape(u, sz...)
-        vm = d(um, p, t)
-        v = vec(vm)
-        push!(v, tr(um))
-        return v
-    end
     function vec_action(v, u, p, t)
-        vm = reshape(@view(v[1:end-1]), sz...)
-        um = reshape(u, sz...)
-        d(vm, um, p, t)
-        v[end] = tr(um)
-        return v
+        vm = reshape(v, sz...)
+        vm = d(vm, u, p, t)
+        w = vec(vm)
+        push!(w, tr(vm))
+        return w
+    end
+    function vec_action(w, v, u, p, t)
+        wm = reshape(@view(w[1:end-1]), sz...)
+        vm = reshape(v, sz...)
+        d(wm, vm, u, p, t)
+        w[end] = tr(vm)
+        return w
     end
     dadj = d'
-    function vec_action_adj(u, p, t)
-        vm = dadj(reshape(@view(u[1:end-1]), sz...), p, t)
-        add_diagonal!(vm, u[end])
+    function vec_action_adj(v, u, p, t)
+        vm = dadj(reshape(@view(v[1:end-1]), sz...), u, p, t)
+        add_diagonal!(vm, v[end])
         vec(vm)
     end
-    function vec_action_adj(v, u, p, t)
-        um = reshape(@view(u[1:end-1]), sz...)
-        vm = reshape(v, sz...)
-        dadj(vm, um, p, t)
-        add_diagonal!(vm, u[end])
-        vec(vm)
+    function vec_action_adj(w, v, u, p, t)
+        vm = reshape(@view(v[1:end-1]), sz...)
+        wm = reshape(w, sz...)
+        dadj(wm, vm, u, p, t)
+        add_diagonal!(wm, v[end])
+        vec(wm)
     end
     T = eltype(d)
     v = Vector{T}(undef, prod(size(d.hamiltonian)))
@@ -236,7 +236,7 @@ end
 
 
 ## SciML interface
-update_coefficients(d::LazyLindbladDissipator, p, t=nothing) = update_dissipator(d, p)
-update_coefficients!(d::LazyLindbladDissipator, p, t=nothing) = update_dissipator!(d, p)
-update_coefficients(L::LazyLindbladSystem, p, t=nothing) = update_lazy_lindblad_system(L, p)
-update_coefficients!(L::LazyLindbladSystem, p, t=nothing) = update_lazy_lindblad_system!(L, p)
+update_coefficients(d::LazyLindbladDissipator, u, p, t) = __update_coefficients(d, p)
+update_coefficients!(d::LazyLindbladDissipator, u, p, t) = __update_coefficients!(d, p)
+update_coefficients(L::LazyLindbladSystem, u, p, t) = __update_coefficients(L, p)
+update_coefficients!(L::LazyLindbladSystem, u, p, t) = __update_coefficients!(L, p)

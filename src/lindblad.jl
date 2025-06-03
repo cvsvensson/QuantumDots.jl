@@ -160,15 +160,19 @@ function superoperator!(superop, lead_op, diagham, T, μ, rate, vectorizer, cach
     return dissipator!(superop, op, rate, vectorizer, cache.superopcache, cache.kroncache, cache.mulcache, mode)
 end
 
-function update_coefficients(d::LindbladDissipator, p, tmp=d.cache)
+update_coefficients(d::LindbladDissipator, u, p, t; cache=d.cache) = __update_coefficients(d, p, cache)
+update_coefficients!(d::LindbladDissipator, u, p, t; cache=d.cache) = __update_coefficients!(d, p, cache)
+update_coefficients(L::LindbladSystem, u, p, t; cache=L.cache) = __update_coefficients(L, p, cache)
+update_coefficients!(L::LindbladSystem, u, p, t; cache=L.cache) = __update_coefficients!(L, p, cache)
+function __update_coefficients(d::LindbladDissipator, p, cache=d.cache)
     rate = get(p, :rate, d.rate)
-    newlead = update_lead(d.lead, p)
-    newsuperop = superoperator(newlead, d.matrixham, rate, d.vectorizer, tmp)
+    newlead = __update_coefficients(d.lead, p)
+    newsuperop = superoperator(newlead, d.matrixham, rate, d.vectorizer, cache)
     LindbladDissipator(newsuperop, rate, newlead, d.ham, d.matrixham, d.vectorizer, d.cache)
 end
-function update_coefficients!(d::LindbladDissipator, p, cache=d.cache)
+function __update_coefficients!(d::LindbladDissipator, p, cache=d.cache)
     rate = get(p, :rate, d.rate)
-    newlead = update_lead(d.lead, p)
+    newlead = __update_coefficients(d.lead, p)
     newsuperop = superoperator!(d.superop, newlead, d.matrixham, rate, d.vectorizer, cache)
     LindbladDissipator(newsuperop, rate, newlead, d.ham, d.matrixham, d.vectorizer, d.cache)
 end
@@ -190,18 +194,18 @@ function lindblad_matrix!(total, unitary, dissipators)
     return total
 end
 
-update_coefficients(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}) = L
-update_coefficients!(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache=L.cache) = L
-function update_coefficients(L::LindbladSystem, p, tmp=L.cache)
-    _newdissipators = Dict(k => update_coefficients(L.dissipators[k], d, tmp) for (k, d) in pairs(p))
+__update_coefficients(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache=L.cache) = L
+__update_coefficients!(L::LindbladSystem, ::Union{Nothing,SciMLBase.NullParameters}, cache=L.cache) = L
+function __update_coefficients(L::LindbladSystem, p, cache=L.cache)
+    _newdissipators = Dict(k => __update_coefficients(L.dissipators[k], d, cache) for (k, d) in pairs(p))
     newdissipators = merge(L.dissipators, _newdissipators)
     total = lindblad_matrix(L.unitary, newdissipators)
     LindbladSystem(total, L.unitary, newdissipators, L.vectorizer, L.hamiltonian, L.matrixhamiltonian, L.cache)
 end
-function update_coefficients!(L::LindbladSystem, p, cache=L.cache)
+function __update_coefficients!(L::LindbladSystem, p, cache=L.cache)
     isnothing(cache) && throw(ArgumentError("Cache is not initialized"))
-    for (k, v) in pairs(p)
-        L.dissipators[k] = update_coefficients!(L.dissipators[k], v, cache)
+    for (k, _p) in pairs(p)
+        L.dissipators[k] = __update_coefficients!(L.dissipators[k], _p, cache)
     end
     lindblad_matrix!(L.total, L.unitary, L.dissipators)
     L
@@ -210,17 +214,17 @@ end
 LinearOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer=false) = MatrixOperator(L, p; normalizer)
 
 function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normalizer, kwargs...)
-    A0 = Matrix(update_coefficients(L, p))
+    A0 = Matrix(__update_coefficients(L, p))
     A = normalizer ? lindblad_with_normalizer(A0, L.vectorizer) : A0
     MatrixOperator(A)
 end
 
-function (d::LindbladSystem)(rho, p, t)
-    d = update_coefficients(d, p)
+function (d::LindbladSystem)(rho, p)
+    d = __update_coefficients(d, p)
     d * rho
 end
-function (d::LindbladSystem)(out, rho, p, t)
-    d = update_coefficients!(d, p)
+function (d::LindbladSystem)(out, rho, p)
+    d = __update_coefficients(d, p)
     mul!(out, d, rho)
     return out
 end
@@ -352,17 +356,17 @@ Base.eltype(ls::LindbladDissipator) = eltype(ls.superop)
 
 @testitem "Lindblad updating" begin
     using LinearAlgebra
-    import QuantumDots: update_coefficients, update_coefficients!
+    import QuantumDots: __update_coefficients, __update_coefficients!
     H = Hermitian(rand(ComplexF64, 4, 4))
     leads = Dict([:lead => NormalLead(rand(ComplexF64, 4, 4); T=0.1, μ=0.5)])
-    P1 = LindbladSystem(H, leads; usecache = true)
-    P2 = update_coefficients(P1, Dict(:lead => Dict(:T => 0.2, :μ => 0.3)))
-    P3 = update_coefficients(P1, (; lead=(; T=0.2, μ=0.3)))
+    P1 = LindbladSystem(H, leads; usecache=true)
+    P2 = __update_coefficients(P1, Dict(:lead => Dict(:T => 0.2, :μ => 0.3)))
+    P3 = __update_coefficients(P1, (; lead=(; T=0.2, μ=0.3)))
     @test P1.total !== P2.total
     @test P2.total == P3.total
 
-    update_coefficients!(P3, (; lead = (; T = 0.3, μ = 0.4)))
-    P4 = update_coefficients(P1, (; lead = (; T = 0.3, μ = 0.4)))
+    __update_coefficients!(P3, (; lead=(; T=0.3, μ=0.4)))
+    P4 = __update_coefficients(P1, (; lead=(; T=0.3, μ=0.4)))
     @test P3.total == P4.total
     @test P1.total !== P4.total
 

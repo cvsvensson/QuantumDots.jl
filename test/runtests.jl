@@ -896,14 +896,14 @@ end
     @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
 
-    ls2 = QuantumDots.update_coefficients(ls, (; left=(; μ=0.1)))
+    ls2 = QuantumDots.__update_coefficients(ls, (; left=(; μ=0.1)))
     @test ls2.dissipators[:left].lead.μ ≈ 0.1
-    @test_throws ArgumentError QuantumDots.update_coefficients!(ls, (; left=(; μ=0.1)))
+    @test_throws ArgumentError QuantumDots.__update_coefficients!(ls, (; left=(; μ=0.1)))
 
     ls1 = LindbladSystem(hamiltonian, leads; usecache=true)
     lazyls1 = LazyLindbladSystem(hamiltonian, leads)
-    ls2 = QuantumDots.update_coefficients!(ls1, (; left=(; μ=0.1)))
-    lazyls2 = QuantumDots.update_coefficients!(lazyls1, (; left=(; μ=0.1)))
+    ls2 = QuantumDots.__update_coefficients!(ls1, (; left=(; μ=0.1)))
+    lazyls2 = QuantumDots.__update_coefficients!(lazyls1, (; left=(; μ=0.1)))
     @test ls2.dissipators[:left].lead.μ ≈ 0.1
     @test lazyls2.dissipators[:left].lead.μ ≈ 0.1
     @test ls1.dissipators[:left].lead.μ ≈ 0.1

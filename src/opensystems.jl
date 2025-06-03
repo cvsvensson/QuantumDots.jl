@@ -8,7 +8,7 @@ struct NormalLead{W1,W2,Opin,Opout} <: AbstractLead
 end
 NormalLead(jin, jout; T, μ) = NormalLead(T, μ, (jin,), (jout,))
 NormalLead(jin; T, μ) = NormalLead(jin, jin'; T, μ)
-function update_lead(lead, props)
+function __update_coefficients(lead, props)
     μ = get(props, :μ, lead.μ)
     T = get(props, :T, lead.T)
     NormalLead(T, μ, lead.jump_in, lead.jump_out)

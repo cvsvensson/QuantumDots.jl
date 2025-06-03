@@ -3,13 +3,13 @@ chem_derivative(backend, d::LindbladDissipator, args...) = chem_derivative(backe
 chem_derivative(backend, d::PauliDissipator, args...) = chem_derivative(backend, d -> Matrix(d), d, args...)
 
 function chem_derivative(backend, f::Function, d)
-    func = μ -> f(update_coefficients(d, (; μ), nothing))
+    func = μ -> f(__update_coefficients(d, (; μ), nothing))
     AD.derivative(backend, func, d.lead.μ)[1]
 end
 
 function chem_derivative(backend, f::Function, d, _p)
     p = _dissipator_params(d, _p)
-    func = μ -> f(update_coefficients(d, (; μ, T=p.T, rate=p.rate), nothing))
+    func = μ -> f(__update_coefficients(d, (; μ, T=p.T, rate=p.rate), nothing))
     AD.derivative(backend, func, p.μ)[1]
 end
 
@@ -37,7 +37,7 @@ end
 function conductance_matrix(dμ::Number, ls::AbstractOpenSystem, current_op)
     perturbations = [Dict(k => (; μ=d.lead.μ + dμ)) for (k, d) in pairs(ls.dissipators)]
     function get_current(pert)
-        newls = update_coefficients(ls, pert)
+        newls = __update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newls))
         measure(sol, current_op, newls)
     end
@@ -61,7 +61,7 @@ function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSys
     μs0 = [ls.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
         pert = Dict(k => (; μ=μs[n]) for (n, k) in enumerate(keys_iter))
-        newls = update_coefficients(ls, pert)
+        newls = __update_coefficients(ls, pert)
         sol = solve(StationaryStateProblem(newls))
         currents = measure(sol, current_op, newls)
         [real(currents(k)) for k in keys_iter]
