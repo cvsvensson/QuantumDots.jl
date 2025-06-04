@@ -32,9 +32,10 @@ function TSL_generator end
 function fermion_to_majorana end
 function majorana_to_fermion end
 
+include("Fock/fock.jl")
+include("Fock/phase_factors.jl")
+include("Fock/tensor_product.jl")
 include("structs.jl")
-include("fock.jl")
-include("phase_factors.jl")
 include("operators.jl")
 include("symmetry.jl")
 include("lattice.jl")
@@ -52,6 +53,7 @@ include("qubit.jl")
 include("pretty_print.jl")
 include("ad.jl")
 include("fermionic_tensor_product.jl")
+include("reshape.jl")
 include("symbolics/muladd.jl")
 include("symbolics/symbolic_fermions.jl")
 include("symbolics/symbolic_majoranas.jl")

@@ -1,25 +1,11 @@
 abstract type AbstractBasis end
 abstract type AbstractManyBodyBasis <: AbstractBasis end
+siteindex(label, b::AbstractManyBodyBasis) = siteindex(label, b.jw)
+siteindices(labels, b::AbstractManyBodyBasis) = siteindices(labels, b.jw)
+
 
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
-
-struct FockNumber
-    f::Int
-end
-FockNumber(f::FockNumber) = f
-struct JordanWignerOrdering{L}
-    labels::Vector{L}
-    ordering::OrderedDict{L,Int}
-    function JordanWignerOrdering(labels)
-        ls = collect(labels)
-        dict = OrderedDict(zip(ls, Base.OneTo(length(ls))))
-        new{eltype(ls)}(ls, dict)
-    end
-end
-Base.length(jw::JordanWignerOrdering) = length(jw.labels)
-Base.:(==)(jw1::JordanWignerOrdering, jw2::JordanWignerOrdering) = jw1.labels == jw2.labels && jw1.ordering == jw2.ordering
-Base.keys(jw::JordanWignerOrdering) = jw.labels
 
 struct FermionBasisTemplate{L,S}
     jw::JordanWignerOrdering{L}
@@ -27,6 +13,7 @@ struct FermionBasisTemplate{L,S}
 end
 Base.keys(b::FermionBasisTemplate) = keys(b.jw)
 indtofock(ind, b::FermionBasisTemplate) = indtofock(ind, b.sym)
+
 
 """
     struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
@@ -54,7 +41,7 @@ function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
     # sym_more_concrete = symmetry(fockstates, sym_concrete)
     reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
     d = OrderedDict(zip(labelvec, reps))
-    FermionBasis{M,typeof(d),typeof(sym_concrete),_label_type(jw)}(d, sym_concrete, jw)
+    FermionBasis{M,typeof(d),typeof(sym_concrete),eltype(jw)}(d, sym_concrete, jw)
 end
 Base.getindex(b::FermionBasis, i) = b.dict[i]
 Base.getindex(b::FermionBasis, args...) = b.dict[args]
@@ -67,6 +54,15 @@ Base.length(::FermionBasis{M}) where {M} = M
 Base.eltype(b::FermionBasis) = eltype(b.dict)
 Base.keytype(b::FermionBasis) = keytype(b.dict)
 symmetry(b::FermionBasis) = b.symmetry
+function ispartition(bs, b::FermionBasis)
+    partition = map(keys, bs)
+    ispartition(partition, b.jw)
+end
+function isorderedpartition(bs, b::FermionBasis)
+    partition = map(keys, bs)
+    isorderedpartition(partition, b.jw)
+end
+
 
 handle_labels(iter, iters...) = Base.product(iter, iters...)
 handle_labels(iter) = iter

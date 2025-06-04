@@ -121,100 +121,12 @@ function fermionic_kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockma
     return U * mout
 end
 
-"""
-    embedding_unitary(partition, fockstates, jw)
-
-    Compute the unitary matrix that maps between the tensor embedding and the fermionic embedding in the physical subspace. 
-    # Arguments
-    - `partition`: A partition of the labels in `jw` into disjoint sets.
-    - `fockstates`: The fock states in the basis
-    - `jw`: The Jordan-Wigner ordering.
-"""
-function embedding_unitary(partition, fockstates, jw::JordanWignerOrdering)
-    #for locally physical algebra, ie only for even operators or states of well-defined parity
-    #if ξ is ordered, the phases are +1. 
-    # Note that the jordan wigner modes are ordered in reverse from the labels, but this is taken care of by direction of the jwstring below
-    isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
-
-    phases = ones(Int, length(fockstates))
-    for (s, Xs) in enumerate(partition)
-        mask = focknbr_from_site_labels(Xs, jw)
-        for (r, Xr) in Iterators.drop(enumerate(partition), s)
-            for li in Xr
-                i = siteindex(li, jw)
-                for (n, f) in zip(eachindex(phases), fockstates)
-                    if _bit(f, i)
-                        phases[n] *= jwstring_anti(i, mask & f)
-                    end
-                end
-            end
-        end
-    end
-    return Diagonal(phases)
-end
 embedding_unitary(partition, c::FermionBasis) = embedding_unitary(partition, get_fockstates(c), c.jw)
 embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis) where {B<:FermionBasis,N} = embedding_unitary(map(keys, cs), c)
 
-function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrdering)
-    #(122a)
-    ispartition((X, Xbar), jw) || throw(ArgumentError("The partition must be ordered according to jw"))
-    # length(X) + length(Xbar) == length(jw.labels) || throw(ArgumentError("The union of the labels in X and Xbar must be the same as the labels in jw"))
-    # all(haskey(jw.ordering, k) for k in Iterators.flatten((X, Xbar))) || throw(ArgumentError("The labels in X and Xbar must be the same as the labels in jw"))
-    phases = ones(Int, length(fockstates))
-    mask = focknbr_from_site_labels(X, jw)
-    for li in Xbar
-        i = siteindex(li, jw)
-        for (n, f) in zip(eachindex(phases), fockstates)
-            if _bit(f, i)
-                phases[n] *= jwstring_anti(i, mask & f)
-            end
-        end
-    end
-    return Diagonal(phases)
-end
 bipartite_embedding_unitary(X, Xbar, c::FermionBasis) = bipartite_embedding_unitary(X, Xbar, get_fockstates(c), c.jw)
 bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis) = bipartite_embedding_unitary(keys(X), keys(Xbar), get_fockstates(c), c.jw)
 
-
-@testitem "Embedding unitary" begin
-    # Appendix C.4
-    import QuantumDots: embedding_unitary, canonical_embedding, bipartite_embedding_unitary
-    using LinearAlgebra
-    jw = JordanWignerOrdering(1:2)
-    fockstates = sort(map(FockNumber, 0:3), by=Base.Fix2(bits, 2))
-
-    @test embedding_unitary([[1], [2]], fockstates, jw) == I
-    @test embedding_unitary([[2], [1]], fockstates, jw) == Diagonal([1, 1, 1, -1])
-
-    # N = 3
-    jw = JordanWignerOrdering(1:3)
-    fockstates = sort(map(FockNumber, 0:7), by=Base.Fix2(bits, 3))
-    U(p) = embedding_unitary(p, fockstates, jw)
-    @test U([[1], [2], [3]]) == U([[1, 2], [3]]) == U([[1], [2, 3]]) == I
-
-    @test U([[2], [1], [3]]) == Diagonal([1, 1, 1, 1, 1, 1, -1, -1])
-    @test U([[2], [3], [1]]) == Diagonal([1, 1, 1, 1, 1, -1, -1, 1])
-    @test U([[3], [1], [2]]) == Diagonal([1, 1, 1, -1, 1, -1, 1, 1])
-    @test U([[3], [2], [1]]) == Diagonal([1, 1, 1, -1, 1, -1, -1, -1])
-    @test U([[1], [3], [2]]) == Diagonal([1, 1, 1, -1, 1, 1, 1, -1])
-
-    @test U([[2], [1, 3]]) == Diagonal([1, 1, 1, 1, 1, 1, -1, -1])
-    @test U([[3], [1, 2]]) == Diagonal([1, 1, 1, -1, 1, -1, 1, 1])
-
-    @test U([[1, 3], [2]]) == Diagonal([1, 1, 1, -1, 1, 1, 1, -1])
-    @test U([[2, 3], [1]]) == Diagonal([1, 1, 1, 1, 1, -1, -1, 1])
-
-    ##
-    cA = FermionBasis((1, 3))
-    cB = FermionBasis((2, 4))
-    c = FermionBasis((1, 2, 3, 4))
-    @test embedding_unitary((cA, cB), c) == embedding_unitary([[1, 3], [2, 4]], c)
-    @test fermionic_embedding(cA[1], cA, c) ≈ fermionic_kron((cA[1], I), (cA, cB), c) ≈ fermionic_kron((I, cA[1]), (cB, cA), c)
-    Ux = embedding_unitary((cA, cB), c)
-    Ux2 = bipartite_embedding_unitary(cA, cB, c)
-    @test Ux ≈ Ux2
-    @test fermionic_embedding(cA[1], cA, c) ≈ Ux * canonical_embedding(cA[1], cA, c) * Ux'
-end
 
 """
     fermionic_embedding(m, b, bnew)
@@ -355,7 +267,7 @@ end
     cs = [cX, cXbar]
     ops = [A, B]
     @test partial_trace(fermionic_kron(ops, cs, c), c, cX) ≈ partial_trace(wedge(ops, cs, c), c, cX) ≈
-    partial_trace(wedge(reverse(ops), reverse(cs), c), c, cX) ≈ A * tr(B)
+          partial_trace(wedge(reverse(ops), reverse(cs), c), c, cX) ≈ A * tr(B)
 
     # Eq. 39
     A = rand(ComplexF64, 2^N, 2^N)
@@ -633,3 +545,209 @@ end
 Base.kron(ms, bs, b::AbstractManyBodyBasis; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
 
 canonical_embedding(m, b, bnew) = fermionic_embedding(m, b, bnew, false)
+
+
+partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
+
+"""
+    partial_trace(m::AbstractMatrix,  bfull::AbstractBasis, bsub::AbstractBasis)
+
+Compute the partial trace of a matrix `m`, leaving the subsystem defined by the basis `bsub`.
+"""
+function partial_trace(m::AbstractMatrix{T}, b::AbstractBasis, bout::AbstractBasis, phase_factors=use_partial_trace_phase_factors(b, bout)) where {T}
+    N = length(get_fockstates(bout))
+    mout = zeros(T, N, N)
+    partial_trace!(mout, m, b, bout, phase_factors)
+end
+
+use_partial_trace_phase_factors(b1::FermionBasis, b2::FermionBasis) = true
+
+"""
+    partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors)
+
+Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `bout` determines the ordering of the basis states.
+"""
+function partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors=use_partial_trace_phase_factors(b, bout))
+    M = nbr_of_modes(b)
+    sym = symmetry(bout)
+    labels = collect(keys(bout))
+    if phase_factors
+        consistent_ordering(labels, b.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
+    end
+    N = length(labels)
+    fill!(mout, zero(eltype(mout)))
+    outinds = siteindices(labels, b.jw)
+    bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
+    outbits(f) = map(i -> _bit(f, i), outinds)
+    fockstates = get_fockstates(b)
+    for f1 in fockstates, f2 in fockstates
+        if (f1 & bitmask) != (f2 & bitmask)
+            continue
+        end
+        newfocknbr1 = focknbr_from_bits(outbits(f1))
+        newfocknbr2 = focknbr_from_bits(outbits(f2))
+        s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
+        s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, N) : 1
+        s = s2 * s1
+        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]
+    end
+    return mout
+end
+
+"""
+    partial_transpose(m::AbstractMatrix, b::AbstractManyBodyBasis, labels)
+
+Compute the fermionic partial transpose of a matrix `m` in subsystem denoted by `labels`.
+"""
+function partial_transpose(m::AbstractMatrix, b::AbstractManyBodyBasis, labels, phase_factors=use_partial_transpose_phase_factors(b))
+    mout = zero(m)
+    partial_transpose!(mout, m, b, labels, phase_factors)
+end
+function partial_transpose!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, labels, phase_factors=use_partial_transpose_phase_factors(b))
+    @warn "partial_transpose may not be physically meaningful" maxlog = 10
+    M = nbr_of_modes(b)
+    fill!(mout, zero(eltype(mout)))
+    outinds = siteindices(labels, b)
+    bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
+    outbits(f) = map(i -> _bit(f, i), outinds)
+    fockstates = get_fockstates(b)
+    for f1 in fockstates
+        f1R = (f1 & bitmask)
+        f1L = (f1 & ~bitmask)
+        for f2 in fockstates
+            f2R = (f2 & bitmask)
+            f2L = (f2 & ~bitmask)
+            newfocknbr1 = f2L + f1R
+            newfocknbr2 = f1L + f2R
+            s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
+            s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, M) : 1
+            s = s2 * s1
+            mout[focktoind(newfocknbr1, b), focktoind(newfocknbr2, b)] = s * m[focktoind(f1, b), focktoind(f2, b)]
+        end
+    end
+    return mout
+end
+use_partial_transpose_phase_factors(::FermionBasis) = true
+
+@testitem "Partial transpose" begin
+    using LinearAlgebra
+    import QuantumDots: partial_transpose
+    qn = ParityConservation()
+    c1 = FermionBasis(1:1; qn)
+    c2 = FermionBasis(2:2; qn)
+    c12 = FermionBasis(1:2; qn)
+
+    A = rand(ComplexF64, 2, 2)
+    B = rand(ComplexF64, 2, 2)
+    C = fermionic_kron((A, B), (c1, c2), c12)
+    Cpt = partial_transpose(C, c12, (1,))
+    Cpt2 = fermionic_kron((transpose(A), B), (c1, c2), c12)
+    @test Cpt ≈ Cpt2
+
+    ## Larger system
+    labels = 1:4
+    N = length(labels)
+    cN = FermionBasis(labels; qn)
+    cs = [FermionBasis(i:i; qn) for i in labels]
+    Ms = [rand(ComplexF64, 2, 2) for _ in labels]
+    M = fermionic_kron(Ms, cs, cN)
+
+    single_subsystems = [(i,) for i in 1:4]
+    for (k,) in single_subsystems
+        Mpt = partial_transpose(M, cN, (k,))
+        Mpt2 = fermionic_kron([(n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        @test Mpt ≈ Mpt2
+    end
+    pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i != j]
+    triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if length(unique((i, j, k))) == 3]
+    for (i, j) in pair_iterator
+        Mpt = partial_transpose(M, cN, (i, j))
+        Mpt2 = fermionic_kron([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        @test Mpt ≈ Mpt2
+    end
+    for (i, j, k) in triple_iterator
+        Mpt = partial_transpose(M, cN, (i, j, k))
+        Mpt2 = fermionic_kron([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], cs, cN)
+        @test Mpt ≈ Mpt2
+    end
+    Mpt = partial_transpose(M, cN, labels)
+    Mpt2 = fermionic_kron([transpose(M) for M in Ms], cs, cN)
+    @test Mpt ≈ Mpt2
+    @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
+    @test M ≈ partial_transpose(M, cN, ())
+
+    M = rand(ComplexF64, 2^N, 2^N)
+    pt(l, M) = partial_transpose(M, cN, l)
+    for (i, j) in pair_iterator
+        @test pt((i, j), M) ≈ pt((j, i), M) ≈ pt(j, pt(i, M)) ≈ pt(i, pt(j, M))
+    end
+    for (i, j, k) in triple_iterator
+        @test pt((i, j, k), M) ≈ pt((j, i, k), M) ≈ pt((j, k, i), M) ≈ pt((k, j, i), M) ≈ pt((k, i, j), M) ≈ pt((i, k, j), M) ≈ pt(i, pt(j, pt(k, M))) ≈ pt(j, pt(i, pt(k, M))) ≈ pt(k, pt(j, pt(i, M)))
+    end
+
+    @test pt((1, 2), M) ≈ pt((1, 2, 3, 4), pt((3, 4), M))
+    @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
+end
+
+FockSplitter(b::AbstractManyBodyBasis, bs) = FockSplitter(b.jw, map(b -> b.jw, bs))
+FockMapper(bs, b::AbstractManyBodyBasis) = FockMapper(map(b -> b.jw, bs), b.jw)
+use_reshape_phase_factors(b::FermionBasis, bs) = true
+
+function project_on_parities(op::AbstractMatrix, b, bs, parities)
+    length(bs) == length(parities) || throw(ArgumentError("The number of parities must match the number of subsystems"))
+    for (bsub, parity) in zip(bs, parities)
+        op = project_on_subparity(op, b, bsub, parity)
+    end
+    return op
+end
+
+function project_on_subparity(op::AbstractMatrix, b::FermionBasis, bsub::FermionBasis, parity)
+    P = fermionic_embedding(parityoperator(bsub), bsub, b)
+    return project_on_parity(op, P, parity)
+end
+
+project_on_parity(op::AbstractMatrix, b::FermionBasis, parity) = project_on_parity(op, parityoperator(b), parity)
+
+function project_on_parity(op::AbstractMatrix, P::AbstractMatrix, parity)
+    Peven = (I + P) / 2
+    Podd = (I - P) / 2
+    if parity == 1
+        return Peven * op * Peven + Podd * op * Podd
+    elseif parity == -1
+        return Podd * op * Peven + Peven * op * Podd
+    else
+        throw(ArgumentError("Parity must be either 1 or -1"))
+    end
+end
+
+@testitem "Parity projection" begin
+    bs = [FermionBasis(2k-1:2k) for k in 1:3]
+    b = wedge(bs)
+    op = rand(ComplexF64, size(first(b)))
+    local_parity_iter = (1, -1)
+    all_parities = Base.product([local_parity_iter for _ in 1:length(bs)]...)
+    @test sum(project_on_parities(op, b, bs, parities) for parities in all_parities) ≈ op
+
+    ops = [rand(ComplexF64, size(first(b))) for b in bs]
+    for parities in all_parities
+        projected_ops = [project_on_parity(op, bsub, parity) for (op, bsub, parity) in zip(ops, bs, parities)]
+        op = wedge(projected_ops, bs, b)
+        @test op ≈ project_on_parities(op, b, bs, parities)
+    end
+end
+
+
+@testitem "Embedding unitary action" begin
+    # Appendix C.4
+    import QuantumDots: embedding_unitary, canonical_embedding, bipartite_embedding_unitary
+    using LinearAlgebra
+    cA = FermionBasis((1, 3))
+    cB = FermionBasis((2, 4))
+    c = FermionBasis((1, 2, 3, 4))
+    @test embedding_unitary((cA, cB), c) == embedding_unitary([[1, 3], [2, 4]], c)
+    @test fermionic_embedding(cA[1], cA, c) ≈ fermionic_kron((cA[1], I), (cA, cB), c) ≈ fermionic_kron((I, cA[1]), (cB, cA), c)
+    Ux = embedding_unitary((cA, cB), c)
+    Ux2 = bipartite_embedding_unitary(cA, cB, c)
+    @test Ux ≈ Ux2
+    @test fermionic_embedding(cA[1], cA, c) ≈ Ux * canonical_embedding(cA[1], cA, c) * Ux'
+end

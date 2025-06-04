@@ -19,14 +19,7 @@ function consistent_ordering(subsystem, jw::JordanWignerOrdering)::Bool
     end
     return true
 end
-function ispartition(bs, b::FermionBasis)
-    partition = map(keys, bs)
-    ispartition(partition, b.jw)
-end
-function isorderedpartition(bs, b::FermionBasis)
-    partition = map(keys, bs)
-    isorderedpartition(partition, b.jw)
-end
+
 function ispartition(partition, jw::JordanWignerOrdering)
     length(jw) == sum(length, partition) || return false
     allunique(Iterators.flatten(partition)) || return false
