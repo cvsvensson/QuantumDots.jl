@@ -561,7 +561,7 @@ end
 end
 
 @testitem "Fast generated hamiltonians" begin
-    using Random, LinearAlgebra
+    using Random, LinearAlgebra, Symbolics
     Random.seed!(1234)
 
     N = 5
@@ -676,7 +676,7 @@ end
 
 @testitem "transport" begin
     using OrdinaryDiffEqTsit5, LinearSolve, Random, LinearAlgebra
-    import AbstractDifferentiation as AD
+    import DifferentiationInterface as AD
     using ForwardDiff, FiniteDifferences
     Random.seed!(1234)
 
@@ -684,7 +684,7 @@ end
         # using QuantumDots, Test, Pkg
         # Pkg.activate("./test")
         # using LinearSolve, LinearAlgebra
-        # import AbstractDifferentiation as AD, ForwardDiff, FiniteDifferences
+        # import DifferentiationInterface as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
         # qn = QuantumDots.parity
         N = 1
@@ -738,8 +738,8 @@ end
         @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, particle_number, ls)
-        cm = conductance_matrix(AD.ForwardDiffBackend(), ls, ρinternal, particle_number)
-        cm2 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, particle_number)
+        cm = conductance_matrix(AD.AutoForwardDiff(), ls, ρinternal, particle_number)
+        cm2 = conductance_matrix(AD.AutoFiniteDifferences(FiniteDifferences.central_fdm(3, 1)), ls, particle_number)
         cm3 = conductance_matrix(1e-5, ls, particle_number)
         @test norm(cm - cm2) < 1e-3
         @test norm(cm - cm3) < 1e-3
@@ -762,8 +762,8 @@ end
         @test rate_current ≈ QuantumDots.get_currents(ρ_pauli_internal, pauli)
         @test numeric_current(:left) / numeric_current(:right) ≈ rate_current(:left) / rate_current(:right)
 
-        cmpauli = conductance_matrix(AD.ForwardDiffBackend(), pauli, ρ_pauli_internal)
-        cmpauli2 = conductance_matrix(AD.FiniteDifferencesBackend(), pauli)
+        cmpauli = conductance_matrix(AD.AutoForwardDiff(), pauli, ρ_pauli_internal)
+        cmpauli2 = conductance_matrix(AD.AutoFiniteDifferences(FiniteDifferences.central_fdm(3, 1)), pauli)
         cmpauli3 = conductance_matrix(1e-5, pauli)
 
         @test norm(cmpauli - cmpauli2) < 1e-3
@@ -776,7 +776,7 @@ end
         @test all(diff([tr(tomatrix(sol(t), ls)^2) for t in 0:0.1:1]) .> 0)
         @test norm(ρinternal - sol(100)) < 1e-3
 
-        prob = ODEProblem((du, u, p, t) -> ls_cache(du, u, p, t), QuantumDots.internal_rep(I / 2^N, ls), (0, 100))
+        prob = ODEProblem((du, u, p, t) -> ls_cache(du, u, p), QuantumDots.internal_rep(I / 2^N, ls), (0, 100))
         sol_cache = solve(prob, Tsit5())
         @test norm(sol(100) - sol_cache(100)) < 1e-8
 
@@ -893,8 +893,8 @@ end
     @test ls2(similar(out), um, Dict(:left => (; μ=1.0)), nothing) ≈ ls(um, Dict(:left => (; μ=1)), nothing)
 
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
-    @test_broken conductance_matrix(AD.FiniteDifferencesBackend(), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
-    @test_broken cm2 = conductance_matrix(AD.ForwardDiffBackend(), lazyls, ρinternal2, particle_number) #Same as above
+    @test_broken conductance_matrix(AD.AutoFiniteDifferences(central_fdm(3,1)), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
+    @test_broken cm2 = conductance_matrix(AD.AutoForwardDiff(), lazyls, ρinternal2, particle_number) #Same as above
 
     ls2 = QuantumDots.__update_coefficients(ls, (; left=(; μ=0.1)))
     @test ls2.dissipators[:left].lead.μ ≈ 0.1

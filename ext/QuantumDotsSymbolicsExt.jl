@@ -1,11 +1,18 @@
 module QuantumDotsSymbolicsExt
 
-using QuantumDots, Symbolics
+using QuantumDots, Symbolics, LinearAlgebra
 using QuantumDots.BlockDiagonals
 import QuantumDots: fastgenerator, fastblockdiagonal, TSL_generator,
     NoSymmetry, TSL_hamiltonian, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
     SymbolicMajoranaBasis, SymbolicFermionBasis
 
+function Symbolics._recursive_unwrap(val::Hermitian) # Fix for Symbolics >v.6.32
+    if Symbolics.symbolic_type(val) == Symbolics.NotSymbolic() && val isa Union{AbstractArray,Tuple}
+        return Symbolics._recursive_unwrap.(val)
+    else
+        return Symbolics.unwrap(val)
+    end
+end
 function fastgenerator(gen, N)
     @variables x[1:N]
     m = gen(x...)

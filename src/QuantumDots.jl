@@ -6,7 +6,7 @@ import FillArrays: Eye, Zeros
 using StaticArrays
 using SkewLinearAlgebra
 import OrderedCollections: OrderedDict
-import AbstractDifferentiation as AD
+import DifferentiationInterface
 using TestItems
 using TermInterface
 
