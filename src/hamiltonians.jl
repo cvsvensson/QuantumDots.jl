@@ -37,8 +37,9 @@ _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
     N = nbr_of_modes(c)
-    h1s = (_kitaev_1site(c[j]; μ=getvalue(μ, j, N)) for j in 1:N)
-    h2s = (_kitaev_2site(c[j], c[mod1(j + 1, N)]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
+    indices = collect(keys(c))
+    h1s = (_kitaev_1site(c[k]; μ=getvalue(μ, j, N)) for (j, k) in enumerate(indices))
+    h2s = (_kitaev_2site(c[k], c[indices[mod1(j + 1, N)]]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for (j,k) in enumerate(indices))
     sum(h1s) + sum(h2s)
 end
 
