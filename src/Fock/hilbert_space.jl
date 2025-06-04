@@ -10,7 +10,7 @@ struct FockHilbertSpace{L,F,I} <: AbstractFockHilbertSpace
     focknumbers::F
     focktoind::I
     fermionic::Bool
-    function FockHilbertSpace(labels, focknumbers::F=Iterators.map(FockNumber, 0:2^length(labels)-1), fermionic=true) where F
+    function FockHilbertSpace(labels, focknumbers::F=map(FockNumber, 0:2^length(labels)-1), fermionic=true) where F
         jw = JordanWignerOrdering(labels)
         focktoind = Dict(reverse(pair) for pair in enumerate(focknumbers))
         new{eltype(jw),F,typeof(focktoind)}(jw, focknumbers, focktoind, fermionic)

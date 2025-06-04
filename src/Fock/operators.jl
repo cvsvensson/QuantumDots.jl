@@ -102,40 +102,41 @@ end
 
 @testitem "Parity and number operator" begin
     using LinearAlgebra
-    using QuantumDots: FockHilbertSpace, parityoperator, numberoperator, SymmetricFockHilbertSpace
+    using QuantumDots: FockHilbertSpace, parityoperator, numberoperator, SymmetricFockHilbertSpace, fermion_sparse_matrix
+    numopvariant(H) = sum(l -> fermion_sparse_matrix(l, H)' * fermion_sparse_matrix(l, H), 1:2)
     H = FockHilbertSpace(1:2)
     @test parityoperator(H) == Diagonal([1, -1, -1, 1])
-    @test numberoperator(H) == Diagonal([0, 1, 1, 2])
+    @test numberoperator(H) == Diagonal([0, 1, 1, 2]) == numopvariant(H)
 
-    Hpar = SymmetricFockHilbertSpace(1:2, ParityConservation())
-    @test parityoperator(Hpar) == Diagonal([-1, -1, 1, 1])
-    @test numberoperator(Hpar) == Diagonal([1, 1, 0, 2])
+    H = SymmetricFockHilbertSpace(1:2, ParityConservation())
+    @test parityoperator(H) == Diagonal([-1, -1, 1, 1])
+    @test numberoperator(H) == Diagonal([1, 1, 0, 2]) == numopvariant(H)
 
-    Hnum = SymmetricFockHilbertSpace(1:2, FermionConservation())
-    @test parityoperator(Hnum) == Diagonal([1, -1, -1, 1])
-    @test numberoperator(Hnum) == Diagonal([0, 1, 1, 2])
+    H = SymmetricFockHilbertSpace(1:2, FermionConservation())
+    @test parityoperator(H) == Diagonal([1, -1, -1, 1])
+    @test numberoperator(H) == Diagonal([0, 1, 1, 2]) == numopvariant(H)
 
     ## Truncated Hilbert space
     focknumbers = map(FockNumber, 0:2)
     H = FockHilbertSpace(1:2, focknumbers)
     @test parityoperator(H) == Diagonal([1, -1, -1])
     @test numberoperator(H) == Diagonal([0, 1, 1])
-    Hpar = SymmetricFockHilbertSpace(1:2, ParityConservation(), focknumbers)
-    @test parityoperator(Hpar) == Diagonal([-1, -1, 1])
-    @test numberoperator(Hpar) == Diagonal([1, 1, 0])
-    Hnum = SymmetricFockHilbertSpace(1:2, FermionConservation(), focknumbers)
-    @test parityoperator(Hnum) == Diagonal([1, -1, -1])
-    @test numberoperator(Hnum) == Diagonal([0, 1, 1])
+    H = SymmetricFockHilbertSpace(1:2, ParityConservation(), focknumbers)
+    @test parityoperator(H) == Diagonal([-1, -1, 1])
+    @test numberoperator(H) == Diagonal([1, 1, 0])
+    H = SymmetricFockHilbertSpace(1:2, FermionConservation(), focknumbers)
+    @test parityoperator(H) == Diagonal([1, -1, -1])
+    @test numberoperator(H) == Diagonal([0, 1, 1])
 
     focknumbers = map(FockNumber, 2:2)
     H = FockHilbertSpace(1:2, focknumbers)
     @test parityoperator(H) == Diagonal([-1])
     @test numberoperator(H) == Diagonal([1])
-    Hpar = SymmetricFockHilbertSpace(1:2, ParityConservation(), focknumbers)
-    @test parityoperator(Hpar) == Diagonal([-1])
-    @test numberoperator(Hpar) == Diagonal([1])
-    Hnum = SymmetricFockHilbertSpace(1:2, FermionConservation(), focknumbers)
-    @test parityoperator(Hnum) == Diagonal([-1])
-    @test numberoperator(Hnum) == Diagonal([1])
+    H = SymmetricFockHilbertSpace(1:2, ParityConservation(), focknumbers)
+    @test parityoperator(H) == Diagonal([-1])
+    @test numberoperator(H) == Diagonal([1])
+    H = SymmetricFockHilbertSpace(1:2, FermionConservation(), focknumbers)
+    @test parityoperator(H) == Diagonal([-1])
+    @test numberoperator(H) == Diagonal([1])
 
 end
