@@ -15,8 +15,8 @@ function wedge(b1::FermionBasis, b2::FermionBasis)
     FermionBasis(newlabels; qn)
 end
 
-promote_symmetry(s1::AbelianFockSymmetry{<:Any,<:Any,<:Any,F}, s2::AbelianFockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
-promote_symmetry(::AbelianFockSymmetry{<:Any,<:Any,<:Any,F1}, ::AbelianFockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
+promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F}, s2::FockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
+promote_symmetry(::FockSymmetry{<:Any,<:Any,<:Any,F1}, ::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
 promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
 promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
 promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()
@@ -32,7 +32,7 @@ end
 
 get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
 get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
-get_fockstates(sym::AbelianFockSymmetry) = sym.indtofockdict
+get_fockstates(sym::FockSymmetry) = sym.indtofockdict
 get_fockstates(b::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = get_fockstates(b.sym)
 get_fockstates(b::FermionBasisTemplate{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(keys(b))-1)
 """

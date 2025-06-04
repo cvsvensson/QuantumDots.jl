@@ -3,10 +3,6 @@ abstract type AbstractManyBodyBasis <: AbstractBasis end
 siteindex(label, b::AbstractManyBodyBasis) = siteindex(label, b.jw)
 siteindices(labels, b::AbstractManyBodyBasis) = siteindices(labels, b.jw)
 
-
-abstract type AbstractSymmetry end
-struct NoSymmetry <: AbstractSymmetry end
-
 struct FermionBasisTemplate{L,S}
     jw::JordanWignerOrdering{L}
     sym::S
@@ -83,30 +79,6 @@ function Base.:(==)(b1::FermionBasis, b2::FermionBasis)
     end
     return true
 end
-
-"""
-    struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
-
-AbelianFockSymmetry represents a symmetry that is diagonal in fock space, i.e. particle number conservation, parity, spin consvervation.
-
-## Fields
-- `indtofockdict::IF`: A dictionary mapping indices to Fock states.
-- `focktoinddict::FI`: A dictionary mapping Fock states to indices.
-- `qntoblocksizes::Dictionary{QN,Int}`: A dictionary mapping quantum numbers to block sizes.
-- `qntofockstates::Dictionary{QN,Vector{Int}}`: A dictionary mapping quantum numbers to Fock states.
-- `qntoinds::Dictionary{QN,Vector{Int}}`: A dictionary mapping quantum numbers to indices.
-- `conserved_quantity::QNfunc`: A function that computes the conserved quantity from a fock number.
-"""
-struct AbelianFockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
-    indtofockdict::IF
-    focktoinddict::FI
-    qntoblocksizes::Dictionary{QN,Int}
-    qntofockstates::Dictionary{QN,Vector{FockNumber}}
-    qntoinds::Dictionary{QN,Vector{Int}}
-    conserved_quantity::QNfunc
-end
-
-Base.:(==)(sym1::AbelianFockSymmetry, sym2::AbelianFockSymmetry) = sym1.indtofockdict == sym2.indtofockdict && sym1.focktoinddict == sym2.focktoinddict && sym1.qntoblocksizes == sym2.qntoblocksizes && sym1.qntofockstates == sym2.qntofockstates && sym1.qntoinds == sym2.qntoinds && sym1.conserved_quantity == sym2.conserved_quantity
 
 ##BdG
 abstract type AbstractBdGFermion end

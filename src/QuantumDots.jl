@@ -35,9 +35,10 @@ function majorana_to_fermion end
 include("Fock/fock.jl")
 include("Fock/phase_factors.jl")
 include("Fock/tensor_product.jl")
+include("Fock/hilbert_space.jl")
+include("Fock/symmetry.jl")
+include("Fock/operators.jl")
 include("structs.jl")
-include("operators.jl")
-include("symmetry.jl")
 include("lattice.jl")
 include("opensystems.jl")
 include("vectorizers.jl")
@@ -62,20 +63,20 @@ include("symbolics/symbolic_majoranas.jl")
 import PrecompileTools
 
 PrecompileTools.@compile_workload begin
-    c1 = FermionBasis(1:2)
-    c2 = FermionBasis(1:1, (:s,); qn=ParityConservation())
-    blockdiagonal(c2[1, :s], c2)
-    c3 = FermionBasis(3:3; qn=FermionConservation())
-    partial_trace(rand(2^2), c1, FermionBasis(1:1))
-    c = wedge(c1, c3)
-    cs = (c1, c3)
-    reshape(wedge((first(c1), first(c3)), cs, c), c, cs)
-    cbdg = FermionBdGBasis(1:1, (:s,))
-    BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
-    @fermions f
-    QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
-    @majoranas γ
-    (γ[1] * γ[2] + 1 + γ[1])^2
+    # c1 = FermionBasis(1:2)
+    # c2 = FermionBasis(1:1, (:s,); qn=ParityConservation())
+    # blockdiagonal(c2[1, :s], c2)
+    # c3 = FermionBasis(3:3; qn=FermionConservation())
+    # partial_trace(rand(2^2), c1, FermionBasis(1:1))
+    # c = wedge(c1, c3)
+    # cs = (c1, c3)
+    # reshape(wedge((first(c1), first(c3)), cs, c), c, cs)
+    # cbdg = FermionBdGBasis(1:1, (:s,))
+    # BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
+    # @fermions f
+    # QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
+    # @majoranas γ
+    # (γ[1] * γ[2] + 1 + γ[1])^2
 end
 
 end

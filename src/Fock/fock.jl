@@ -12,13 +12,13 @@ struct JordanWignerOrdering{L}
         new{eltype(ls)}(ls, dict)
     end
 end
-
+JordanWignerOrdering(jw::JordanWignerOrdering) = jw
 Base.length(jw::JordanWignerOrdering) = length(jw.labels)
 Base.:(==)(jw1::JordanWignerOrdering, jw2::JordanWignerOrdering) = jw1.labels == jw2.labels && jw1.ordering == jw2.ordering
 Base.keys(jw::JordanWignerOrdering) = jw.labels
 Base.iterate(jw::JordanWignerOrdering) = iterate(jw.labels)
 Base.iterate(jw::JordanWignerOrdering, state) = iterate(jw.labels, state)
-Base.eltype(::JordanWignerOrdering{L}) = L
+Base.eltype(::JordanWignerOrdering{L}) where L = L
 
 siteindex(label, ordering::JordanWignerOrdering) = ordering.ordering[label]
 siteindices(labels, jw::JordanWignerOrdering) = map(Base.Fix2(siteindex, jw), labels)

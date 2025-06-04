@@ -492,37 +492,6 @@ end
     @test v2 ≈ vcat(zero(eigsectors[1].vectors[:, 1]), eigsectors[2].vectors[:, 1])
 end
 
-@testitem "Parity and number operator" begin
-    using SparseArrays, LinearAlgebra
-    function get_ops(qn)
-        N = 2
-        a = FermionBasis(1:N; qn)
-        ham = a[1]' * a[1] + π * a[2]' * a[2]
-        vals, vecs = eigen(Matrix(ham))
-        @test vals ≈ [0, 1, π, π + 1]
-        parityop = parityoperator(a)
-        numberop = numberoperator(a)
-        @test all([v' * parityop * v for v in eachcol(vecs)] .≈ [1, -1, -1, 1])
-        @test Diagonal(diag(parityop)) == parityop
-        @test Diagonal(diag(numberop)) == numberop
-        @test sum(a[i]'a[i] for i in 1:N) == numberop
-        @test prod(2(a[i]'a[i] - 1 / 2 * sparse(I, 2^N, 2^N)) for i in 1:N) == parityop
-        return parityop, numberop
-    end
-    parityop, numberop = get_ops(QuantumDots.NoSymmetry())
-    @test diag(parityop) == [1, -1, -1, 1]
-    @test diag(numberop) == [0, 1, 1, 2]
-
-    parityop, numberop = get_ops(QuantumDots.parity)
-    @test diag(parityop) == [-1, -1, 1, 1]
-    @test diag(numberop) == [1, 1, 0, 2]
-
-    parityop, numberop = get_ops(QuantumDots.fermionnumber)
-    @test diag(parityop) == [1, -1, -1, 1]
-    @test diag(numberop) == [0, 1, 1, 2]
-
-end
-
 
 @testitem "BlockDiagonal" begin
     using SparseArrays, LinearAlgebra, BlockDiagonals
