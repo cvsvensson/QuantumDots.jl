@@ -113,26 +113,25 @@ end
 
 
 """
-    fermionic_embedding(m, b, bnew)
+    embedding(m, b, bnew)
 
 Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis `bnew`.
 """
-function fermionic_embedding(m, H::AbstractFockHilbertSpace, Hnew, phase_factors=isfermionic(H))
+function embedding(m, H::AbstractFockHilbertSpace, Hnew, phase_factors=isfermionic(H))
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    # check if Hnew is the joint system or the extension
-    if isorderedsubsystem(H, Hnew)
-        bbar_labs = setdiff(collect(keys(Hnew)), collect(keys(H))) # arrays to keep order
-        bbar = SimpleFockHilbertSpace(JordanWignerOrdering(bbar_labs)) # FockHilbertSpace actually iterates over and stores focknumbers. Should avoid this.
-        Hs = (H, bbar)
-        return fermionic_kron((m, I), Hs, Hnew, phase_factors)
-    elseif isdisjoint(keys(H), keys(Hnew))
-        Hs = (H, Hnew)
-        Hout = wedge(Hs)
-        return fermionic_kron((m, I), Hs, Hout, phase_factors)
-    else
-        throw(ArgumentError("Can't embed $H into $Hnew"))
-    end
+    isorderedsubsystem(H, Hnew) || throw(ArgumentError("Can't embed $H into $Hnew"))
+    bbar_labs = setdiff(collect(keys(Hnew)), collect(keys(H))) # arrays to keep order
+    bbar = SimpleFockHilbertSpace(bbar_labs)
+    Hs = (H, bbar)
+    return fermionic_kron((m, I), Hs, Hnew, phase_factors)
 end
+function extension(m, H::AbstractFockHilbertSpace, Hbar, phase_factors=isfermionic(H))
+    isdisjoint(keys(H), keys(Hbar)) || throw(ArgumentError("The bases of the two Hilbert spaces must be disjoint"))
+    Hs = (H, Hnew)
+    Hout = wedge(Hs)
+    return fermionic_kron((m, I), Hs, Hout, phase_factors)
+end
+embedding(Hs::Pair{<:AbstractFockHilbertSpace,<:AbstractFockHilbertSpace}, phase_factors=isfermionic(first(Hs))) = m -> embedding(m, first(Hs), last(Hs), phase_factors)
 
 """
     wedge(ms, bs, b)
@@ -142,15 +141,20 @@ Compute the ordered product of the fermionic embeddings of the matrices `ms` in 
 function wedge(ms, Hs, H)
     # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
     isorderedpartition(Hs, H) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
-    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, H), *, zip(ms, Hs))
+    return mapreduce(((m, fine_basis),) -> embedding(m, fine_basis, H), *, zip(ms, Hs))
 end
-
+wedge(ms, HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = wedge(ms, first(HsH), last(HsH))
+function wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace})
+    _wedge(ms) = wedge(ms, first(HsH), last(HsH))
+    _wedge(ms...) = wedge(ms, first(HsH), last(HsH))
+    return _wedge
+end
 
 @testitem "Fermionic tensor product properties" begin
     # Properties from J. Phys. A: Math. Theor. 54 (2021) 393001
     # Eq. 16
     using Random, Base.Iterators, LinearAlgebra
-    import QuantumDots: fermionic_embedding, wedge, embedding_unitary, canonical_embedding
+    import QuantumDots: embedding, wedge, embedding_unitary, canonical_embedding
 
     Random.seed!(1)
     N = 7
@@ -192,16 +196,16 @@ end
     ξ = vcat(fine_partitions...)
     ξbases = vcat(cs_fine...)
     modebases = [FermionBasis(j:j) for j in 1:N]
-    lhs = prod(j -> fermionic_embedding(As_modes[j], modebases[j], c), 1:N)
-    rhs_ordered_prod(X, basis) = mapreduce(j -> fermionic_embedding(As_modes[j], modebases[j], basis), *, X)
+    lhs = prod(j -> embedding(As_modes[j], modebases[j], c), 1:N)
+    rhs_ordered_prod(X, basis) = mapreduce(j -> embedding(As_modes[j], modebases[j], basis), *, X)
     rhs = fermionic_kron([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
     @test lhs ≈ rhs
 
     # Associativity (Eq. 21)
-    @test fermionic_embedding(fermionic_embedding(ops_fine[1][1], cs_fine[1][1], cs_rough[1]), cs_rough[1], c) ≈ fermionic_embedding(ops_fine[1][1], cs_fine[1][1], c)
+    @test embedding(embedding(ops_fine[1][1], cs_fine[1][1], cs_rough[1]), cs_rough[1], c) ≈ embedding(ops_fine[1][1], cs_fine[1][1], c)
     @test all(map(cs_rough, cs_fine, ops_fine) do cr, cfs, ofs
         all(map(cfs, ofs) do cf, of
-            fermionic_embedding(fermionic_embedding(of, cf, cr), cr, c) ≈ fermionic_embedding(of, cf, c)
+            embedding(embedding(of, cf, cr), cr, c) ≈ embedding(of, cf, c)
         end)
     end)
 
@@ -210,7 +214,7 @@ end
     Ux = embedding_unitary(rough_partitions, c)
     A = ops_rough[1]
     @test Ux !== I
-    @test fermionic_embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
+    @test embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
     # Eq. 93
     @test wedge(physical_ops_rough, cs_rough, c) ≈ Ux * kron(physical_ops_rough, cs_rough, c) * Ux'
 
@@ -220,13 +224,13 @@ end
     A = ops_rough[1]
     B = rand(ComplexF64, 2^length(X), 2^length(X))
     #Eq 5a and 5br are satisfied also when embedding matrices in larger subsystems
-    @test fermionic_embedding(A, cX, c)' ≈ fermionic_embedding(A', cX, c)
+    @test embedding(A, cX, c)' ≈ embedding(A', cX, c)
     @test canonical_embedding(A, cX, c) * canonical_embedding(B, cX, c) ≈ canonical_embedding(A * B, cX, c)
     for cmode in modebases
         #Eq 5bl
         local A = rand(ComplexF64, 2, 2)
         local B = rand(ComplexF64, 2, 2)
-        @test fermionic_embedding(A, cmode, c) * fermionic_embedding(B, cmode, c) ≈ fermionic_embedding(A * B, cmode, c)
+        @test embedding(A, cmode, c) * embedding(B, cmode, c) ≈ embedding(A * B, cmode, c)
     end
 
     # Ordered product of embeddings
@@ -237,7 +241,7 @@ end
     Xbar = setdiff(1:N, X)
     cX = cs_rough[1]
     cXbar = FermionBasis(Xbar)
-    corr = fermionic_embedding(A, cX, c)
+    corr = embedding(A, cX, c)
     @test corr ≈ fermionic_kron([A, I], [cX, cXbar], c) ≈ wedge([A, I], [cX, cXbar], c) ≈ wedge([I, A], [cXbar, cX], c)
 
     # Eq. 32
@@ -250,7 +254,7 @@ end
     A = ops_rough[1]
     B = rand(ComplexF64, 2^N, 2^N)
     cX = cs_rough[1]
-    lhs = tr(fermionic_embedding(A, cX, c)' * B)
+    lhs = tr(embedding(A, cX, c)' * B)
     rhs = tr(A' * partial_trace(B, c, cX))
     @test lhs ≈ rhs
 
@@ -537,10 +541,8 @@ end
 ## kron, i.e. wedge without phase factors
 Base.kron(ms, bs, b::AbstractManyBodyBasis; kwargs...) = fermionic_kron(ms, bs, b, false; kwargs...)
 
-canonical_embedding(m, b, bnew) = fermionic_embedding(m, b, bnew, false)
+canonical_embedding(m, b, bnew) = embedding(m, b, bnew, false)
 
-
-partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
 
 """
     partial_trace(m::AbstractMatrix,  bfull::AbstractBasis, bsub::AbstractBasis)
@@ -554,10 +556,13 @@ end
 
 use_partial_trace_phase_factors(b1::AbstractHilbertSpace, b2::AbstractHilbertSpace) = use_wedge_phase_factors((b1,), b2)
 
-"""
-    partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors)
+partial_trace(Hs::Pair{AbstractHilbertSpace,AbstractHilbertSpace}, phase_factors=use_partial_trace_phase_factors(first(Hs), last(Hs))) = m -> partial_trace(m, first(Hs), last(Hs), phase_factors)
+partial_trace(m, Hs::Pair{AbstractHilbertSpace,AbstractHilbertSpace}, phase_factors=use_partial_trace_phase_factors(first(Hs), last(Hs))) = partial_trace(m, first(Hs), last(Hs), phase_factors)
 
-Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `bout` determines the ordering of the basis states.
+"""
+    partial_trace!(mout, m::AbstractMatrix, H::AbstractManyBodyBasis, Hout::AbstractManyBodyBasis, phase_factors)
+
+Compute the fermionic partial trace of a matrix `m` in basis `H`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `Hout` determines the ordering of the basis states.
 """
 function partial_trace!(mout, m::AbstractMatrix, H::AbstractHilbertSpace, Hout::AbstractHilbertSpace, phase_factors=use_partial_trace_phase_factors(H, Hout))
     M = length(H.jw)
@@ -693,7 +698,7 @@ function project_on_parities(op::AbstractMatrix, b, bs, parities)
 end
 
 function project_on_subparity(op::AbstractMatrix, H::AbstractHilbertSpace, Hsub::AbstractHilbertSpace, parity)
-    P = fermionic_embedding(parityoperator(Hsub), Hsub, H)
+    P = embedding(parityoperator(Hsub), Hsub, H)
     return project_on_parity(op, P, parity)
 end
 
@@ -736,9 +741,9 @@ end
     cB = FermionBasis((2, 4))
     c = FermionBasis((1, 2, 3, 4))
     @test embedding_unitary((cA, cB), c) == embedding_unitary([[1, 3], [2, 4]], c)
-    @test fermionic_embedding(cA[1], cA, c) ≈ fermionic_kron((cA[1], I), (cA, cB), c) ≈ fermionic_kron((I, cA[1]), (cB, cA), c)
+    @test embedding(cA[1], cA, c) ≈ fermionic_kron((cA[1], I), (cA, cB), c) ≈ fermionic_kron((I, cA[1]), (cB, cA), c)
     Ux = embedding_unitary((cA, cB), c)
     Ux2 = bipartite_embedding_unitary(cA, cB, c)
     @test Ux ≈ Ux2
-    @test fermionic_embedding(cA[1], cA, c) ≈ Ux * canonical_embedding(cA[1], cA, c) * Ux'
+    @test embedding(cA[1], cA, c) ≈ Ux * canonical_embedding(cA[1], cA, c) * Ux'
 end

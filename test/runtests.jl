@@ -182,12 +182,13 @@ end
 
 
 @testitem "Fermionic partial trace" begin
-    using LinearAlgebra
-    using LinearMaps
+    using LinearAlgebra, LinearMaps
 
     function test_adjoint(Hsub, H)
-        ptmap = LinearMap(rhovec -> vec(partial_trace(reshape(rhovec, size(H)), H, Hsub)), prod(size(Hsub)), prod(size(H)))
-        embeddingmap = LinearMap(rhovec -> vec(fermionic_embedding(reshape(rhovec, size(Hsub)), Hsub, H)), prod(size(H)), prod(size(Hsub)))
+        pt = partial_trace(H => Hsub)
+        embed = fermionic_embedding(Hsub => H)
+        ptmap = LinearMap(rhovec -> vec(pt(reshape(rhovec, size(H)))), prod(size(Hsub)), prod(size(H)))
+        embeddingmap = LinearMap(rhovec -> vec(embed(reshape(rhovec, size(Hsub)))), prod(size(H)), prod(size(Hsub)))
         @test Matrix(ptmap) ≈ Matrix(embeddingmap)'
     end
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
@@ -924,36 +925,4 @@ end
           Matrix(QuantumDots.khatri_rao_lazy_commutator(m, kv)) ≈
           Matrix(QuantumDots.khatri_rao_lazy_commutator(bdm, kv))
 
-end
-
-@testitem "TSL" begin
-    using Random, Symbolics, BlockDiagonals
-    Random.seed!(1234)
-
-    p = (; zip([:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U], rand(8))...)
-    tsl, tsl!, m, c = QuantumDots.TSL_generator()
-    @test c isa FermionBasis{6}
-    m2 = tsl(; p...)
-    tsl!(m; p...)
-    @test m ≈ m2
-
-    tsl, tsl!, m, c = QuantumDots.TSL_generator(QuantumDots.parity)
-    @test c isa FermionBasis{6}
-    @test m isa BlockDiagonal
-    m2 = tsl(; p...)
-    tsl!(m; p...)
-    @test m ≈ m2
-
-    tsl, tsl!, m, c = QuantumDots.TSL_generator(; dense=true)
-    @test m isa Matrix{Float64}
-    m2 = tsl(; p...)
-    tsl!(m; p...)
-    @test m ≈ reshape(m2, size(m))
-
-    tsl, tsl!, m, c = QuantumDots.TSL_generator(; bdg=true, dense=true)
-    @test c isa QuantumDots.FermionBdGBasis{6}
-    @test m isa Matrix{Float64}
-    m2 = tsl(; p...)
-    tsl!(m; p...)
-    @test m ≈ reshape(m2, size(m))
 end

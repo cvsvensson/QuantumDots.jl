@@ -23,7 +23,7 @@ export parityoperator, numberoperator, fermions
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
-export partial_trace, fermionic_kron, wedge, fermionic_embedding, many_body_density_matrix
+export partial_trace, fermionic_kron, wedge, embedding, many_body_density_matrix
 export QubitBasis
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
@@ -31,7 +31,6 @@ export project_on_parity, project_on_parities
 
 function fastgenerator end
 function fastblockdiagonal end
-function TSL_generator end
 function fermion_to_majorana end
 function majorana_to_fermion end
 
@@ -74,10 +73,10 @@ PrecompileTools.@compile_workload begin
     c2 = fermions(H2)
     blockdiagonal(c2[1, :s]'c2[1, :s], H2)
     c3 = fermions(H3)
-    partial_trace(rand(2^2), H1, SimpleFockHilbertSpace(1:1))
+    partial_trace(rand(2^2), H1 => SimpleFockHilbertSpace(1:1))
     H = wedge(H1, H3)
     Hs = (H1, H3)
-    reshape(wedge((c1[1], c3[3]), Hs, H), H, Hs)
+    reshape(H => Hs)(wedge(Hs => H)(c1[1], c3[3]))
     cbdg = FermionBdGBasis(1:1, (:s,))
     BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
     @fermions f

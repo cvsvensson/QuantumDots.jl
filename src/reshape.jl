@@ -5,6 +5,9 @@ end
 function Base.reshape(m::AbstractVector, H::AbstractFockHilbertSpace, Hs, phase_factors=use_reshape_phase_factors(H, Hs))
     _reshape_vec_to_tensor(m, H, Hs, FockSplitter(H, Hs), phase_factors)
 end
+Base.reshape(Hs::Pair{<:AbstractFockHilbertSpace}, phase_factors=use_reshape_phase_factors(first(Hs), last(Hs))) =
+    m -> reshape(m, first(Hs), last(Hs), phase_factors)
+Base.reshape(m, Hs::Pair{<:AbstractFockHilbertSpace}, phase_factors=use_reshape_phase_factors(H, Hs)) = Base.reshape(m, first(Hs), last(Hs), phase_factors)
 
 function Base.reshape(t::AbstractArray, Hs, H::AbstractFockHilbertSpace, phase_factors=use_reshape_phase_factors(H, Hs))
     if ndims(t) == 2 * length(Hs)
@@ -86,7 +89,8 @@ end
 
 @testitem "Reshape" begin
     using LinearAlgebra
-    function majorana_basis(b)
+    function majorana_basis(H)
+        b = fermions(H)
         majoranas = Dict((l, s) => (s == :- ? 1im : 1) * b[l] + hc for (l, s) in Base.product(keys(b), [:+, :-]))
         labels = collect(keys(majoranas))
         basisops = mapreduce(vec, vcat, [[prod(l -> majoranas[l], ls) for ls in Base.product([labels for _ in 1:n]...) if (issorted(ls) && allunique(ls))] for n in 1:length(labels)])
@@ -96,8 +100,8 @@ end
 
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
     for qn in qns
-        b = FermionBasis(1:2; qn)
-        majbasis = majorana_basis(b)
+        H = hilbert_space(1:2, qn)
+        majbasis = majorana_basis(H)
         @test all(map(ishermitian, majbasis))
         overlaps = [tr(Γ1' * Γ2) for (Γ1, Γ2) in Base.product(majbasis, majbasis)]
         @test overlaps ≈ I
@@ -105,56 +109,59 @@ end
     end
 
     for (qn1, qn2, qn3) in Base.product(qns, qns, qns)
-        b1 = FermionBasis((1, 3); qn=qn1)
-        b2 = FermionBasis((2, 4); qn=qn2)
-        d1 = 2^QuantumDots.nbr_of_modes(b1)
-        d2 = 2^QuantumDots.nbr_of_modes(b2)
-        bs = (b1, b2)
-        b = FermionBasis(sort(vcat(keys(b1)..., keys(b2)...)); qn=qn3)
+        H1 = hilbert_space((1, 3), qn1)
+        H2 = hilbert_space((2, 4), qn2)
+        d1 = 4
+        d2 = 4
+        Hs = (H1, H2)
+        H = hilbert_space(sort(vcat(keys(H1)..., keys(H2)...)), qn3)
+        b = fermions(H)
+        b1 = fermions(H1)
+        b2 = fermions(H2)
         m = b[1]
-        t = reshape(m, b, bs)
+        t = reshape(m, H, Hs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 1
         @test abs(dot(reshape(svd(m12).U, d1, d1, d2^2)[:, :, 1], b1[1])) ≈ norm(b1[1])
 
         m = b[1] + b[2]
-        t = reshape(m, b, bs)
+        t = reshape(m, H, Hs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
 
         m = rand(ComplexF64, d1 * d2, d1 * d2)
-        t = reshape(m, b, bs)
-        m2 = reshape(t, bs, b)
+        t = reshape(m, H => Hs)
+        m2 = reshape(t, Hs => H)
         @test m ≈ m2
-        t = reshape(m, b, bs, false) #without phase factors (standard decomposition)
-        m2 = reshape(t, bs, b, false)
+        t = reshape(m, H => Hs, false) #without phase factors (standard decomposition)
+        m2 = reshape(t, Hs => H, false)
         @test m ≈ m2
 
         v = rand(ComplexF64, d1 * d2)
-        tv = reshape(v, b, bs)
-        v2 = reshape(tv, bs, b)
+        tv = reshape(v, H => bs)
+        v2 = reshape(tv, Hs => b)
         @test v ≈ v2
         # Note the how reshaping without phase factors is used in a contraction
-        @test sum(reshape(m, b, bs, false)[:, :, i, j] * tv[i, j] for i in 1:d1, j in 1:d2) ≈ reshape(m * v, b, bs)
+        @test sum(reshape(m, H => Hs, false)[:, :, i, j] * tv[i, j] for i in 1:d1, j in 1:d2) ≈ reshape(m * v, H => Hs)
 
         m1 = rand(ComplexF64, d1 * d2, d1 * d2)
         m2 = rand(ComplexF64, d1 * d2, d1 * d2)
-        t1 = reshape(m1, b, bs, false)
-        t2 = reshape(m2, b, bs, false)
+        t1 = reshape(m1, H => Hs, false)
+        t2 = reshape(m2, H => Hs, false)
         t3 = zeros(ComplexF64, d1, d2, d1, d2)
         for i in 1:d1, j in 1:d2, k in 1:d1, l in 1:d2, k1 in 1:d1, k2 in 1:d2
             t3[i, j, k, l] += t1[i, j, k1, k2] * t2[k1, k2, k, l]
         end
-        @test reshape(m1 * m2, b, bs, false) ≈ t3
-        @test m1 * m2 ≈ reshape(t3, bs, b, false)
+        @test reshape(m1 * m2, H => Hs, false) ≈ t3
+        @test m1 * m2 ≈ reshape(t3, Hs => H, false)
 
-        basis1 = majorana_basis(b1)
-        basis2 = majorana_basis(b2)
-        basis12all = [fermionic_kron((Γ1, Γ2), bs, b) for (Γ1, Γ2) in Base.product(basis1, basis2)]
-        basis12oddodd = [project_on_parities(Γ, b, bs, (-1, -1)) for Γ in basis12all]
-        basis12oddeven = [project_on_parities(Γ, b, bs, (-1, 1)) for Γ in basis12all]
-        basis12evenodd = [project_on_parities(Γ, b, bs, (1, -1)) for Γ in basis12all]
-        basis12eveneven = [project_on_parities(Γ, b, bs, (1, 1)) for Γ in basis12all]
+        basis1 = majorana_basis(H1)
+        basis2 = majorana_basis(H2)
+        basis12all = [fermionic_kron((Γ1, Γ2), Hs => H) for (Γ1, Γ2) in Base.product(basis1, basis2)]
+        basis12oddodd = [project_on_parities(Γ, H, Hs, (-1, -1)) for Γ in basis12all]
+        basis12oddeven = [project_on_parities(Γ, H, Hs, (-1, 1)) for Γ in basis12all]
+        basis12evenodd = [project_on_parities(Γ, H, Hs, (1, -1)) for Γ in basis12all]
+        basis12eveneven = [project_on_parities(Γ, H, Hs, (1, 1)) for Γ in basis12all]
         basis12normalized = map(x -> x / sqrt(tr(x^2) + 0im), basis12all)
 
         @test all(map(tr, map(adjoint, basis12all) .* basis12all) .≈ 1)
@@ -195,43 +202,43 @@ end
 
         ## Test consistency with partial trace
         m = rand(ComplexF64, d1 * d2, d1 * d2)
-        m2 = partial_trace(m, b, b2, true)
-        t = reshape(m, b, bs, true)
+        m2 = partial_trace(m, H => H2, true)
+        t = reshape(m, H => Hs, true)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
 
-        m2 = partial_trace(m, b, b2, false)
-        t = reshape(m, b, bs, false)
+        m2 = partial_trace(m, H => H2, false)
+        t = reshape(m, H => Hs, false)
         tpt = sum(t[k, :, k, :] for k in axes(t, 1))
         @test m2 ≈ tpt
 
-        mE = project_on_parity(m, b, 1)
-        mO = project_on_parity(m, b, -1)
+        mE = project_on_parity(m, H, 1)
+        mO = project_on_parity(m, H, -1)
         m1 = rand(ComplexF64, d1, d1)
         m2 = rand(ComplexF64, d2, d2)
-        m2O = project_on_parity(m2, b2, -1)
-        m2E = project_on_parity(m2, b2, 1)
-        m1O = project_on_parity(m1, b1, -1)
-        m1E = project_on_parity(m1, b1, 1)
-        mEE = project_on_parities(m, b, bs, (1, 1))
-        mOO = project_on_parities(m, b, bs, (-1, -1))
+        m2O = project_on_parity(m2, H2, -1)
+        m2E = project_on_parity(m2, H2, 1)
+        m1O = project_on_parity(m1, H1, -1)
+        m1E = project_on_parity(m1, H1, 1)
+        mEE = project_on_parities(m, H, Hs, (1, 1))
+        mOO = project_on_parities(m, H, Hs, (-1, -1))
 
-        F = partial_trace(m * fermionic_kron((m1, I), bs, b), b, b2)
-        @test tr(F * m2) ≈ tr(m * fermionic_kron((m1, I), bs, b) * fermionic_kron((I, m2), bs, b))
+        F = partial_trace(m * fermionic_kron((m1, I), Hs, H), H, H2)
+        @test tr(F * m2) ≈ tr(m * fermionic_kron((m1, I), Hs, H) * fermionic_kron((I, m2), Hs, H))
 
-        t = reshape(m, b, bs, false)
+        t = reshape(m, H => Hs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        @test partial_trace(m * kron((m1, I), bs, b), b, b2, false) ≈ tpt
+        @test partial_trace(m * kron((m1, I), Hs => H), b, b2, false) ≈ tpt
 
         ## More bases
-        b3 = FermionBasis(5:5; qn3)
-        d3 = 2^QuantumDots.nbr_of_modes(b3)
-        bs = (b1, b2, b3)
-        b = wedge(bs)
+        H3 = hilbert_space(5:5, qn3)
+        d3 = 2
+        Hs = (H1, H2, H3)
+        H = wedge(Hs)
         m = rand(ComplexF64, d1 * d2 * d3, d1 * d2 * d3)
-        t = reshape(m, b, (b1, b2, b3))
+        t = reshape(m, H => Hs)
         @test ndims(t) == 6
-        @test m ≈ reshape(t, bs, b)
+        @test m ≈ reshape(t, Hs, H)
     end
 end
 

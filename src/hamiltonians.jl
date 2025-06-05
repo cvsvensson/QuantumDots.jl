@@ -123,27 +123,6 @@ function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     return sum(h1s) + sum(h2s)
 end
 
-
-function TSL_hamiltonian(c::AbstractBasis; μL, μC, μR, h, t, Δ, U, tsoc)
-    @assert nbr_of_modes(c) == 6 "This basis has the wrong number of fermions for this hamiltonian $(nbr_of_modes(c)) != 6"
-    fermions = [(c[j, :↑], c[j, :↓]) for j in (:L, :C, :R)]
-    TSL_hamiltonian(fermions...; μL, μC, μR, h, t, Δ, U, tsoc)
-end
-function TSL_hamiltonian((dLup, dLdn), (dCup, dCdn), (dRup, dRdn); μL, μC, μR, h, t, Δ, U, tsoc)
-    hopping(t, dLup, dCup) + hopping(t, dRup, dCup) +
-    hopping(t, dLdn, dCdn) + hopping(t, dRdn, dCdn) +
-    hopping(tsoc, dLup, dCdn) - hopping(tsoc, dLdn, dCup) -
-    (hopping(tsoc, dRup, dCdn) - hopping(tsoc, dRdn, dCup)) +
-    -pairing(Δ, dCup, dCdn) +
-    U * (numberop(dLup)numberop(dLdn) + numberop(dRup) * numberop(dRdn)) +
-    μL * (numberop(dLup) + numberop(dLdn)) +
-    μC * (numberop(dCup) + numberop(dCdn)) +
-    μR * (numberop(dRup) + numberop(dRdn)) +
-    +h * (numberop(dLdn) + numberop(dRdn))
-end
-
-
-
 ##
 """
     struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
