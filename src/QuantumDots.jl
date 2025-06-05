@@ -16,7 +16,8 @@ import Crayons
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
-export FockNumber, JordanWignerOrdering, bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization
+export FockNumber, JordanWignerOrdering, bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
+export FockHilbertSpace, SymmetricFockHilbertSpace
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
@@ -40,7 +41,6 @@ include("Fock/symmetry.jl")
 include("Fock/operators.jl")
 
 include("structs.jl")
-include("lattice.jl")
 include("hamiltonians.jl")
 include("bdg.jl")
 include("diagonalization.jl")

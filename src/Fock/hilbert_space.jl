@@ -1,4 +1,5 @@
-abstract type AbstractFockHilbertSpace end
+abstract type AbstractHilbertSpace end
+abstract type AbstractFockHilbertSpace <: AbstractHilbertSpace end
 ##interface?
 #indtofock
 #focktoind
@@ -21,15 +22,6 @@ focknumbers(H::FockHilbertSpace) = H.focknumbers
 indtofock(ind, H::FockHilbertSpace) = focknumbers(H)[ind]
 focktoind(focknbr::FockNumber, H::FockHilbertSpace) = H.focktoind[focknbr]
 
-# struct FermionicHilbertSpace{L,F} <: AbstractFockHilbertSpace
-#     jw::JordanWignerOrdering{L}
-#     odd_states::F
-#     even_states::F
-# end
-# isfermionic(::FermionicHilbertSpace) = true
-# focknumbers(H::FermionicHilbertSpace) = Iterators.flatten((H.odd_states, H.even_states))
-
-
 struct SymmetricFockHilbertSpace{L,S} <: AbstractFockHilbertSpace
     jw::JordanWignerOrdering{L}
     fermionic::Bool
@@ -39,7 +31,6 @@ isfermionic(H::SymmetricFockHilbertSpace) = H.fermionic
 indtofock(ind, H::SymmetricFockHilbertSpace) = indtofock(ind, H.symmetry)
 focktoind(f::FockNumber, H::SymmetricFockHilbertSpace) = focktoind(f, H.symmetry)
 focknumbers(H::SymmetricFockHilbertSpace) = focknumbers(H.symmetry)
-
 function SymmetricFockHilbertSpace(labels, qn, focknumbers=map(FockNumber, 0:2^length(labels)-1); fermionic=true)
     jw = JordanWignerOrdering(labels)
     labelled_symmetry = instantiate(qn, jw)
@@ -48,8 +39,40 @@ function SymmetricFockHilbertSpace(labels, qn, focknumbers=map(FockNumber, 0:2^l
 end
 
 
+function wedge(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace)
+    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
+    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
+    qn = promote_symmetry(H1.symmetry, H2.symmetry)
+    M1 = length(H1.jw)
+    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
+    SymmetricFockHilbertSpace(newlabels, qn, newfocknumbers)
+end
 
-# struct SpinfulFockHilbertSpace{L,S} <: AbstractFockHilbertSpace
-#     jw::JordanWignerOrdering{L}
-#     fermionic::Bool
-# end
+function wedge(H1::FockHilbertSpace, H2::FockHilbertSpace)
+    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
+    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
+    M1 = length(H1.jw)
+    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
+    FockHilbertSpace(newlabels, newfocknumbers)
+end
+
+@testitem "Wedge product of Fock Hilbert Spaces" begin
+    using QuantumDots
+    H1 = FockHilbertSpace(1:2)
+    H2 = FockHilbertSpace(3:4)
+    Hw = wedge(H1, H2)
+    H3 = FockHilbertSpace(1:4)
+    @test focknumbers(Hw) == focknumbers(H3)
+
+    H1 = SymmetricFockHilbertSpace(1:2, FermionConservation())
+    H2 = SymmetricFockHilbertSpace(3:4, FermionConservation())
+    Hw = wedge(H1, H2)
+    H3 = SymmetricFockHilbertSpace(1:4, FermionConservation())
+    @test focknumbers(Hw) == focknumbers(H3)
+
+    H1 = SymmetricFockHilbertSpace(1:2, ParityConservation())
+    H2 = SymmetricFockHilbertSpace(3:4, ParityConservation())
+    Hw = wedge(H1, H2)
+    H3 = SymmetricFockHilbertSpace(1:4, ParityConservation())
+    @test focknumbers(Hw) == focknumbers(H3)
+end
