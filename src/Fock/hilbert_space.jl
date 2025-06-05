@@ -88,12 +88,14 @@ isfermionic(H::SymmetricFockHilbertSpace) = H.fermionic
 indtofock(ind, H::SymmetricFockHilbertSpace) = indtofock(ind, H.symmetry)
 focktoind(f::FockNumber, H::SymmetricFockHilbertSpace) = focktoind(f, H.symmetry)
 focknumbers(H::SymmetricFockHilbertSpace) = focknumbers(H.symmetry)
+focknumbers(H::SymmetricFockHilbertSpace{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(H.jw)-1)
 function SymmetricFockHilbertSpace(labels, qn::AbstractSymmetry, focknumbers=map(FockNumber, 0:2^length(labels)-1); fermionic=true)
     jw = JordanWignerOrdering(labels)
     labelled_symmetry = instantiate(qn, jw)
     sym_concrete = focksymmetry(focknumbers, labelled_symmetry)
     SymmetricFockHilbertSpace(jw, fermionic, sym_concrete)
 end
+
 function Base.:(==)(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace)
     if H1 === H2
         return true
