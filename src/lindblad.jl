@@ -219,11 +219,11 @@ function MatrixOperator(L::LindbladSystem, p=SciMLBase.NullParameters(); normali
     MatrixOperator(A)
 end
 
-function (d::LindbladSystem)(rho, p)
+function (d::LindbladSystem)(rho::AbstractVector, p, t=nothing)
     d = __update_coefficients(d, p)
     d * rho
 end
-function (d::LindbladSystem)(out, rho, p)
+function (d::LindbladSystem)(out::AbstractVector, rho::AbstractVector, p, t=nothing)
     d = __update_coefficients(d, p)
     mul!(out, d, rho)
     return out

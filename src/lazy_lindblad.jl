@@ -38,12 +38,12 @@ function __update_coefficients(d::LazyLindbladDissipator, p, cache=d.cache)
 end
 
 (d::LazyLindbladDissipator)(rho) = d * rho
-function (d::LazyLindbladDissipator)(rho, p)
+function (d::LazyLindbladDissipator)(rho::AbstractMatrix, p, t=nothing)
     T = promote_type(eltype(d), eltype(rho))
     out = similar(rho, T)
-    d(out, rho, p)
+    d(out, rho, p, t)
 end
-function (d::LazyLindbladDissipator)(out, rho, p)
+function (d::LazyLindbladDissipator)(out::AbstractMatrix, rho::AbstractMatrix, p, t=nothing)
     d = __update_coefficients!(d, p)
     mul!(out, d, rho)
     return out
@@ -89,11 +89,11 @@ function _nonhermitian_hamiltonian!(out, H, dissipators)
     return out
 end
 
-function (d::LazyLindbladSystem)(rho, p)
+function (d::LazyLindbladSystem)(rho::AbstractMatrix, p, t=nothing)
     d = __update_coefficients(d, p)
     d * rho
 end
-function (d::LazyLindbladSystem)(out, rho, p)
+function (d::LazyLindbladSystem)(out::AbstractMatrix, rho::AbstractMatrix, p, t=nothing)
     d = __update_coefficients!(d, p)
     mul!(out, d, rho)
     return out
@@ -190,8 +190,8 @@ end
 
 function vec_action(d::LazyLindbladSystem)
     sz = size(d.hamiltonian)
-    _vec_action(u, _, p, t) = vec(d(reshape(u, sz...), p, t))
-    _vec_action(v, u, _, p, t) = vec(d(reshape(v, sz...), reshape(u, sz...), p, t))
+    _vec_action(v, u, p, t) = vec(d(reshape(v, sz...), p))
+    _vec_action(w, v, u, p, t) = vec(d(reshape(w, sz...), reshape(v, sz...), p))
     return _vec_action
 end
 
@@ -204,28 +204,28 @@ function FunctionOperatorWithNormalizer(d::LazyLindbladSystem; p=SciMLBase.NullP
     sz = size(d.hamiltonian)
     function vec_action(v, u, p, t)
         vm = reshape(v, sz...)
-        vm = d(vm, u, p, t)
-        w = vec(vm)
+        wm = d(vm, p)
+        w = vec(wm)
         push!(w, tr(vm))
         return w
     end
     function vec_action(w, v, u, p, t)
         wm = reshape(@view(w[1:end-1]), sz...)
         vm = reshape(v, sz...)
-        d(wm, vm, u, p, t)
+        d(wm, vm, p)
         w[end] = tr(vm)
         return w
     end
     dadj = d'
     function vec_action_adj(v, u, p, t)
-        vm = dadj(reshape(@view(v[1:end-1]), sz...), u, p, t)
+        vm = dadj(reshape(@view(v[1:end-1]), sz...), p)
         add_diagonal!(vm, v[end])
         vec(vm)
     end
     function vec_action_adj(w, v, u, p, t)
         vm = reshape(@view(v[1:end-1]), sz...)
         wm = reshape(w, sz...)
-        dadj(wm, vm, u, p, t)
+        dadj(wm, vm, p)
         add_diagonal!(wm, v[end])
         vec(wm)
     end

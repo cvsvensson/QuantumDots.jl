@@ -4,13 +4,13 @@ chem_derivative(backend, d::PauliDissipator, args...) = chem_derivative(backend,
 
 function chem_derivative(backend, f::Function, d)
     func = μ -> f(__update_coefficients(d, (; μ), nothing))
-    AD.derivative(backend, func, d.lead.μ)[1]
+    DifferentiationInterface.derivative(func, backend, d.lead.μ)
 end
 
 function chem_derivative(backend, f::Function, d, _p)
     p = _dissipator_params(d, _p)
     func = μ -> f(__update_coefficients(d, (; μ, T=p.T, rate=p.rate), nothing))
-    AD.derivative(backend, func, p.μ)[1]
+    DifferentiationInterface.derivative(func, backend, p.μ)
 end
 
 function conductance_matrix(backend, ls::AbstractOpenSystem, rho, current_op)
@@ -56,7 +56,7 @@ function conductance_matrix(dμ::Number, ls::AbstractOpenSystem, current_op)
 end
 
 
-function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSystem, current_op)
+function conductance_matrix(ad::DifferentiationInterface.AutoFiniteDifferences, ls::AbstractOpenSystem, current_op)
     keys_iter = collect(keys(ls.dissipators))
     μs0 = [ls.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
@@ -67,6 +67,6 @@ function conductance_matrix(ad::AD.FiniteDifferencesBackend, ls::AbstractOpenSys
         [real(currents(k)) for k in keys_iter]
         #real()
     end
-    J = AD.jacobian(ad, get_current, μs0)[1]
+    J = DifferentiationInterface.jacobian(get_current, ad, μs0)
     AxisKeys.wrapdims(AxisKeys.KeyedArray(J, (keys_iter, keys_iter)), :∂Iᵢ, :∂μⱼ)
 end

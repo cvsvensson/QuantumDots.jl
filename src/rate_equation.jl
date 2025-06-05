@@ -177,7 +177,7 @@ function conductance_matrix(dμ::Number, sys::PauliSystem)
     return G
 end
 
-function conductance_matrix(ad::AD.FiniteDifferencesBackend, sys::PauliSystem)
+function conductance_matrix(ad::DifferentiationInterface.AutoFiniteDifferences, sys::PauliSystem)
     keys_iter = collect(keys(sys.dissipators))
     μs0 = [sys.dissipators[k].lead.μ for k in keys_iter]
     function get_current(μs)
@@ -187,14 +187,14 @@ function conductance_matrix(ad::AD.FiniteDifferencesBackend, sys::PauliSystem)
         currents = get_currents(sol, newsys)
         [real(currents(k)) for k in keys_iter]
     end
-    J = AD.jacobian(ad, get_current, μs0)[1]
+    J = DifferentiationInterface.jacobian(get_current, ad, μs0)
     AxisKeys.wrapdims(AxisKeys.KeyedArray(J, (keys_iter, keys_iter)), :∂Iᵢ, :∂μⱼ)
 end
 
 
-function conductance_matrix(backend::AD.AbstractBackend, sys::PauliSystem, rho)
+function conductance_matrix(backend::DifferentiationInterface.AbstractADType, sys::PauliSystem, rho)
     linsolve = init(StationaryStateProblem(sys))
-    func = d -> [Matrix(d), d.Iin + d.Iout]
+    # func = d -> [Matrix(d), d.Iin + d.Iout]
     key_iter = collect(keys(sys.dissipators))
     N = length(key_iter)
     T = real(eltype(sys))
@@ -202,10 +202,12 @@ function conductance_matrix(backend::AD.AbstractBackend, sys::PauliSystem, rho)
 
     for k in key_iter
         d = sys.dissipators[k]
-        dD = chem_derivative(backend, func, d)
-        sol = solveDiffProblem!(linsolve, rho, dD[1])
+        # dD = chem_derivative(backend, func, d)
+        dD1 = chem_derivative(backend, d -> Matrix(d), d)
+        dD2 = chem_derivative(backend, d -> d.Iin + d.Iout, d)
+        sol = solveDiffProblem!(linsolve, rho, dD1)
         rhodiff_currents = get_currents(sol, sys)
-        dissdiff_current = dot(dD[2], rho)
+        dissdiff_current = dot(dD2, rho)
         rhodiff_currents[AxisKeys.Key(k)] += dissdiff_current
         G(:, k) .= real.(rhodiff_currents)
     end
