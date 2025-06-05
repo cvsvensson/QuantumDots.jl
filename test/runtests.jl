@@ -521,7 +521,7 @@ end
 @testitem "build_function" begin
     using Symbolics, BlockDiagonals
     N = 2
-    bases = [FermionBasis(1:N), FermionBasis(1:N; qn=QuantumDots.parity), FermionBdGBasis(1:N)]
+    bases = [FermionBasis(1:N), FermionBasis(1:N; qn=ParityConservation()), FermionBdGBasis(1:N)]
     @variables x
     ham(c) = x * sum(f -> 1.0 * f'f, c)
     converts = [Matrix, x -> blockdiagonal(x, bases[2]), x -> BdGMatrix(x; check=false)]
@@ -554,7 +554,7 @@ end
     @test mat ≈ hamiltonian(params...)
 
     #parity conservation
-    a = FermionBasis(1:N; qn=QuantumDots.parity)
+    a = FermionBasis(1:N; qn=ParityConservation())
     hamiltonian(params...) = _hamiltonian(a, params...)
     parityham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
@@ -598,7 +598,7 @@ end
     @test bdham ≈ numberbdham(params...)
     @test bdham ≈ hamiltonian(params[1:end-1]..., 0.0)
 
-    b = FermionBasis(1:2, (:a, :b); qn=QuantumDots.parity)
+    b = FermionBasis(1:2, (:a, :b); qn=ParityConservation())
     nparams = 8
     params = rand(nparams)
     ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1, ϕ=0))
@@ -664,7 +664,7 @@ end
         # using LinearSolve, LinearAlgebra
         # import DifferentiationInterface as AD, ForwardDiff, FiniteDifferences
         # qn = QuantumDots.NoSymmetry()
-        # qn = QuantumDots.parity
+        # qn = ParityConservation()
         N = 1
         a = FermionBasis(1:N; qn)
         bd(m) = QuantumDots.blockdiagonal(m, a)
@@ -680,7 +680,7 @@ end
         diagham = diagonalize(ham)
         diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
         @test diagham.original ≈ ham
-        @test diagham.values ≈ (qn == QuantumDots.parity ? [μH, 0] : [0, μH])
+        @test diagham.values ≈ (qn == ParityConservation() ? [μH, 0] : [0, μH])
         @test diagham2.values ≈ [0]
         ls = LindbladSystem(ham, leads)
         ls_cache = LindbladSystem(ham, leads; usecache=true)
@@ -713,7 +713,7 @@ end
         p2 = (QuantumDots.fermidirac(μH, T, μL) + QuantumDots.fermidirac(μH, T, μR)) / 2
         p1 = 1 - p2
         analytic_current = -1 / 2 * (QuantumDots.fermidirac(μH, T, μL) - QuantumDots.fermidirac(μH, T, μR))
-        @test rhod ≈ (qn == QuantumDots.parity ? [p2, p1] : [p1, p2])
+        @test rhod ≈ (qn == ParityConservation() ? [p2, p1] : [p1, p2])
 
         numeric_current = QuantumDots.measure(ρ, particle_number, ls)
         cm = conductance_matrix(AD.AutoForwardDiff(), ls, ρinternal, particle_number)
@@ -789,7 +789,7 @@ end
         @test isapprox(dot(soll(10), vr), dot(vl, solr(10)); atol=1e-4)
     end
     test_qd_transport(QuantumDots.NoSymmetry())
-    test_qd_transport(QuantumDots.parity)
+    test_qd_transport(ParityConservation())
     test_qd_transport(QuantumDots.fermionnumber)
 
 

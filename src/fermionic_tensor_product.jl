@@ -142,29 +142,30 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     rough_partitions = sort.(collect(partition(randperm(N), rough_size)))
     # divide each part of rough partition into finer partitions
     fine_partitions = map(rough_partition -> sort.(collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
-    c = FermionBasis(1:N)
-    cs_rough = [FermionBasis(r_p) for r_p in rough_partitions]
-    cs_fine = map(f_p_list -> FermionBasis.(f_p_list), fine_partitions)
+    H = hilbert_space(1:N)
+    c = fermions(1:N)
+    Hs_rough = [hilbert_space(r_p) for r_p in rough_partitions]
+    Hs_fine = map(f_p_list -> hilbert_space.(f_p_list), fine_partitions)
 
     ops_rough = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
     ops_fine = map(f_p_list -> [rand(ComplexF64, 2^length(f_p), 2^length(f_p)) for f_p in f_p_list], fine_partitions)
 
     # Associativity (Eq. 16)
-    rhs = fermionic_kron(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
-    finewedges = [fermionic_kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)]
-    lhs = fermionic_kron(finewedges, cs_rough, c)
+    rhs = fermionic_kron(reduce(vcat, ops_fine), reduce(vcat, Hs_fine), c)
+    finewedges = [fermionic_kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, Hs_fine, Hs_rough)]
+    lhs = fermionic_kron(finewedges, Hs_rough, c)
     @test lhs ≈ rhs
 
-    rhs = kron(reduce(vcat, ops_fine), reduce(vcat, cs_fine), c)
-    lhs = kron([kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, cs_fine, cs_rough)], cs_rough, c)
+    rhs = kron(reduce(vcat, ops_fine), reduce(vcat, Hs_fine), c)
+    lhs = kron([kron(ops_vec, cs_vec, c_rough) for (ops_vec, cs_vec, c_rough) in zip(ops_fine, Hs_fine, Hs_rough)], Hs_rough, c)
     @test lhs ≈ rhs
 
-    physical_ops_rough = [project_on_parity(op, c, 1) for (op, c) in zip(ops_rough, cs_rough)]
+    physical_ops_rough = [project_on_parity(op, c, 1) for (op, c) in zip(ops_rough, Hs_rough)]
 
     # Eq. 18
     As = ops_rough
     Bs = map(r_p -> rand(ComplexF64, 2^length(r_p), 2^length(r_p)), rough_partitions)
-    lhs = tr(fermionic_kron(As, cs_rough, c)' * fermionic_kron(Bs, cs_rough, c))
+    lhs = tr(fermionic_kron(As, Hs_rough, c)' * fermionic_kron(Bs, Hs_rough, c))
     rhs = mapreduce((A, B) -> tr(A' * B), *, As, Bs)
     @test lhs ≈ rhs
 
@@ -173,33 +174,33 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     # Eq. 19 
     As_modes = [rand(ComplexF64, 2, 2) for _ in 1:N]
     ξ = vcat(fine_partitions...)
-    ξbases = vcat(cs_fine...)
-    modebases = [FermionBasis(j:j) for j in 1:N]
+    ξbases = vcat(Hs_fine...)
+    modebases = [hilbert_space(j:j) for j in 1:N]
     lhs = prod(j -> embedding(As_modes[j], modebases[j], c), 1:N)
     rhs_ordered_prod(X, basis) = mapreduce(j -> embedding(As_modes[j], modebases[j], basis), *, X)
     rhs = fermionic_kron([rhs_ordered_prod(X, b) for (X, b) in zip(ξ, ξbases)], ξbases, c)
     @test lhs ≈ rhs
 
     # Associativity (Eq. 21)
-    @test embedding(embedding(ops_fine[1][1], cs_fine[1][1], cs_rough[1]), cs_rough[1], c) ≈ embedding(ops_fine[1][1], cs_fine[1][1], c)
-    @test all(map(cs_rough, cs_fine, ops_fine) do cr, cfs, ofs
+    @test embedding(embedding(ops_fine[1][1], Hs_fine[1][1], Hs_rough[1]), Hs_rough[1], c) ≈ embedding(ops_fine[1][1], Hs_fine[1][1], c)
+    @test all(map(Hs_rough, Hs_fine, ops_fine) do cr, cfs, ofs
         all(map(cfs, ofs) do cf, of
             embedding(embedding(of, cf, cr), cr, c) ≈ embedding(of, cf, c)
         end)
     end)
 
     ## Eq. 22
-    cX = cs_rough[1]
+    cX = Hs_rough[1]
     Ux = embedding_unitary(rough_partitions, c)
     A = ops_rough[1]
     @test Ux !== I
     @test embedding(A, cX, c) ≈ Ux * canonical_embedding(A, cX, c) * Ux'
     # Eq. 93
-    @test wedge(physical_ops_rough, cs_rough, c) ≈ Ux * kron(physical_ops_rough, cs_rough, c) * Ux'
+    @test wedge(physical_ops_rough, Hs_rough, c) ≈ Ux * kron(physical_ops_rough, Hs_rough, c) * Ux'
 
     # Eq. 23
     X = rough_partitions[1]
-    cX = cs_rough[1]
+    cX = Hs_rough[1]
     A = ops_rough[1]
     B = rand(ComplexF64, 2^length(X), 2^length(X))
     #Eq 5a and 5br are satisfied also when embedding matrices in larger subsystems
@@ -218,8 +219,8 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     A = ops_rough[1]
     X = rough_partitions[1]
     Xbar = setdiff(1:N, X)
-    cX = cs_rough[1]
-    cXbar = FermionBasis(Xbar)
+    cX = Hs_rough[1]
+    cXbar = hilbert_space(Xbar)
     corr = embedding(A, cX, c)
     @test corr ≈ fermionic_kron([A, I], [cX, cXbar], c) ≈ wedge([A, I], [cX, cXbar], c) ≈ wedge([I, A], [cXbar, cX], c)
 
@@ -232,7 +233,7 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     X = rough_partitions[1]
     A = ops_rough[1]
     B = rand(ComplexF64, 2^N, 2^N)
-    cX = cs_rough[1]
+    cX = Hs_rough[1]
     lhs = tr(embedding(A, cX, c)' * B)
     rhs = tr(A' * partial_trace(B, c, cX))
     @test lhs ≈ rhs
@@ -248,8 +249,8 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     A = rand(ComplexF64, 2^N, 2^N)
     X = fine_partitions[1][1]
     Y = rough_partitions[1]
-    bX = cs_fine[1][1]
-    bY = cs_rough[1]
+    bX = Hs_fine[1][1]
+    bY = Hs_rough[1]
     bZ = c
     Z = 1:N
     rhs = partial_trace(A, bZ, bX)
@@ -264,15 +265,15 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     ξ = rough_partitions
     Asphys = physical_ops_rough
     Bs = map(X -> rand(ComplexF64, 2^length(X), 2^length(X)), ξ)
-    Bsphys = [project_on_parity(B, c, 1) for (B, c) in zip(Bs, cs_rough)]
-    lhs1 = wedge(Asphys, cs_rough, c) * wedge(Bsphys, cs_rough, c)
-    rhs1 = wedge(Asphys .* Bsphys, cs_rough, c)
+    Bsphys = [project_on_parity(B, c, 1) for (B, c) in zip(Bs, Hs_rough)]
+    lhs1 = wedge(Asphys, Hs_rough, c) * wedge(Bsphys, Hs_rough, c)
+    rhs1 = wedge(Asphys .* Bsphys, Hs_rough, c)
     @test lhs1 ≈ rhs1
-    @test wedge(Asphys, cs_rough, c)' ≈ wedge(adjoint.(Asphys), cs_rough, c)
+    @test wedge(Asphys, Hs_rough, c)' ≈ wedge(adjoint.(Asphys), Hs_rough, c)
 
     ## Unitary equivalence between wedge and kron
     ops = reduce(vcat, ops_fine)
-    cs = reduce(vcat, cs_fine)
+    cs = reduce(vcat, Hs_fine)
     physical_ops = [project_on_parity(op, c, 1) for (op, c) in zip(ops, cs)]
     # Eq. 93 implies that the unitary equivalence holds for the physical operators
     @test svdvals(Matrix(wedge(physical_ops, cs, c))) ≈ svdvals(Matrix(kron(physical_ops, cs, c)))
@@ -316,57 +317,59 @@ end
     Random.seed!(1234)
 
     for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
-        b1 = FermionBasis(1:1; qn)
-        b2 = FermionBasis(1:3; qn)
-        @test_throws ArgumentError wedge(b1, b2)
-        b2 = FermionBasis(2:3; qn)
-        b3 = FermionBasis(1:3; qn)
-        b3w = wedge(b1, b2)
-        @test b3w == wedge((b1, b2)) == wedge([b1, b2])
-        @test norm(map(-, b3w, b3)) == 0
-        bs = [b1, b2]
+        H1 = hilbert_space(1:1, qn)
+        H2 = hilbert_space(1:3, qn)
+        @test_throws ArgumentError wedge(H1, H2)
+        H2 = hilbert_space(2:3, qn)
+        H3 = hilbert_space(1:3, qn)
+        H3w = wedge(H1, H2)
+        @test H3w == wedge((H1, H2)) == wedge([H1, H2])
+        Hs = [H1, H2]
+        b1 = fermions(H1)
+        b2 = fermions(H2)
+        b3 = fermions(H3w)
 
         #test that they keep sparsity
-        @test typeof(wedge((b1[1], b2[2]), bs, b3)) == typeof(b1[1])
-        @test typeof(kron((b1[1], b2[2]), bs, b3)) == typeof(b1[1])
-        @test typeof(wedge((b1[1], I), bs, b3)) == typeof(b1[1])
-        @test typeof(kron((b1[1], I), bs, b3)) == typeof(b1[1])
-        @test wedge((I, I), bs, b3) isa SparseMatrixCSC
-        @test kron((I, I), bs, b3) isa SparseMatrixCSC
+        @test typeof(wedge((b1[1], b2[2]), Hs => H3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], b2[2]), Hs => H3)) == typeof(b1[1])
+        @test typeof(wedge((b1[1], I), Hs => H3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], I), Hs => H3)) == typeof(b1[1])
+        @test wedge((I, I), Hs => H3) isa SparseMatrixCSC
+        @test kron((I, I), Hs => H3) isa SparseMatrixCSC
 
-        O1 = isodd.(QuantumDots.numberoperator(b1))
-        O2 = isodd.(QuantumDots.numberoperator(b2))
+        O1 = isodd.(numberoperator(H1))
+        O2 = isodd.(numberoperator(H2))
         for P1 in [O1, I - O1], P2 in [O2, I - O2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
             v1 = P1 * rand(2)
             v2 = P2 * rand(4)
-            v3 = fermionic_kron([v1, v2], bs, b3)
+            v3 = fermionic_kron([v1, v2], Hs => H3)
             for k1 in keys(b1), k2 in keys(b2)
                 b1f = b1[k1]
                 b2f = b2[k2]
                 b3f = b3[k2] * b3[k1]
-                b3fw = wedge([b1f, b2f], bs, b3)
-                v3w = fermionic_kron([b1f * v1, b2f * v2], bs, b3)
+                b3fw = wedge([b1f, b2f], Hs => H3)
+                v3w = fermionic_kron([b1f * v1, b2f * v2], Hbs => H3)
                 v3f = b3f * v3
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
             end
         end
 
         # Test wedge of matrices
-        P1 = QuantumDots.parityoperator(b1)
-        P2 = QuantumDots.parityoperator(b2)
-        P3 = QuantumDots.parityoperator(b3)
-        wedge([P1, P2], bs, b3) ≈ P3
+        P1 = parityoperator(H1)
+        P2 = parityoperator(H2)
+        P3 = parityoperator(H3)
+        wedge([P1, P2], Hs => H3) ≈ P3
 
 
         rho1 = rand(2, 2)
         rho2 = rand(4, 4)
-        rho3 = wedge([rho1, rho2], bs, b3)
+        rho3 = wedge([rho1, rho2], Hs => H3)
         for P1 in [P1 + I, I - P1], P2 in [P2 + I, I - P2] #Loop over different parity sectors because of superselection. Otherwise, minus signs come into play
             m1 = P1 * rho1 * P1
             m2 = P2 * rho2 * P2
-            P3 = wedge([P1, P2], bs, b3)
+            P3 = wedge([P1, P2], Hs => H3)
             m3 = P3 * rho3 * P3
-            @test wedge([m1, m2], bs, b3) == m3
+            @test wedge([m1, m2], Hs => H3) == m3
         end
 
         H1 = Matrix(0.5b1[1]' * b1[1])
@@ -377,15 +380,15 @@ end
         vals3, vecs3 = eigen(H3)
 
         # test wedging with I (UniformScaling)
-        H3w = wedge([H1, I], bs, b3) + wedge([I, H2], bs, b3)
+        H3w = wedge([H1, I], Hs => H3) + wedge([I, H2], Hs => H3)
         @test H3w == H3
-        @test wedge([I, I], bs, b3) == one(H3)
+        @test wedge([I, I], Hs => H3) == one(H3)
 
         vals3w = map(sum, Base.product(vals1, vals2)) |> vec
         p = sortperm(vals3w)
         vals3w[p] ≈ vals3
 
-        vecs3w = vec(map(v12 -> fermionic_kron([v12[1], v12[2]], bs, b3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
+        vecs3w = vec(map(v12 -> fermionic_kron([v12[1], v12[2]], Hs => H3), Base.product(eachcol(vecs1), eachcol(vecs2))))[p]
         @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
 
         β = 0.7
@@ -395,19 +398,19 @@ end
         rmul!(rho2, 1 / tr(rho2))
         rho3 = exp(-β * H3)
         rmul!(rho3, 1 / tr(rho3))
-        rho3w = wedge([rho1, rho2], bs, b3)
+        rho3w = wedge([rho1, rho2], Hs => H3)
         @test rho3w ≈ rho3
-        @test partial_trace(rho3, b3, b1) ≈ rho1
-        @test partial_trace(rho3, b3, b2) ≈ rho2
-        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ wedge([blockdiagonal(rho1, b1), rho2], bs, b3)
-        @test wedge([blockdiagonal(rho1, b1), blockdiagonal(rho2, b2)], bs, b3) ≈ rho3
+        @test partial_trace(rho3, H3 => H1) ≈ rho1
+        @test partial_trace(rho3, H3 => H2) ≈ rho2
+        @test wedge([blockdiagonal(rho1, H1), blockdiagonal(rho2, H2)], Hs => H3) ≈ wedge([blockdiagonal(rho1, H1), rho2], Hs => H3)
+        @test wedge([blockdiagonal(rho1, H1), blockdiagonal(rho2, H2)], Hs => H3) ≈ rho3
 
         # Test BD1_hamiltonian
         b1 = FermionBasis(1:2, (:↑, :↓); qn)
         b2 = FermionBasis(3:4, (:↑, :↓); qn)
         b12 = FermionBasis(1:4, (:↑, :↓); qn)
-        b12w = wedge(b1, b2)
-        bs = [b1, b2]
+        b12w = wedge(H1, H2)
+        bs = [H1, H2]
         θ1 = 0.5
         θ2 = 0.2
         params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
@@ -428,16 +431,18 @@ end
         @test diff(eigvals(H12w)) ≈ diff(eigvals(H12))
 
         # Test zero-mode wedge
-        c1 = FermionBasis(1:0; qn)
-        c2 = FermionBasis(1:1; qn)
-        @test wedge([I(1), I(1)], [c1, c1], c1) == I(1)
-        @test wedge([I(1), c2[1]], [c1, c2], c2) == c2[1]
+        H1 = hilbert_space(1:0, qn)
+        H2 = hilbert_space(1:1, qn)
+        c1 = fermions(H1)
+        c2 = fermions(H2)
+        @test wedge([I(1), I(1)], [H1, H1], H1) == I(1)
+        @test wedge([I(1), c2[1]], [H1, H2], H2) == c2[1]
     end
 
     #Test basis compatibility
-    b1 = FermionBasis(1:2; qn=QuantumDots.parity)
-    b2 = FermionBasis(2:4; qn=QuantumDots.parity)
-    @test_throws ArgumentError wedge(b1, b2)
+    H1 = hilbert_space(1:2, ParityConservation())
+    H2 = hilbert_space(2:4, ParityConservation())
+    @test_throws ArgumentError wedge(H1, H2)
 end
 
 
