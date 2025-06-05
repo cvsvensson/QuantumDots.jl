@@ -143,7 +143,7 @@ wedge(HsH::Pair{<:Any,<:AbstractFockHilbertSpace}) = (ms...) -> wedge(ms, first(
     # divide each part of rough partition into finer partitions
     fine_partitions = map(rough_partition -> sort.(collect(partition(shuffle(rough_partition), fine_size))), rough_partitions)
     H = hilbert_space(1:N)
-    c = fermions(1:N)
+    c = fermions(H)
     Hs_rough = [hilbert_space(r_p) for r_p in rough_partitions]
     Hs_fine = map(f_p_list -> hilbert_space.(f_p_list), fine_partitions)
 
