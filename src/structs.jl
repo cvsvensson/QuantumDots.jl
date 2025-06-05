@@ -1,82 +1,13 @@
 abstract type AbstractBasis end
 abstract type AbstractManyBodyBasis <: AbstractBasis end
 abstract type AbstractSymmetry end
+struct NoSymmetry <: AbstractSymmetry end
 
 siteindex(label, b::AbstractManyBodyBasis) = siteindex(label, b.jw)
 siteindices(labels, b::AbstractManyBodyBasis) = siteindices(labels, b.jw)
 
-# struct FermionBasisTemplate{L,S}
-#     jw::JordanWignerOrdering{L}
-#     sym::S
-# end
-# Base.keys(b::FermionBasisTemplate) = keys(b.jw)
-# indtofock(ind, b::FermionBasisTemplate) = indtofock(ind, b.sym)
-
-
-# """
-#     struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
-
-# Fermion basis for representing many-body fermions.
-
-# ## Fields
-# - `dict::OrderedDict`: A dictionary that maps fermion labels to a representation of the fermion.
-# - `symmetry::Sym`: The symmetry of the basis.
-# - `jw::JordanWignerOrdering{L}`: The Jordan-Wigner ordering of the basis.
-# """
-# struct FermionBasis{M,D,Sym,L} <: AbstractManyBodyBasis
-#     dict::D
-#     symmetry::Sym
-#     jw::JordanWignerOrdering{L}
-# end
-# function FermionBasis(iters...; qn=NoSymmetry(), kwargs...)
-#     labels = handle_labels(iters...)
-#     labelvec = collect(labels)[:]
-#     jw = JordanWignerOrdering(labelvec)
-#     fockstates = map(FockNumber, get(kwargs, :fockstates, 0:2^length(labels)-1))
-#     M = length(labels)
-#     labelled_symmetry = instantiate(qn, jw)
-#     sym_concrete = focksymmetry(fockstates, labelled_symmetry)
-#     # sym_more_concrete = symmetry(fockstates, sym_concrete)
-#     reps = ntuple(n -> fermion_sparse_matrix(n, length(fockstates), sym_concrete), M)
-#     d = OrderedDict(zip(labelvec, reps))
-#     FermionBasis{M,typeof(d),typeof(sym_concrete),eltype(jw)}(d, sym_concrete, jw)
-# end
-# Base.getindex(b::FermionBasis, i) = b.dict[i]
-# Base.getindex(b::FermionBasis, args...) = b.dict[args]
-# Base.keys(b::FermionBasis) = keys(b.dict)
-# Base.show(io::IO, ::MIME"text/plain", b::FermionBasis) = show(io, b)
-# Base.show(io::IO, b::FermionBasis{M,D,Sym}) where {M,D,Sym} = print(io, "FermionBasis{$M,$D,$Sym}:\nkeys = ", keys(b))
-# Base.iterate(b::FermionBasis) = iterate(values(b.dict))
-# Base.iterate(b::FermionBasis, state) = iterate(values(b.dict), state)
-# Base.length(::FermionBasis{M}) where {M} = M
-# Base.eltype(b::FermionBasis) = eltype(b.dict)
-# Base.keytype(b::FermionBasis) = keytype(b.dict)
-# symmetry(b::FermionBasis) = b.symmetry
-# function ispartition(bs, b::FermionBasis)
-#     partition = map(keys, bs)
-#     ispartition(partition, b.jw)
-# end
-
-
 handle_labels(iter, iters...) = Base.product(iter, iters...)
 handle_labels(iter) = iter
-# nbr_of_modes(::FermionBasis{M}) where {M} = M
-
-# function Base.:(==)(b1::FermionBasis, b2::FermionBasis)
-#     if b1 === b2
-#         return true
-#     end
-#     if b1.jw != b2.jw
-#         return false
-#     end
-#     if b1.symmetry != b2.symmetry
-#         return false
-#     end
-#     if b1.dict != b2.dict
-#         return false
-#     end
-#     return true
-# end
 
 ##BdG
 abstract type AbstractBdGFermion end

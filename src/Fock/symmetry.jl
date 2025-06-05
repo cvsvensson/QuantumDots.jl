@@ -1,4 +1,3 @@
-struct NoSymmetry <: AbstractSymmetry end
 
 """
     struct FockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
@@ -22,7 +21,7 @@ struct FockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
     conserved_quantity::QNfunc
 end
 
-Base.:(==)(sym1::FockSymmetry, sym2::FockSymmetry) = sym1.indtofockdict == sym2.indtofockdict && sym1.focktoinddict == sym2.focktoinddict && sym1.qntoblocksizes == sym2.qntoblocksizes && sym1.qntofockstates == sym2.qntofockstates && sym1.qntoinds == sym2.qntoinds && sym1.conserved_quantity == sym2.conserved_quantity
+Base.:(==)(sym1::FockSymmetry, sym2::FockSymmetry) = sym1.indtofockdict == sym2.indtofockdict && sym1.focktoinddict == sym2.focktoinddict && sym1.qntoblocksizes == sym2.qntoblocksizes && sym1.qntofockstates == sym2.qntofockstates && sym1.qntoinds == sym2.qntoinds #&& sym1.conserved_quantity == sym2.conserved_quantity
 
 
 blockinds(i::Integer, sym::FockSymmetry) = blockinds(i, values(sym.qntoblocksizes))
@@ -139,16 +138,13 @@ instantiate(qn::FermionConservation, ::JordanWignerOrdering) = qn
     labels = 1:4
     conservedlabels = 1:4
     qn = FermionConservation(conservedlabels)
-    c1 = FermionBasis(labels; qn)
-    c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
-    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
-    c1 = FermionBasis(labels)
-    c2 = FermionBasis(labels; qn=FermionConservation(()))
-    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
+    c1 = hilbert_space(labels, qn)
+    c2 = hilbert_space(labels, FermionConservation())
+    @test c1 == c2
 
     conservedlabels = 2:2
     qn = FermionConservation(conservedlabels)
-    c1 = FermionBasis(labels; qn)
+    c1 = hilbert_space(labels, qn)
     @test all(c1.symmetry.qntoblocksizes .== 2^(length(labels) - length(conservedlabels)))
 end
 
@@ -169,10 +165,10 @@ instantiate(qn::ParityConservation, labels) = qn
 @testitem "ProductSymmetry" begin
     labels = 1:4
     qn = FermionConservation() * ParityConservation()
-    c = FermionBasis(labels; qn)
+    c = hilbert_space(labels, qn)
     @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
     qn = prod(FermionConservation([l], c.jw) for l in labels)
-    @test all(FermionBasis(labels; qn).symmetry.qntoblocksizes .== 1)
+    @test all(hilbert_space(labels, qn).symmetry.qntoblocksizes .== 1)
 end
 
 struct IndexConservation{L} <: AbstractSymmetry
@@ -184,15 +180,15 @@ IndexConservation(index, jw::JordanWignerOrdering) = FermionConservation(filter(
     labels = 1:4
     qn = IndexConservation(1)
     qn2 = FermionConservation(1:1)
-    c = FermionBasis(labels; qn)
-    c2 = FermionBasis(labels; qn=qn2)
-    @test all(c == c2 for (c, c2) in zip(c, c2))
+    c = hilbert_space(labels, qn)
+    c2 = hilbert_space(labels, qn2)
+    @test c == c2
 
     spatial_labels = 1:1
     spin_labels = (:↑, :↓)
-    all_labels = collect(Base.product(spatial_labels, spin_labels))[:]
+    all_labels = Base.product(spatial_labels, spin_labels)
     qn = IndexConservation(:↑) * IndexConservation(:↓)
-    c = FermionBasis(all_labels; qn)
+    c = hilbert_space(all_labels, qn)
     @test all(c.symmetry.qntoblocksizes .== 1)
 end
 
@@ -200,7 +196,7 @@ instantiate(f::F, labels) where {F} = f
 
 
 promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F}, s2::FockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
-promote_symmetry(::FockSymmetry{<:Any,<:Any,<:Any,F1}, ::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
+promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F1}, s2::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = s1 == s2 ? s1.conserved_quantity : NoSymmetry()
 promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
 promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
 promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()

@@ -19,7 +19,7 @@ end
 struct SimpleFockHilbertSpace{L} <: AbstractFockHilbertSpace
     jw::JordanWignerOrdering{L}
     fermionic::Bool
-    function SimpleFockHilbertSpace(labels, fermionic=true)
+    function SimpleFockHilbertSpace(labels; fermionic=true)
         jw = JordanWignerOrdering(labels)
         new{eltype(jw)}(jw, fermionic)
     end
@@ -47,7 +47,7 @@ struct FockHilbertSpace{L,F,I} <: AbstractFockHilbertSpace
     focknumbers::F
     focktoind::I
     fermionic::Bool
-    function FockHilbertSpace(labels, focknumbers::F=map(FockNumber, 0:2^length(labels)-1), fermionic=true) where F
+    function FockHilbertSpace(labels, focknumbers::F=map(FockNumber, 0:2^length(labels)-1); fermionic=true) where F
         jw = JordanWignerOrdering(labels)
         focktoind = Dict(reverse(pair) for pair in enumerate(focknumbers))
         new{eltype(jw),F,typeof(focktoind)}(jw, focknumbers, focktoind, fermionic)
@@ -110,14 +110,14 @@ function Base.:(==)(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace
     return true
 end
 
-qubit_hilbert_space(labels) = SimpleFockHilbertSpace(labels, false)
-qubit_hilbert_space(labels, focknumbers) = FockHilbertSpace(labels, focknumbers, false)
+qubit_hilbert_space(labels) = SimpleFockHilbertSpace(labels; fermionic=false)
+qubit_hilbert_space(labels, focknumbers) = FockHilbertSpace(labels, focknumbers; fermionic=false)
 qubit_hilbert_space(labels, qn::AbstractSymmetry, focknumbers) = SymmetricFockHilbertSpace(labels, qn, focknumbers; fermionic=false)
 qubit_hilbert_space(labels, qn::AbstractSymmetry) = SymmetricFockHilbertSpace(labels, qn; fermionic=false)
 
-hilbert_space(labels; fermionic=true) = SimpleFockHilbertSpace(labels, fermionic)
-hilbert_space(labels, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers, fermionic)
-hilbert_space(labels, ::NoSymmetry; fermionic=true) = SimpleFockHilbertSpace(labels, fermionic)
-hilbert_space(labels, ::NoSymmetry, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers, fermionic)
+hilbert_space(labels; fermionic=true) = SimpleFockHilbertSpace(labels; fermionic=fermionic)
+hilbert_space(labels, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers; fermionic=fermionic)
+hilbert_space(labels, ::NoSymmetry; fermionic=true) = SimpleFockHilbertSpace(labels; fermionic=fermionic)
+hilbert_space(labels, ::NoSymmetry, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers; fermionic=fermionic)
 hilbert_space(labels, qn::AbstractSymmetry, focknumbers; fermionic=true) = SymmetricFockHilbertSpace(labels, qn, focknumbers; fermionic)
 hilbert_space(labels, qn::AbstractSymmetry; fermionic=true) = SymmetricFockHilbertSpace(labels, qn; fermionic)

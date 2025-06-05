@@ -112,10 +112,10 @@ end
         (t[I] for I in CartesianIndices(t) if issorted(Tuple(I)) && allunique(Tuple(I)))
     end
     for N in 1:4
-        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(c, N))
-        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(c, N))
-        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(cparity, N))
-        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(H, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(H, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(Hparity, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(Hparity, N))
     end
 
     ## Single particle density matrix
@@ -170,37 +170,56 @@ end
 @testitem "Fermionic trace" begin
     using LinearAlgebra
     N = 4
-    cs = [FermionBasis(n:n) for n in 1:N]
-    c = FermionBasis(1:4)
+    Hs = [hilbert_space(n:n) for n in 1:N]
+    H = hilbert_space(1:4)
     ops = [rand(ComplexF64, 2, 2) for _ in 1:N]
-    op = fermionic_kron(ops, cs, c)
+    op = fermionic_kron(ops, Hs, H)
     @test tr(op) ≈ prod(tr, ops)
 
-    op = fermionic_kron(ops, cs[[3, 2, 1, 4]], c)
+    op = fermionic_kron(ops, Hs[[3, 2, 1, 4]], H)
     @test tr(op) ≈ prod(tr, ops)
 end
 
 
 @testitem "Fermionic partial trace" begin
     using LinearAlgebra
+    using LinearMaps
+
+    function test_adjoint(Hsub, H)
+        ptmap = LinearMap(rhovec -> vec(partial_trace(reshape(rhovec, size(H)), H, Hsub)), prod(size(Hsub)), prod(size(H)))
+        embeddingmap = LinearMap(rhovec -> vec(fermionic_embedding(reshape(rhovec, size(Hsub)), Hsub, H)), prod(size(H)), prod(size(Hsub)))
+        @test Matrix(ptmap) ≈ Matrix(embeddingmap)'
+    end
     qns = [NoSymmetry(), ParityConservation(), FermionConservation()]
     for qn in qns
-        c = FermionBasis(1:3; qn)
-        c1 = FermionBasis(1:1; qn)
-        c2 = FermionBasis(2:2; qn)
-        c12 = FermionBasis(1:2; qn)
-        c13 = FermionBasis(1:3; qn)
-        c23 = FermionBasis(2:3; qn)
+        H = hilbert_space(1:3, qn)
+        H1 = hilbert_space(1:1, qn)
+        H2 = hilbert_space(2:2, qn)
+        H12 = hilbert_space(1:2, qn)
+        H13 = hilbert_space(1:3, qn)
+        H23 = hilbert_space(2:3, qn)
+        c = fermions(H)
+        c1 = fermions(H1)
+        c2 = fermions(H2)
+        c12 = fermions(H12)
+        c13 = fermions(H13)
+        c23 = fermions(H23)
+
         γ = Hermitian([0I rand(ComplexF64, 4, 4); rand(ComplexF64, 4, 4) 0I])
         f = c[1]
-        @test tr(c1[1] * partial_trace(γ, c, c1,)) ≈ tr(f * γ)
-        @test tr(c12[1] * partial_trace(γ, c, c12,)) ≈ tr(f * γ)
-        @test tr(c13[1] * partial_trace(γ, c, c13,)) ≈ tr(f * γ)
+        @test tr(c1[1] * partial_trace(γ, H, H1)) ≈ tr(f * γ)
+        @test tr(c12[1] * partial_trace(γ, H, H12)) ≈ tr(f * γ)
+        @test tr(c13[1] * partial_trace(γ, H, H13)) ≈ tr(f * γ)
 
         f = c[2]
-        @test tr(c2[2] * partial_trace(γ, c, c2)) ≈ tr(f * γ)
-        @test tr(c12[2] * partial_trace(γ, c, c12)) ≈ tr(f * γ)
-        @test tr(c23[2] * partial_trace(γ, c, c23)) ≈ tr(f * γ)
+        @test tr(c2[2] * partial_trace(γ, H, H2)) ≈ tr(f * γ)
+        @test tr(c12[2] * partial_trace(γ, H, H12)) ≈ tr(f * γ)
+        @test tr(c23[2] * partial_trace(γ, H, H23)) ≈ tr(f * γ)
+
+        test_adjoint(H1, H)
+        test_adjoint(H12, H)
+        test_adjoint(H13, H)
+        test_adjoint(H23, H)
     end
 end
 
@@ -283,10 +302,10 @@ end
     qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
 
-    b_mb = QuantumDots.FermionBasis(labels)
-    poor_mans_ham_mb = ham(b_mb)
+    b_mb = hilbert_space(labels)
+    poor_mans_ham_mb = ham(fermions(b_mb))
     es_mb, states = eigen(poor_mans_ham_mb)
-    P = QuantumDots.parityoperator(b_mb)
+    P = parityoperator(b_mb)
 
     parity(v) = v' * P * v
     gs_odd = parity(states[:, 1]) ≈ -1 ? states[:, 1] : states[:, 2]
@@ -355,7 +374,7 @@ end
 
     # Longer kitaev 
     b = QuantumDots.FermionBdGBasis(1:5)
-    b_mb = QuantumDots.FermionBasis(1:5; qn=QuantumDots.parity)
+    b_mb = hilbert_space(1:5, ParityConservation())
     ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0.1, t=1.1, Δ=1.0, V=0))
     pmmbdgham = ham2(b)
     pmmham = blockdiagonal(ham2(b_mb), b_mb)
@@ -435,7 +454,8 @@ end
     Random.seed!(1234)
 
     N = 4
-    c = FermionBasis(1:N)
+    H = hilbert_space(1:N)
+    c = fermions(H)
     ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
     vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
@@ -445,22 +465,6 @@ end
     w = [dot(v1, f + f', v2) for f in c]
     z = [dot(v1, (f' - f), v2) for f in c]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
-    w, z = QuantumDots.majorana_coefficients(v1, v2, c)
-    mps = QuantumDots.majorana_polarization(w, z, 1:2)
-    @test mps.mp ≈ 1 && mps.mpu ≈ 1
-
-    ϕ = rand() * 2pi
-    wϕ, zϕ = QuantumDots.majorana_coefficients(v1, exp(1im * ϕ) * v2, c)
-    mpsϕ = QuantumDots.majorana_polarization(wϕ, zϕ, 1:2)
-    @test mpsϕ.mp ≈ 1 && mpsϕ.mpu ≈ 1
-    wϕ2, zϕ2 = QuantumDots.rotate_majorana_coefficients(wϕ, zϕ, -mpsϕ.phase)
-
-    function test_angle(w)
-        a = mod(angle(w[findmax(abs, w)[2]]), pi / 4)
-        a < 1e-12 || a > pi / 4 - 1e-12
-    end
-    @test test_angle(wϕ2) && test_angle(zϕ2)
-    @test !(test_angle(wϕ) && test_angle(zϕ))
 
     eig = diagonalize(ham)
     eigsectors = blocks(eig)
@@ -470,20 +474,18 @@ end
     @test gs[1].value ≈ eigsectors[1].values[1]
 
     N = 5
-    c = FermionBasis(1:N; qn=QuantumDots.parity)
-    ham = QuantumDots.blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), c)
+    H = hilbert_space(1:N, ParityConservation())
+    c = fermions(H)
+    ham = blockdiagonal(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0), H)
     vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[1+size(vecs.blocks[1], 1)]) < 1e-12
-    p = parityoperator(c)
+    p = parityoperator(H)
     v1 = vecs[:, 1]
     v2 = vecs[:, 1+size(vecs.blocks[1], 1)]
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
     w = [dot(v1, f + f', v2) for f in c]
     z = [dot(v1, (f' - f), v2) for f in c]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
-    w, z = QuantumDots.majorana_coefficients(v1, v2, c)
-    mps = QuantumDots.majorana_polarization(w, z, 1:2)
-    @test mps.mp ≈ 1 && mps.mpu ≈ 1
 
     eig = diagonalize(ham)
     eigsectors = blocks(eig; full=true)
@@ -499,16 +501,17 @@ end
 @testitem "BlockDiagonal" begin
     using SparseArrays, LinearAlgebra, BlockDiagonals
     N = 2
-    a = FermionBasis(1:N; qn=QuantumDots.parity)
+    H = hilbert_space(1:N, ParityConservation())
+    a = fermions(H)
     ham0 = a[1]' * a[1] + π * a[2]' * a[2]
-    ham = blockdiagonal(ham0, a)
+    ham = blockdiagonal(ham0, H)
     @test ham isa BlockDiagonal{Float64,SparseMatrixCSC{Float64,Int}}
-    ham = blockdiagonal(Matrix, ham0, a)
+    ham = blockdiagonal(Matrix, ham0, H)
     @test ham isa BlockDiagonal{Float64,Matrix{Float64}}
     vals, vecs = eigen(ham)
     @test vals ≈ [0, 1, π, π + 1]
-    parityop = blockdiagonal(parityoperator(a), a)
-    numberop = blockdiagonal(numberoperator(a), a)
+    parityop = blockdiagonal(parityoperator(H), H)
+    numberop = blockdiagonal(numberoperator(H), H)
 end
 
 

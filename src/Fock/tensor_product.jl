@@ -35,8 +35,6 @@ end
 function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrdering)
     #(122a)
     ispartition((X, Xbar), jw) || throw(ArgumentError("The partition must be ordered according to jw"))
-    # length(X) + length(Xbar) == length(jw.labels) || throw(ArgumentError("The union of the labels in X and Xbar must be the same as the labels in jw"))
-    # all(haskey(jw.ordering, k) for k in Iterators.flatten((X, Xbar))) || throw(ArgumentError("The labels in X and Xbar must be the same as the labels in jw"))
     phases = ones(Int, length(fockstates))
     mask = focknbr_from_site_labels(X, jw)
     for li in Xbar
@@ -106,11 +104,11 @@ function wedge(H1::FockHilbertSpace, H2::FockHilbertSpace)
     FockHilbertSpace(newlabels, newfocknumbers; fermionic=isfermionic(H1))
 end
 
-function simple_wedge(H1::SimpleFockHilbertSpace, H2::SimpleFockHilbertSpace)
+function simple_wedge(H1::AbstractFockHilbertSpace, H2::AbstractFockHilbertSpace)
     isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
     allequal(isfermionic, (H1, H2)) || throw(ArgumentError("All Hilbert spaces should have the same fermionicity"))
     newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
-    SimpleFockHilbertSpace(newlabels, isfermionic(H1))
+    SimpleFockHilbertSpace(newlabels; fermionic=isfermionic(H1))
 end
 wedge(H1::SimpleFockHilbertSpace, H2) = simple_wedge(H1, H2)
 wedge(H1, H2::SimpleFockHilbertSpace) = simple_wedge(H1, H2)
