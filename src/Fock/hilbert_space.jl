@@ -21,6 +21,25 @@ isfermionic(H::FockHilbertSpace) = H.fermionic
 focknumbers(H::FockHilbertSpace) = H.focknumbers
 indtofock(ind, H::FockHilbertSpace) = focknumbers(H)[ind]
 focktoind(focknbr::FockNumber, H::FockHilbertSpace) = H.focktoind[focknbr]
+function Base.:(==)(H1::FockHilbertSpace, H2::FockHilbertSpace)
+    if H1 === H2
+        return true
+    end
+    if H1.jw != H2.jw
+        return false
+    end
+    if H1.fermionic != H2.fermionic
+        return false
+    end
+    if H1.focknumbers != H2.focknumbers
+        return false
+    end
+    if H1.focktoind != H2.focktoind
+        return false
+    end
+    return true
+end
+
 
 struct SymmetricFockHilbertSpace{L,S} <: AbstractFockHilbertSpace
     jw::JordanWignerOrdering{L}
@@ -31,11 +50,26 @@ isfermionic(H::SymmetricFockHilbertSpace) = H.fermionic
 indtofock(ind, H::SymmetricFockHilbertSpace) = indtofock(ind, H.symmetry)
 focktoind(f::FockNumber, H::SymmetricFockHilbertSpace) = focktoind(f, H.symmetry)
 focknumbers(H::SymmetricFockHilbertSpace) = focknumbers(H.symmetry)
-function SymmetricFockHilbertSpace(labels, qn, focknumbers=map(FockNumber, 0:2^length(labels)-1); fermionic=true)
+function SymmetricFockHilbertSpace(labels, qn::AbstractSymmetry, focknumbers=map(FockNumber, 0:2^length(labels)-1); fermionic=true)
     jw = JordanWignerOrdering(labels)
     labelled_symmetry = instantiate(qn, jw)
     sym_concrete = focksymmetry(focknumbers, labelled_symmetry)
     SymmetricFockHilbertSpace(jw, fermionic, sym_concrete)
+end
+function Base.:(==)(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace)
+    if H1 === H2
+        return true
+    end
+    if H1.jw != H2.jw
+        return false
+    end
+    if H1.symmetry != H2.symmetry
+        return false
+    end
+    if H1.fermionic != H2.fermionic
+        return false
+    end
+    return true
 end
 
 
@@ -62,7 +96,7 @@ end
     H2 = FockHilbertSpace(3:4)
     Hw = wedge(H1, H2)
     H3 = FockHilbertSpace(1:4)
-    @test focknumbers(Hw) == focknumbers(H3)
+    @test Hw == H3
 
     H1 = SymmetricFockHilbertSpace(1:2, FermionConservation())
     H2 = SymmetricFockHilbertSpace(3:4, FermionConservation())

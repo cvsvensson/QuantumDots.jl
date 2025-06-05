@@ -16,8 +16,10 @@ import Crayons
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
-export FockNumber, JordanWignerOrdering, bits, FermionBasis, parityoperator, numberoperator, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
+export FockNumber, JordanWignerOrdering, bits, FermionBasis,  blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
 export FockHilbertSpace, SymmetricFockHilbertSpace
+export parityoperator, numberoperator, fermions
+
 export qns, pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
@@ -33,6 +35,7 @@ function TSL_generator end
 function fermion_to_majorana end
 function majorana_to_fermion end
 
+include("structs.jl")
 include("Fock/fock.jl")
 include("Fock/phase_factors.jl")
 include("Fock/tensor_product.jl")
@@ -40,7 +43,6 @@ include("Fock/hilbert_space.jl")
 include("Fock/symmetry.jl")
 include("Fock/operators.jl")
 
-include("structs.jl")
 include("hamiltonians.jl")
 include("bdg.jl")
 include("diagonalization.jl")

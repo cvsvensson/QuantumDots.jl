@@ -211,10 +211,12 @@ end
 
 Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
 """
-function one_particle_density_matrix(ρ::AbstractMatrix{T}, b::FermionBasis, labels=keys(b)) where {T}
+function one_particle_density_matrix(ρ::AbstractMatrix{T}, H::AbstractHilbertSpace) where {T}
     N = length(labels)
     hoppings = zeros(T, N, N)
     pairings = zeros(T, N, N)
+    b = fermions(H)
+    labels = keys(b)
     for (n, (l1, l2)) in enumerate(Base.product(labels, labels))
         f1 = b[l1]
         f2 = b[l2]
@@ -279,19 +281,19 @@ Base.:-(f1::BdGFermion, f2::BdGFermion) = QuasiParticle(f1) - QuasiParticle(f2)
 rep(qp::QuasiParticle) = sum((lw) -> rep(BdGFermion(first(first(lw)), basis(qp), last(lw), last(first(lw)) == :h)), pairs(qp.weights))
 
 """
-    many_body_fermion(f::BdGFermion, basis::FermionBasis)
+    many_body_fermion(f::BdGFermion, fermiondict)
 
 Return the representation of `f` in the many-body fermion basis `basis`.
 """
-function many_body_fermion(f::BdGFermion, basis::FermionBasis)
+function many_body_fermion(f::BdGFermion, fermiondict)
     if f.hole
-        return f.amp * basis[f.id]
+        return f.amp * fermiondict[f.id]
     else
-        return f.amp * basis[f.id]'
+        return f.amp * fermiondict[f.id]'
     end
 end
-function many_body_fermion(qp::QuasiParticle, basis::FermionBasis)
-    mbferm((l, w)) = last(l) == :h ? w * basis[first(l)] : w * basis[first(l)]'
+function many_body_fermion(qp::QuasiParticle, fermiondict)
+    mbferm((l, w)) = last(l) == :h ? w * fermiondict[first(l)] : w * fermiondict[first(l)]'
     sum(mbferm, pairs(qp.weights))
 end
 
@@ -536,19 +538,20 @@ Compute the many-body density matrix for a given correlator G. The traceless ver
 
 See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
 """
-function many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+function many_body_density_matrix(G, H=SymmetricFockHilbertSpace(1:div(size(G, 1), 2), ParityConservation()); alg=SkewEigenAlg())
+    c = fermions(H)
     G = remove_trace(G)
     vals, vecs = diagonalize(BdGMatrix(G; check=false), alg)
-    cbdg = FermionBdGBasis(c)
+    cbdg = FermionBdGBasis(keys(H.jw))
     qps = map(i -> QuasiParticle(vecs[:, i], cbdg), 1:size(vecs, 2))
     mbqps = map(qp -> many_body_fermion(qp, c), qps)
     rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
     return rho
 end
-FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(collect(keys(c)))
+# FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(collect(keys(c)))
 
-function many_body_hamiltonian(H::BdGMatrix, c::FermionBasis=FermionBasis(1:size(H.H, 1), qn=parity))
-    many_body_hamiltonian(H.H, H.Δ, c)
+function many_body_hamiltonian(ham::BdGMatrix, H::AbstractHilbertSpace=SymmetricFockHilbertSpace(1:size(ham.H, 1), ParityConservation()))
+    many_body_hamiltonian(ham.H, ham.Δ, H)
 end
 
 """
@@ -556,6 +559,7 @@ end
 
 Construct the many-body Hamiltonian for a given BdG Hamiltonian consisting of hoppings `H` and pairings `Δ`.
 """
-function many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
-    sum((H[i, j] * c[i]' * c[j] - conj(H[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
+function many_body_hamiltonian(ham::AbstractMatrix, Δ::AbstractMatrix, H::AbstractHilbertSpace=SymmetricFockHilbertSpace(1:size(ham.H, 1), ParityConservation()))
+    c = fermions(H)
+    sum((ham[i, j] * c[i]' * c[j] - conj(ham[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end

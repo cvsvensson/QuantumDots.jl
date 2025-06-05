@@ -1,4 +1,3 @@
-abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
 
 """

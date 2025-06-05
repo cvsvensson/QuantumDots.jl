@@ -138,5 +138,11 @@ end
     H = SymmetricFockHilbertSpace(1:2, FermionConservation(), focknumbers)
     @test parityoperator(H) == Diagonal([-1])
     @test numberoperator(H) == Diagonal([1])
+end
 
+function fermions(H::AbstractFockHilbertSpace)
+    M = length(H.jw)
+    labelvec = keys(H.jw)
+    reps = ntuple(n -> fermion_sparse_matrix(n, H), M)
+    OrderedDict(zip(labelvec, reps))
 end
