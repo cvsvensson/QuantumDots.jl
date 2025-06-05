@@ -207,9 +207,9 @@ end
 
 
 """
-    one_particle_density_matrix(ρ::AbstractMatrix, b::FermionBasis, labels=keys(b))
+    one_particle_density_matrix(ρ::AbstractMatrix, H::AbstractHilbertSpace, labels=keys(H))
 
-Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `b`.
+Compute the one-particle density matrix for a given density matrix `ρ` in the many body fermion basis `H`.
 """
 function one_particle_density_matrix(ρ::AbstractMatrix{T}, H::AbstractHilbertSpace, labels=keys(H)) where {T}
     N = length(labels)
@@ -510,34 +510,34 @@ function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
 end
 
 
-function many_body_density_matrix_exp(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+function many_body_density_matrix_exp(G, H=hilbert_space(1:div(size(G, 1), 2), ParityConservation()); alg=SkewEigenAlg())
     G = remove_trace(G)
     vals, vecs = diagonalize(BdGMatrix(G; check=false), alg)
     clamp_val(e) = clamp(e, -1 / 2 + eps(e), 1 / 2 - eps(e))
     f(e) = log((e + 1 / 2) / (1 / 2 - e))
     vals2 = map(f ∘ clamp_val, vals[1:div(length(vals), 2)])
-    H = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
+    ham = vecs * Diagonal(vcat(vals2, -reverse(vals2))) * vecs'
     N = length(vals2)
-    _H = Hermitian(H[1:N, 1:N])
-    Δ = H[1:N, N+1:2N]
+    _H = Hermitian(ham[1:N, 1:N])
+    Δ = ham[1:N, N+1:2N]
     Δ = (Δ - transpose(Δ)) / 2
-    @assert _H ≈ -transpose(H[N+1:2N, N+1:2N])
+    @assert _H ≈ -transpose(ham[N+1:2N, N+1:2N])
     @assert Δ ≈ -transpose(Δ)
-    @assert Δ ≈ -conj(H[N+1:2N, 1:N])
-    Hmb = Matrix(many_body_hamiltonian(_H, Δ, c))
+    @assert Δ ≈ -conj(ham[N+1:2N, 1:N])
+    Hmb = Matrix(many_body_hamiltonian(_H, Δ, H))
     rho = exp(Hmb)
     return rho / tr(rho)
 end
 
 remove_trace(A) = A - tr(A)I / size(A, 1)
 """
-    many_body_density_matrix(G, c=FermionBasis(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
+    many_body_density_matrix(G, c=SymmetricFockHilbertSpace(1:div(size(G, 1), 2), qn=parity); alg=SkewEigenAlg())
 
 Compute the many-body density matrix for a given correlator G. The traceless version of G should be a BdGMatrix. 
 
 See also [`one_particle_density_matrix`](@ref), [`many_body_hamiltonian`](@ref).
 """
-function many_body_density_matrix(G, H=SymmetricFockHilbertSpace(1:div(size(G, 1), 2), ParityConservation()); alg=SkewEigenAlg())
+function many_body_density_matrix(G, H=hilbert_space(1:div(size(G, 1), 2), ParityConservation()); alg=SkewEigenAlg())
     c = fermions(H)
     G = remove_trace(G)
     vals, vecs = diagonalize(BdGMatrix(G; check=false), alg)
@@ -547,18 +547,17 @@ function many_body_density_matrix(G, H=SymmetricFockHilbertSpace(1:div(size(G, 1
     rho = prod((I * (1 / 2 - e) + 2e * Matrix(qp' * qp)) for (e, qp) in zip(vals[1:div(length(vals), 2)], mbqps))
     return rho
 end
-# FermionBdGBasis(c::FermionBasis) = FermionBdGBasis(collect(keys(c)))
 
 function many_body_hamiltonian(ham::BdGMatrix, H::AbstractHilbertSpace=SymmetricFockHilbertSpace(1:size(ham.H, 1), ParityConservation()))
     many_body_hamiltonian(ham.H, ham.Δ, H)
 end
 
 """
-    many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::FermionBasis=FermionBasis(1:size(H, 1), qn=parity))
+    many_body_hamiltonian(H::AbstractMatrix, Δ::AbstractMatrix, c::AbstractHilbertSpace=hilbert_space(1:size(ham.H, 1), ParityConservation()))
 
 Construct the many-body Hamiltonian for a given BdG Hamiltonian consisting of hoppings `H` and pairings `Δ`.
 """
-function many_body_hamiltonian(ham::AbstractMatrix, Δ::AbstractMatrix, H::AbstractHilbertSpace=SymmetricFockHilbertSpace(1:size(ham.H, 1), ParityConservation()))
+function many_body_hamiltonian(ham::AbstractMatrix, Δ::AbstractMatrix, H::AbstractHilbertSpace=hilbert_space(1:size(ham.H, 1), ParityConservation()))
     c = fermions(H)
     sum((ham[i, j] * c[i]' * c[j] - conj(ham[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end

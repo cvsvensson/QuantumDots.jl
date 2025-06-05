@@ -603,7 +603,7 @@ end
     @test bdham ≈ hamiltonian(params[1:end-1]..., 0.0)
 
     Hb = hilbert_space(Base.product(1:2, (:a, :b)), ParityConservation())
-    b = fermions(Hb)#FermionBasis(1:2, (:a, :b); qn=ParityConservation())
+    b = fermions(Hb)
     nparams = 8
     params = rand(nparams)
     ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1, ϕ=0))
@@ -628,7 +628,8 @@ end
     Random.seed!(1234)
 
     N = 2
-    b = FermionBasis(1:N, (:↑, :↓))
+    H = hilbert_space(Base.product(1:N,(:↑, :↓)))
+    b = fermions(H)
     standard_hopping = QuantumDots.hopping(1, b[1, :↑], b[2, :↑]) + QuantumDots.hopping(1, b[1, :↓], b[2, :↓])
     standard_pairing = QuantumDots.pairing(1, b[1, :↑], b[2, :↓]) - QuantumDots.pairing(1, b[1, :↓], b[2, :↑])
     local_pairing = sum(QuantumDots.pairing(1, QuantumDots.cell(j, b)...) for j in 1:N)
@@ -651,7 +652,7 @@ end
     @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=1)
     @test QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=1, Δ1=0) ≈ local_pairing
 
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) ≈ -QuantumDots.numberoperator(b)
+    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) ≈ -numberoperator(H)
 
     @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
 end
@@ -671,8 +672,9 @@ end
         # qn = QuantumDots.NoSymmetry()
         # qn = ParityConservation()
         N = 1
-        a = FermionBasis(1:N; qn)
-        bd(m) = QuantumDots.blockdiagonal(m, a)
+        H = hilbert_space(1:N,qn)
+        a = fermions(H)
+        bd(m) = QuantumDots.blockdiagonal(m, H)
         get_hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
@@ -680,7 +682,7 @@ end
         rightlead = NormalLead(a[N]'; T, μ=μR)
         leads = Dict(:left => leftlead, :right => rightlead)
 
-        particle_number = bd(numberoperator(a))
+        particle_number = bd(numberoperator(H))
         ham = get_hamiltonian(μH)
         diagham = diagonalize(ham)
         diagham2 = QuantumDots.remove_high_energy_states(diagham, μH / 2)
@@ -800,8 +802,9 @@ end
 
     N = 2
     qn = QuantumDots.NoSymmetry()
-    a = FermionBasis(1:N; qn)
-    bd(m) = blockdiagonal(m, a)
+    H = hilbert_space(1:N,qn)
+    a = fermions(H)
+    bd(m) = blockdiagonal(m, H)
     hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] + hc for n in 1:N-1)))
     T = 0.1
     μL = 0.5
@@ -810,7 +813,7 @@ end
     rightlead = NormalLead(a[N]'; T, μ=μR)
     leads = Dict(:left => leftlead, :right => rightlead)
 
-    particle_number = bd(numberoperator(a))
+    particle_number = bd(numberoperator(H))
     ls = LindbladSystem(hamiltonian, leads)
     mo = QuantumDots.LinearOperator(ls)
     mo2 = QuantumDots.LinearOperator(ls; normalizer=true)

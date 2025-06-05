@@ -95,7 +95,7 @@ Evaluate an expression with fermions in a basis `f`.
 # Examples
 ```julia
 @fermions a
-f = FermionBasis(1:2)
+f = fermions(hilbert_space(1:2))
 QuantumDots.eval_in_basis(a[1]'*a[2] + hc, f)
 ```
 """

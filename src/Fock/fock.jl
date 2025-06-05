@@ -158,9 +158,6 @@ function split_focknumber(f::FockNumber, fockmapper::FockMapper)
 end
 @testitem "Split focknumber" begin
     import QuantumDots: focknbr_from_site_indices as fock
-    # b1 = FermionBasis((1, 3))
-    # b2 = FermionBasis((2, 4))
-    # b = FermionBasis(1:4)
     jw1 = JordanWignerOrdering((1, 3))
     jw2 = JordanWignerOrdering((2, 4))
     jw = JordanWignerOrdering(1:4)
