@@ -6,6 +6,42 @@ abstract type AbstractFockHilbertSpace <: AbstractHilbertSpace end
 #focknumbers -> ordered iterator of fock numbers?
 #isfermionic: determine if phase factors should be used
 
+Base.size(H::AbstractFockHilbertSpace) = (length(focknumbers(H)), length(focknumbers(H)))
+function isorderedpartition(Hs, H::AbstractHilbertSpace)
+    partition = map(keys, Hs)
+    isorderedpartition(partition, H.jw)
+end
+function isorderedsubsystem(Hsub, H::AbstractHilbertSpace)
+    isorderedsubsystem(Hsub.jw, H.jw)
+end
+
+
+struct SimpleFockHilbertSpace{L} <: AbstractFockHilbertSpace
+    jw::JordanWignerOrdering{L}
+    fermionic::Bool
+    function SimpleFockHilbertSpace(labels, fermionic=true)
+        jw = JordanWignerOrdering(labels)
+        new{eltype(jw)}(jw, fermionic)
+    end
+end
+Base.keys(H::SimpleFockHilbertSpace) = keys(H.jw)
+isfermionic(H::SimpleFockHilbertSpace) = H.fermionic
+focknumbers(H::SimpleFockHilbertSpace) = Iterators.map(FockNumber, 0:2^length(H.jw)-1)
+indtofock(ind, ::SimpleFockHilbertSpace) = FockNumber(ind - 1)
+focktoind(focknbr::FockNumber, ::SimpleFockHilbertSpace) = focknbr.f + 1
+function Base.:(==)(H1::SimpleFockHilbertSpace, H2::SimpleFockHilbertSpace)
+    if H1 === H2
+        return true
+    end
+    if H1.jw != H2.jw
+        return false
+    end
+    if H1.fermionic != H2.fermionic
+        return false
+    end
+    return true
+end
+
 struct FockHilbertSpace{L,F,I} <: AbstractFockHilbertSpace
     jw::JordanWignerOrdering{L}
     focknumbers::F
@@ -17,6 +53,7 @@ struct FockHilbertSpace{L,F,I} <: AbstractFockHilbertSpace
         new{eltype(jw),F,typeof(focktoind)}(jw, focknumbers, focktoind, fermionic)
     end
 end
+Base.keys(H::FockHilbertSpace) = keys(H.jw)
 isfermionic(H::FockHilbertSpace) = H.fermionic
 focknumbers(H::FockHilbertSpace) = H.focknumbers
 indtofock(ind, H::FockHilbertSpace) = focknumbers(H)[ind]
@@ -46,6 +83,7 @@ struct SymmetricFockHilbertSpace{L,S} <: AbstractFockHilbertSpace
     fermionic::Bool
     symmetry::S
 end
+Base.keys(H::SymmetricFockHilbertSpace) = keys(H.jw)
 isfermionic(H::SymmetricFockHilbertSpace) = H.fermionic
 indtofock(ind, H::SymmetricFockHilbertSpace) = indtofock(ind, H.symmetry)
 focktoind(f::FockNumber, H::SymmetricFockHilbertSpace) = focktoind(f, H.symmetry)
@@ -72,41 +110,14 @@ function Base.:(==)(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace
     return true
 end
 
+qubit_hilbert_space(labels) = SimpleFockHilbertSpace(labels, false)
+qubit_hilbert_space(labels, focknumbers) = FockHilbertSpace(labels, focknumbers, false)
+qubit_hilbert_space(labels, qn::AbstractSymmetry, focknumbers) = SymmetricFockHilbertSpace(labels, qn, focknumbers; fermionic=false)
+qubit_hilbert_space(labels, qn::AbstractSymmetry) = SymmetricFockHilbertSpace(labels, qn; fermionic=false)
 
-function wedge(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace)
-    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
-    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
-    qn = promote_symmetry(H1.symmetry, H2.symmetry)
-    M1 = length(H1.jw)
-    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
-    SymmetricFockHilbertSpace(newlabels, qn, newfocknumbers)
-end
-
-function wedge(H1::FockHilbertSpace, H2::FockHilbertSpace)
-    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
-    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
-    M1 = length(H1.jw)
-    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
-    FockHilbertSpace(newlabels, newfocknumbers)
-end
-
-@testitem "Wedge product of Fock Hilbert Spaces" begin
-    using QuantumDots
-    H1 = FockHilbertSpace(1:2)
-    H2 = FockHilbertSpace(3:4)
-    Hw = wedge(H1, H2)
-    H3 = FockHilbertSpace(1:4)
-    @test Hw == H3
-
-    H1 = SymmetricFockHilbertSpace(1:2, FermionConservation())
-    H2 = SymmetricFockHilbertSpace(3:4, FermionConservation())
-    Hw = wedge(H1, H2)
-    H3 = SymmetricFockHilbertSpace(1:4, FermionConservation())
-    @test focknumbers(Hw) == focknumbers(H3)
-
-    H1 = SymmetricFockHilbertSpace(1:2, ParityConservation())
-    H2 = SymmetricFockHilbertSpace(3:4, ParityConservation())
-    Hw = wedge(H1, H2)
-    H3 = SymmetricFockHilbertSpace(1:4, ParityConservation())
-    @test focknumbers(Hw) == focknumbers(H3)
-end
+hilbert_space(labels; fermionic=true) = SimpleFockHilbertSpace(labels, fermionic)
+hilbert_space(labels, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers, fermionic)
+hilbert_space(labels, ::NoSymmetry; fermionic=true) = SimpleFockHilbertSpace(labels, fermionic)
+hilbert_space(labels, ::NoSymmetry, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers, fermionic)
+hilbert_space(labels, qn::AbstractSymmetry, focknumbers; fermionic=true) = SymmetricFockHilbertSpace(labels, qn, focknumbers; fermionic)
+hilbert_space(labels, qn::AbstractSymmetry; fermionic=true) = SymmetricFockHilbertSpace(labels, qn; fermionic)

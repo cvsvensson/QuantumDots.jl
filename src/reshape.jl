@@ -1,84 +1,84 @@
 
-function Base.reshape(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, phase_factors=use_reshape_phase_factors(b, bs))
-    _reshape_mat_to_tensor(m, b, bs, FockSplitter(b, bs), phase_factors)
+function Base.reshape(m::AbstractMatrix, H::AbstractFockHilbertSpace, Hs, phase_factors=use_reshape_phase_factors(H, Hs))
+    _reshape_mat_to_tensor(m, H, Hs, FockSplitter(H, Hs), phase_factors)
 end
-function Base.reshape(m::AbstractVector, b::AbstractManyBodyBasis, bs, phase_factors=use_reshape_phase_factors(b, bs))
-    _reshape_vec_to_tensor(m, b, bs, FockSplitter(b, bs), phase_factors)
+function Base.reshape(m::AbstractVector, H::AbstractFockHilbertSpace, Hs, phase_factors=use_reshape_phase_factors(H, Hs))
+    _reshape_vec_to_tensor(m, H, Hs, FockSplitter(H, Hs), phase_factors)
 end
 
-function Base.reshape(t::AbstractArray, bs, b::AbstractManyBodyBasis, phase_factors=use_reshape_phase_factors(b, bs))
-    if ndims(t) == 2 * length(bs)
-        return _reshape_tensor_to_mat(t, bs, b, FockMapper(bs, b), phase_factors)
-    elseif ndims(t) == length(bs)
-        return _reshape_tensor_to_vec(t, bs, b, FockMapper(bs, b), phase_factors)
+function Base.reshape(t::AbstractArray, Hs, H::AbstractFockHilbertSpace, phase_factors=use_reshape_phase_factors(H, Hs))
+    if ndims(t) == 2 * length(Hs)
+        return _reshape_tensor_to_mat(t, Hs, H, FockMapper(Hs, H), phase_factors)
+    elseif ndims(t) == length(Hs)
+        return _reshape_tensor_to_vec(t, Hs, H, FockMapper(Hs, H), phase_factors)
     else
         throw(ArgumentError("The number of dimensions in the tensor must match the number of subsystems"))
     end
 end
 
-function _reshape_vec_to_tensor(v, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
+function _reshape_vec_to_tensor(v, H::AbstractFockHilbertSpace, Hs, fock_splitter, phase_factors)
     if phase_factors
-        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+        isorderedpartition(Hs, H) || throw(ArgumentError("The partition must be ordered according to jw"))
     end
-    dims = length.(get_fockstates.(bs))
-    fs = get_fockstates(b)
-    Is = map(f -> focktoind(f, b), fs)
-    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
-    t = Array{eltype(v),length(bs)}(undef, dims...)
+    dims = length.(focknumbers.(Hs))
+    fs = focknumbers(H)
+    Is = map(f -> focktoind(f, H), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), Hs), fs)
+    t = Array{eltype(v),length(Hs)}(undef, dims...)
     for (I, Iout) in zip(Is, Iouts)
         t[Iout...] = v[I...]
     end
     return t
 end
 
-function _reshape_mat_to_tensor(m::AbstractMatrix, b::AbstractManyBodyBasis, bs, fock_splitter, phase_factors)
+function _reshape_mat_to_tensor(m::AbstractMatrix, H::AbstractFockHilbertSpace, Hs, fock_splitter, phase_factors)
     #reshape the matrix m in basis b into a tensor where each index pair has a basis in bs
     if phase_factors
-        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+        isorderedpartition(Hs, H) || throw(ArgumentError("The partition must be ordered according to jw"))
     end
-    dims = length.(get_fockstates.(bs))
-    fs = get_fockstates(b)
-    Is = map(f -> focktoind(f, b), fs)
-    Iouts = map(f -> focktoind.(fock_splitter(f), bs), fs)
-    t = Array{eltype(m),2 * length(bs)}(undef, dims..., dims...)
-    partition = map(collect ∘ keys, bs)
+    dims = length.(focknumbers.(Hs))
+    fs = focknumbers(H)
+    Is = map(f -> focktoind(f, H), fs)
+    Iouts = map(f -> focktoind.(fock_splitter(f), Hs), fs)
+    t = Array{eltype(m),2 * length(Hs)}(undef, dims..., dims...)
+    partition = map(collect ∘ keys, Hs)
     for (I1, Iout1, f1) in zip(Is, Iouts, fs)
         for (I2, Iout2, f2) in zip(Is, Iouts, fs)
-            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            s = phase_factors ? phase_factor_h(f1, f2, partition, H.jw) : 1
             t[Iout1..., Iout2...] = m[I1, I2] * s
         end
     end
     return t
 end
 
-function _reshape_tensor_to_mat(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
+function _reshape_tensor_to_mat(t, Hs, H::AbstractFockHilbertSpace, fockmapper, phase_factors)
     if phase_factors
-        isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
+        isorderedpartition(Hs, H) || throw(ArgumentError("The partition must be ordered according to jw"))
     end
-    fs = Base.product(get_fockstates.(bs)...)
+    fs = Base.product(focknumbers.(Hs)...)
     fsb = map(fockmapper, fs)
-    Is = map(f -> focktoind.(f, bs), fs)
-    Iouts = map(f -> focktoind(f, b), fsb)
+    Is = map(f -> focktoind.(f, Hs), fs)
+    Iouts = map(f -> focktoind(f, H), fsb)
     m = Matrix{eltype(t)}(undef, length(fsb), length(fsb))
-    partition = map(collect ∘ keys, bs)
+    partition = map(collect ∘ keys, Hs)
 
     for (I1, Iout1, f1) in zip(Is, Iouts, fsb)
         for (I2, Iout2, f2) in zip(Is, Iouts, fsb)
-            s = phase_factors ? phase_factor_h(f1, f2, partition, b.jw) : 1
+            s = phase_factors ? phase_factor_h(f1, f2, partition, H.jw) : 1
             m[Iout1, Iout2] = t[I1..., I2...] * s
         end
     end
     return m
 end
 
-function _reshape_tensor_to_vec(t, bs, b::AbstractManyBodyBasis, fockmapper, phase_factors)
-    isorderedpartition(bs, b) || throw(ArgumentError("The partition must be ordered according to jw"))
-    fs = Base.product(get_fockstates.(bs)...)
+function _reshape_tensor_to_vec(t, Hs, H::AbstractFockHilbertSpace, fockmapper, phase_factors)
+    isorderedpartition(Hs, H) || throw(ArgumentError("The partition must be ordered according to jw"))
+    fs = Base.product(focknumbers.(Hs)...)
     v = Vector{eltype(t)}(undef, length(fs))
     for fs in fs
-        Is = focktoind.(fs, bs)
+        Is = focktoind.(fs, Hs)
         fb = fockmapper(fs)
-        Iout = focktoind(fb, b)
+        Iout = focktoind(fb, H)
         v[Iout] = t[Is...]
     end
     return v

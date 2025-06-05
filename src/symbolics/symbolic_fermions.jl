@@ -99,7 +99,7 @@ f = FermionBasis(1:2)
 QuantumDots.eval_in_basis(a[1]'*a[2] + hc, f)
 ```
 """
-eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.label]
+eval_in_basis(a::FermionSym, f) = a.creation ? f[a.label]' : f[a.label]
 
 
 @testitem "SymbolicFermions" begin

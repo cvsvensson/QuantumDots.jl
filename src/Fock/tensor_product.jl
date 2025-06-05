@@ -78,3 +78,72 @@ end
     @test U([[1, 3], [2]]) == Diagonal([1, 1, 1, -1, 1, 1, 1, -1])
     @test U([[2, 3], [1]]) == Diagonal([1, 1, 1, 1, 1, -1, -1, 1])
 end
+
+"""
+    wedge(bs)
+
+Compute the wedge product of a list of `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
+"""
+wedge(bs::AbstractVector{<:AbstractHilbertSpace}) = foldl(wedge, bs)
+wedge(bs::Tuple) = foldl(wedge, bs)
+
+function wedge(H1::SymmetricFockHilbertSpace, H2::SymmetricFockHilbertSpace)
+    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
+    allequal(isfermionic, (H1, H2)) || throw(ArgumentError("All Hilbert spaces should have the same fermionicity"))
+    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
+    qn = promote_symmetry(H1.symmetry, H2.symmetry)
+    M1 = length(H1.jw)
+    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
+    SymmetricFockHilbertSpace(newlabels, qn, newfocknumbers; fermionic=isfermionic(H1))
+end
+
+function wedge(H1::FockHilbertSpace, H2::FockHilbertSpace)
+    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
+    allequal(isfermionic, (H1, H2)) || throw(ArgumentError("All Hilbert spaces should have the same fermionicity"))
+    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
+    M1 = length(H1.jw)
+    newfocknumbers = vec([f1 + shift_right(f2, M1) for f1 in focknumbers(H1), f2 in focknumbers(H2)])
+    FockHilbertSpace(newlabels, newfocknumbers; fermionic=isfermionic(H1))
+end
+
+function simple_wedge(H1::SimpleFockHilbertSpace, H2::SimpleFockHilbertSpace)
+    isdisjoint(keys(H1.jw), keys(H2.jw)) || throw(ArgumentError("The labels of the two bases are not disjoint"))
+    allequal(isfermionic, (H1, H2)) || throw(ArgumentError("All Hilbert spaces should have the same fermionicity"))
+    newlabels = vcat(collect(keys(H1.jw)), collect(keys(H2.jw)))
+    SimpleFockHilbertSpace(newlabels, isfermionic(H1))
+end
+wedge(H1::SimpleFockHilbertSpace, H2) = simple_wedge(H1, H2)
+wedge(H1, H2::SimpleFockHilbertSpace) = simple_wedge(H1, H2)
+wedge(H1::SimpleFockHilbertSpace, H2::SimpleFockHilbertSpace) = simple_wedge(H1, H2)
+
+@testitem "Wedge product of Fock Hilbert Spaces" begin
+    using QuantumDots
+    H1 = FockHilbertSpace(1:2)
+    H2 = FockHilbertSpace(3:4)
+    Hw = wedge(H1, H2)
+    H3 = FockHilbertSpace(1:4)
+    @test Hw == H3
+    @test size(H1) .* size(H2) == size(Hw)
+
+    H1 = SymmetricFockHilbertSpace(1:2, FermionConservation())
+    H2 = SymmetricFockHilbertSpace(3:4, FermionConservation())
+    Hw = wedge(H1, H2)
+    H3 = SymmetricFockHilbertSpace(1:4, FermionConservation())
+    @test Hw == H3
+    @test size(H1) .* size(H2) == size(Hw)
+
+    H1 = SymmetricFockHilbertSpace(1:2, ParityConservation())
+    H2 = SymmetricFockHilbertSpace(3:4, ParityConservation())
+    Hw = wedge(H1, H2)
+    H3 = SymmetricFockHilbertSpace(1:4, ParityConservation())
+    @test Hw == H3
+    @test size(H1) .* size(H2) == size(Hw)
+
+end
+
+
+function check_wedge_basis_compatibility(b1::AbstractHilbertSpace, b2::AbstractHilbertSpace, b3::AbstractHilbertSpace)
+    if vcat(collect(keys(b1)), collect(keys(b2))) != collect(keys(b3))
+        throw(ArgumentError("The labels of the output basis are not the same (or ordered the same) as the labels of the input bases. $(keys(b1)) * $(keys(b2)) != $(keys(b3))"))
+    end
+end

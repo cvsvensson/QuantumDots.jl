@@ -13,6 +13,7 @@ end
 function consistent_ordering(subsystem, jw::JordanWignerOrdering)::Bool
     lastpos = 0
     for label in subsystem
+        haskey(jw.ordering, label) || return false
         newpos = jw.ordering[label]
         newpos > lastpos || return false
         lastpos = newpos
@@ -32,6 +33,11 @@ function isorderedpartition(partition, jw::JordanWignerOrdering)
     for subsystem in partition
         consistent_ordering(subsystem, jw) || return false
     end
+    return true
+end
+function isorderedsubsystem(subsystem, jw::JordanWignerOrdering)
+    consistent_ordering(subsystem, jw) || return false
+    all(in(s, jw) for s in subsystem) || return false
     return true
 end
 

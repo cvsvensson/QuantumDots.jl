@@ -7,7 +7,7 @@ struct JordanWignerOrdering{L}
     labels::Vector{L}
     ordering::OrderedDict{L,Int}
     function JordanWignerOrdering(labels)
-        ls = collect(labels)
+        ls = vec(collect(labels))
         dict = OrderedDict(zip(ls, Base.OneTo(length(ls))))
         new{eltype(ls)}(ls, dict)
     end

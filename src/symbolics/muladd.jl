@@ -273,8 +273,8 @@ sparsetuple(op::AbstractFermionSym, jw, outstates, instates) = sparsetuple(Fermi
 end
 
 ## Convert to expression
-eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
-eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
+eval_in_basis(a::FermionMul, f) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
+eval_in_basis(a::FermionAdd, f) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 ##
 TermInterface.head(a::Union{FermionMul,FermionAdd}) = operation(a)

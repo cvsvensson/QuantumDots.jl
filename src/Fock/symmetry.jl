@@ -197,3 +197,10 @@ IndexConservation(index, jw::JordanWignerOrdering) = FermionConservation(filter(
 end
 
 instantiate(f::F, labels) where {F} = f
+
+
+promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F}, s2::FockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
+promote_symmetry(::FockSymmetry{<:Any,<:Any,<:Any,F1}, ::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
+promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
+promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
+promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()

@@ -16,8 +16,8 @@ import Crayons
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
-export FockNumber, JordanWignerOrdering, bits, FermionBasis,  blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
-export FockHilbertSpace, SymmetricFockHilbertSpace
+export FockNumber, JordanWignerOrdering, bits, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
+export FockHilbertSpace, SymmetricFockHilbertSpace, SimpleFockHilbertSpace, hilbert_space
 export parityoperator, numberoperator, fermions
 
 export qns, pretty_print
@@ -38,10 +38,10 @@ function majorana_to_fermion end
 include("structs.jl")
 include("Fock/fock.jl")
 include("Fock/phase_factors.jl")
-include("Fock/tensor_product.jl")
 include("Fock/hilbert_space.jl")
 include("Fock/symmetry.jl")
 include("Fock/operators.jl")
+include("Fock/tensor_product.jl")
 
 include("hamiltonians.jl")
 include("bdg.jl")
@@ -67,20 +67,23 @@ include("symbolics/symbolic_majoranas.jl")
 import PrecompileTools
 
 PrecompileTools.@compile_workload begin
-    # c1 = FermionBasis(1:2)
-    # c2 = FermionBasis(1:1, (:s,); qn=ParityConservation())
-    # blockdiagonal(c2[1, :s], c2)
-    # c3 = FermionBasis(3:3; qn=FermionConservation())
-    # partial_trace(rand(2^2), c1, FermionBasis(1:1))
-    # c = wedge(c1, c3)
-    # cs = (c1, c3)
-    # reshape(wedge((first(c1), first(c3)), cs, c), c, cs)
-    # cbdg = FermionBdGBasis(1:1, (:s,))
-    # BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
-    # @fermions f
-    # QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
-    # @majoranas γ
-    # (γ[1] * γ[2] + 1 + γ[1])^2
+    H1 = SimpleFockHilbertSpace(1:2)
+    H2 = SymmetricFockHilbertSpace(collect(Base.product(1:2, (:s,)))[:], ParityConservation())
+    H3 = SymmetricFockHilbertSpace(3:3, FermionConservation())
+    c1 = fermions(H1)
+    c2 = fermions(H2)
+    blockdiagonal(c2[1, :s]'c2[1, :s], H2)
+    c3 = fermions(H3)
+    partial_trace(rand(2^2), H1, SimpleFockHilbertSpace(1:1))
+    H = wedge(H1, H3)
+    Hs = (H1, H3)
+    reshape(wedge((c1[1], c3[3]), Hs, H), H, Hs)
+    cbdg = FermionBdGBasis(1:1, (:s,))
+    BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
+    @fermions f
+    QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2, c1)
+    @majoranas γ
+    (γ[1] * γ[2] + 1 + γ[1])^2
 end
 
 end

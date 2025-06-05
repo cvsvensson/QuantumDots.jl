@@ -30,10 +30,8 @@ end
 Return the number operator of `H`.
 """
 function numberoperator(H::AbstractFockHilbertSpace)
-    fs = focknumbers(H)
-    N = length(fs)
-    mat = spzeros(Int, N, N)
-    _fill!(mat, fs -> (fs, fermionnumber(fs)), H)
+    mat = spzeros(Int, size(H))
+    _fill!(mat, f -> (f, fermionnumber(f)), H)
     return mat
 end
 
@@ -78,25 +76,30 @@ end
 
 Constructs a sparse matrix of size representing a fermionic annihilation operator at bit position `fermion_number` on the Hilbert space H. 
 """
+# function fermion_sparse_matrix(fermion_number, H::AbstractFockHilbertSpace)
+#     fs = focknumbers(H)
+#     N = length(fs)
+#     amps = Int[]
+#     ininds = Int[]
+#     outinds = Int[]
+#     sizehint!(amps, N)
+#     sizehint!(ininds, N)
+#     sizehint!(outinds, N)
+#     for f in fs
+#         n = focktoind(f, H)
+#         newfockstate, amp = removefermion(fermion_number, f)
+#         if !iszero(amp)
+#             push!(amps, amp)
+#             push!(ininds, n)
+#             push!(outinds, focktoind(newfockstate, H))
+#         end
+#     end
+#     return sparse(outinds, ininds, amps, N, N)
+# end
 function fermion_sparse_matrix(fermion_number, H::AbstractFockHilbertSpace)
-    fs = focknumbers(H)
-    N = length(fs)
-    amps = Int[]
-    ininds = Int[]
-    outinds = Int[]
-    sizehint!(amps, N)
-    sizehint!(ininds, N)
-    sizehint!(outinds, N)
-    for f in fs
-        n = focktoind(f, H)
-        newfockstate, amp = removefermion(fermion_number, f)
-        if !iszero(amp)
-            push!(amps, amp)
-            push!(ininds, n)
-            push!(outinds, focktoind(newfockstate, H))
-        end
-    end
-    return sparse(outinds, ininds, amps, N, N)
+    mat = spzeros(Int, size(H))
+    _fill!(mat, f -> removefermion(fermion_number, f), H)
+    mat
 end
 
 
@@ -143,6 +146,6 @@ end
 function fermions(H::AbstractFockHilbertSpace)
     M = length(H.jw)
     labelvec = keys(H.jw)
-    reps = ntuple(n -> fermion_sparse_matrix(n, H), M)
+    reps = [fermion_sparse_matrix(n, H) for n in 1:M]
     OrderedDict(zip(labelvec, reps))
 end

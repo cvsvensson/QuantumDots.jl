@@ -37,8 +37,8 @@ end
 
 @testitem "CAR" begin
     using LinearAlgebra
-    for qn in [QuantumDots.NoSymmetry(), QuantumDots.parity, QuantumDots.fermionnumber]
-        c = FermionBasis(1:2; qn)
+    for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
+        c = fermions(hilbert_space(1:2, qn))
         @test c[1] * c[1] == 0I
         @test c[1]' * c[1] + c[1] * c[1]' == I
         @test c[1]' * c[2] + c[2] * c[1]' == 0I
@@ -50,116 +50,119 @@ end
     using SparseArrays, LinearAlgebra, Random
     Random.seed!(1234)
     N = 2
-    B = FermionBasis(1:N)
-    @test QuantumDots.nbr_of_modes(B) == N
-    Bspin = FermionBasis(1:N, (:↑, :↓); qn=QuantumDots.fermionnumber)
-    @test QuantumDots.nbr_of_modes(Bspin) == 2N
+    H = hilbert_space(1:N)
+    B = fermions(H)
+    # @test QuantumDots.nbr_of_modes(B) == N
+    Hspin = hilbert_space(Base.product(1:N, (:↑, :↓)), FermionConservation())
+    Bspin = fermions(Hspin)
+    # @test QuantumDots.nbr_of_modes(Bspin) == 2N
     @test B[1] isa SparseMatrixCSC
     @test Bspin[1, :↑] isa SparseMatrixCSC
-    @test parityoperator(B) isa SparseMatrixCSC
-    @test parityoperator(Bspin) isa SparseMatrixCSC
-    @test pretty_print(B[1], B) |> isnothing
-    @test pretty_print(pi * B[1][:, 1], B) |> isnothing
-    @test pretty_print(rand() * Bspin[1, :↑], Bspin) |> isnothing
-    @test pretty_print(rand(ComplexF64) * Bspin[1, :↑][:, 1], Bspin) |> isnothing
+    @test parityoperator(H) isa SparseMatrixCSC
+    @test parityoperator(Hspin) isa SparseMatrixCSC
+    @test pretty_print(B[1], H) |> isnothing
+    @test pretty_print(pi * B[1][:, 1], H) |> isnothing
+    @test pretty_print(rand() * Bspin[1, :↑], Hspin) |> isnothing
+    @test pretty_print(rand(ComplexF64) * Bspin[1, :↑][:, 1], Hspin) |> isnothing
 
-    # fn = QuantumDots.fermionnumber((1,), B.jw)
-    # @test fn.(0:3) == [0, 1, 0, 1]
-    # fn = QuantumDots.fermionnumber((2,), B)
-    # @test fn.(0:3) == [0, 0, 1, 1]
-    # fn = QuantumDots.fermionnumber((1, 2), B)
-    # @test fn.(0:3) == [0, 1, 1, 2]
+    H = hilbert_space(1:3)
+    a = fermions(H)
+    Hs = (hilbert_space(1:1), hilbert_space(2:2), hilbert_space(3:3))
+    Hw = wedge(Hs)
+    @test QuantumDots.isfermionic(Hw)
 
-    (c,) = QuantumDots.cell(1, B)
-    @test c == B[1]
-    (c1, c2) = QuantumDots.cell(1, Bspin)
-    @test c1 == Bspin[1, :↑]
-    @test c2 == Bspin[1, :↓]
-
-    a = FermionBasis(1:3)
-    as = (FermionBasis(1:1), FermionBasis(2:2), FermionBasis(3:3))
-    @test all(f == a[n] for (n, f) in enumerate(a))
-    v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = reshape(v, a, as)
+    v = [QuantumDots.indtofock(i, H) for i in 1:8]
+    t1 = reshape(v, H, Hs)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
-    a = FermionBasis(1:3; qn=QuantumDots.parity)
-    v = [QuantumDots.indtofock(i, a) for i in 1:8]
-    t1 = reshape(v, a, as)
+    qn = ParityConservation()
+    H1 = hilbert_space(2:2, qn)
+    H2 = hilbert_space((1, 3), qn)
+    H = hilbert_space(1:3, qn)
+    v = [QuantumDots.indtofock(i, H) for i in 1:8]
+    t1 = reshape(v, H, Hs)
     t2 = [i1 + 2i2 + 4i3 for i1 in (0, 1), i2 in (0, 1), i3 in (0, 1)]
     @test t1 == FockNumber.(t2)
 
+    using LinearMaps
+    ptmap = LinearMap(rhovec -> vec(partial_trace(reshape(rhovec, size(H)), H, H1)), prod(size(H1)), prod(size(H)))
+    embeddingmap = LinearMap(rhovec -> vec(fermionic_embedding(reshape(rhovec, size(H1)), H1, H)), prod(size(H)), prod(size(H1)))
+    @test Matrix(ptmap) ≈ Matrix(embeddingmap)'
 
-    c = FermionBasis(1:2, (:a, :b))
-    cparity = FermionBasis(1:2, (:a, :b); qn=QuantumDots.parity)
+    H = hilbert_space(Base.product(1:2, (:a, :b)))
+    # c = fermions(H)
+    Hparity = hilbert_space(Base.product(1:2, (:a, :b)), ParityConservation())
+    # cparity = fermions(Hparity)
     ρ = Matrix(Hermitian(rand(2^4, 2^4) .- 0.5))
     ρ = ρ / tr(ρ)
-    function bilinears(c, labels)
+    function bilinears(H, labels)
+        c = fermions(H)
         ops = reduce(vcat, [[c[l], c[l]'] for l in labels])
         return [op1 * op2 for (op1, op2) in Base.product(ops, ops)]
     end
-    function bilinear_equality(c, csub, ρ)
-        subsystem = Tuple(keys(csub))
-        ρsub = partial_trace(ρ, c, csub)
+    function bilinear_equality(H, Hsub, ρ)
+        subsystem = Tuple(keys(Hsub))
+        ρsub = partial_trace(ρ, H, Hsub)
         @test tr(ρsub) ≈ 1
-        all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(c, subsystem), bilinears(csub, subsystem)))
+        all((tr(op1 * ρ) ≈ tr(op2 * ρsub)) for (op1, op2) in zip(bilinears(H, subsystem), bilinears(Hsub, subsystem)))
     end
     function get_subsystems(c, N)
         t = collect(Base.product(ntuple(i -> keys(c), N)...))
         (t[I] for I in CartesianIndices(t) if issorted(Tuple(I)) && allunique(Tuple(I)))
     end
     for N in 1:4
-        @test all(bilinear_equality(c, FermionBasis(subsystem), ρ) for subsystem in get_subsystems(c, N))
-        @test all(bilinear_equality(c, FermionBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(c, N))
-        @test all(bilinear_equality(c, FermionBasis(subsystem; qn=QuantumDots.parity), ρ) for subsystem in get_subsystems(cparity, N))
-        @test all(bilinear_equality(c, FermionBasis(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(c, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(c, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem, ParityConservation()), ρ) for subsystem in get_subsystems(cparity, N))
+        @test all(bilinear_equality(H, hilbert_space(subsystem), ρ) for subsystem in get_subsystems(cparity, N))
     end
 
     ## Single particle density matrix
     N = 3
-    c = FermionBasis(1:N)
+    H = hilbert_space(1:N)
+    c = fermions(H)
     cbdg = FermionBdGBasis(1:N)
-    rho = zero(first(c) * first(c))
+    rho = zero(c[1])
     rho[1] = 1
     rho = rho / tr(rho)
-    @test one_particle_density_matrix(rho, c) ≈ Diagonal([0, 0, 0, 1, 1, 1])
-    @test one_particle_density_matrix(rho, c, [1]) ≈ Diagonal([0, 1])
-    @test one_particle_density_matrix(rho, c, [2]) ≈ Diagonal([0, 1])
-    @test one_particle_density_matrix(rho, c, [1, 2]) ≈ Diagonal([0, 0, 1, 1])
+    @test one_particle_density_matrix(rho, H) ≈ Diagonal([0, 0, 0, 1, 1, 1])
+    @test one_particle_density_matrix(rho, H, [1]) ≈ Diagonal([0, 1])
+    @test one_particle_density_matrix(rho, H, [2]) ≈ Diagonal([0, 1])
+    @test one_particle_density_matrix(rho, H, [1, 2]) ≈ Diagonal([0, 0, 1, 1])
 
     get_ham(c) = (0.5c[1]' * c[1] + 0.3c[2]' * c[2] + 0.01c[3]' * c[3] + (c[1]' * c[2]' + 0.5 * c[2]' * c[3]' + hc))
-    H = Matrix(get_ham(c))
-    Hbdg = BdGMatrix(get_ham(cbdg))
-    gs = first(eachcol(diagonalize(H).vectors))
-    opdm_bdg = one_particle_density_matrix(diagonalize(Hbdg)[2])
-    opdm = one_particle_density_matrix(gs * gs', c)
+    h = Matrix(get_ham(c))
+    hbdg = BdGMatrix(get_ham(cbdg))
+    gs = first(eachcol(diagonalize(h).vectors))
+    opdm_bdg = one_particle_density_matrix(diagonalize(hbdg)[2])
+    opdm = one_particle_density_matrix(gs * gs', H)
     @test opdm ≈ opdm_bdg
 
-    @test (H - tr(H) * I / size(H, 1)) ≈ QuantumDots.many_body_hamiltonian(Hbdg, c)
+    @test (h - tr(h) * I / size(h, 1)) ≈ QuantumDots.many_body_hamiltonian(hbdg, H)
     G1 = opdm_bdg[[1, 1 + N], [1, 1 + N]]
     G2 = (opdm_bdg[[1, 2, 1 + N, 2 + N], [1, 2, 1 + N, 2 + N]])
     G3 = (opdm_bdg[[1, 2, 3, 1 + N, 2 + N, 3 + N], [1, 2, 3, 1 + N, 2 + N, 3 + N]])
     G13 = (opdm_bdg[[1, 3, 1 + N, 3 + N], [1, 3, 1 + N, 3 + N]])
-    c1 = FermionBasis(1:1)
-    @test norm(partial_trace(gs, c, c1)) ≈ norm(one_particle_density_matrix(gs * gs', c, (1,))) ≈ norm(G1)
-    @test one_particle_density_matrix(gs * gs', c, (1, 2)) ≈ G2
-    @test one_particle_density_matrix(gs * gs', c, (1, 2, 3)) == one_particle_density_matrix(gs * gs', c) ≈ G3
+    H1 = hilbert_space(1:1)
+    @test norm(partial_trace(gs, H, H1)) ≈ norm(one_particle_density_matrix(gs * gs', H, (1,))) ≈ norm(G1)
+    @test one_particle_density_matrix(gs * gs', H, (1, 2)) ≈ G2
+    @test one_particle_density_matrix(gs * gs', H, (1, 2, 3)) == one_particle_density_matrix(gs * gs', H) ≈ G3
 
-    reduced_density_matrix = partial_trace(gs, c, FermionBasis((1,)))
-    reduced_density_matrix2 = partial_trace(gs, c, FermionBasis((1, 2)))
-    reduced_density_matrix3 = partial_trace(gs, c, FermionBasis((1, 2, 3)))
-    reduced_density_matrix13 = partial_trace(gs, c, FermionBasis((1, 3)))
-    c1 = FermionBasis(1:1)
-    c12 = FermionBasis(1:2)
+    reduced_density_matrix = partial_trace(gs, H, hilbert_space((1,)))
+    reduced_density_matrix2 = partial_trace(gs, H, hilbert_space((1, 2)))
+    reduced_density_matrix3 = partial_trace(gs, H, hilbert_space((1, 2, 3)))
+    reduced_density_matrix13 = partial_trace(gs, H, hilbert_space((1, 3)))
+    c1 = hilbert_space(1:1)
+    c12 = hilbert_space(1:2)
     @test reduced_density_matrix ≈ many_body_density_matrix(G1, c1)
-    @test many_body_density_matrix(G1, c1) ≈ reverse(many_body_density_matrix(G1, FermionBasis(1:1; qn=QuantumDots.parity)))
+    @test many_body_density_matrix(G1, c1) ≈ reverse(many_body_density_matrix(G1, hilbert_space(1:1, ParityConservation())))
     @test reduced_density_matrix2 ≈ many_body_density_matrix(G2, c12) ≈
           QuantumDots.many_body_density_matrix_exp(G2, c12)
     @test reduced_density_matrix13 ≈ many_body_density_matrix(G13, c12) ≈
           QuantumDots.many_body_density_matrix_exp(G13, c12)
     @test reduced_density_matrix13 ≈ many_body_density_matrix(G13, c12)
-    @test reduced_density_matrix3 ≈ many_body_density_matrix(G3, c)
+    @test reduced_density_matrix3 ≈ many_body_density_matrix(G3, H)
 
 end
 
@@ -862,7 +865,7 @@ end
     @test ls2(similar(out), um, Dict(:left => (; μ=1.0)), nothing) ≈ ls(um, Dict(:left => (; μ=1)), nothing)
 
     # cm0 = conductance_matrix(AD.FiniteDifferencesBackend(), ls, ρinternal1, particle_number)
-    @test_broken conductance_matrix(AD.AutoFiniteDifferences(central_fdm(3,1)), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
+    @test_broken conductance_matrix(AD.AutoFiniteDifferences(central_fdm(3, 1)), lazyls, ρinternal2, particle_number) #Needs AD of LazyLindbladDissipator, which is not a matrix
     @test_broken cm2 = conductance_matrix(AD.AutoForwardDiff(), lazyls, ρinternal2, particle_number) #Same as above
 
     ls2 = QuantumDots.__update_coefficients(ls, (; left=(; μ=0.1)))

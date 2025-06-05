@@ -1,62 +1,41 @@
-"""
-    wedge(bs)
 
-Compute the wedge product of a list of `FermionBasis` objects. The symmetry of the resulting basis is computed by promote_symmetry.
-"""
-wedge(bs::AbstractVector{<:AbstractHilbertSpace}) = foldl(wedge, bs)
-wedge(bs::Tuple) = foldl(wedge, bs)
 # wedge(b1::B, bs::Vararg) where {N,B<:FermionBasis} = foldl(wedge, bs, init=b1)
-function wedge(b1::FermionBasis, b2::FermionBasis)
-    newlabels = vcat(collect(keys(b1)), collect(keys(b2)))
-    if length(unique(newlabels)) != length(newlabels)
-        throw(ArgumentError("The labels of the two bases are not disjoint"))
-    end
-    qn = promote_symmetry(b1.symmetry, b2.symmetry)
-    FermionBasis(newlabels; qn)
-end
+# function wedge(b1::FermionBasis, b2::FermionBasis)
+#     newlabels = vcat(collect(keys(b1)), collect(keys(b2)))
+#     if length(unique(newlabels)) != length(newlabels)
+#         throw(ArgumentError("The labels of the two bases are not disjoint"))
+#     end
+#     qn = promote_symmetry(b1.symmetry, b2.symmetry)
+#     FermionBasis(newlabels; qn)
+# end
 
-promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F}, s2::FockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
-promote_symmetry(::FockSymmetry{<:Any,<:Any,<:Any,F1}, ::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = NoSymmetry()
-promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
-promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
-promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()
-
-function check_wedge_basis_compatibility(b1::FermionBasis{M1}, b2::FermionBasis{M2}, b3::FermionBasis{M3}) where {M1,M2,M3}
-    if M1 + M2 != M3
-        throw(ArgumentError("The combined basis does not have the correct number of sites"))
-    end
-    if vcat(collect(keys(b1)), collect(keys(b2))) != collect(keys(b3))
-        throw(ArgumentError("The labels of the output basis are not the same (or ordered the same) as the labels of the input bases. $(keys(b1)) * $(keys(b2)) != $(keys(b3))"))
-    end
-end
-
-get_fockstates(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
-get_fockstates(b::FermionBasis) = get_fockstates(b.symmetry)
-get_fockstates(sym::FockSymmetry) = sym.indtofockdict
-get_fockstates(b::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = get_fockstates(b.sym)
-get_fockstates(b::FermionBasisTemplate{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(keys(b))-1)
+# focknumbers(::FermionBasis{M,<:Any,NoSymmetry}) where {M} = Iterators.map(FockNumber, 0:2^M-1)
+# focknumbers(b::FermionBasis) = focknumbers(b.symmetry)
+# focknumbers(sym::FockSymmetry) = sym.indtofockdict
+# focknumbers(b::FermionBasisTemplate{<:Any,S}) where {S<:AbstractSymmetry} = focknumbers(b.sym)
+# focknumbers(b::FermionBasisTemplate{<:Any,NoSymmetry}) = Iterators.map(FockNumber, 0:2^length(keys(b))-1)
 """
     fermionic_kron(ms::AbstractVector, bs::AbstractVector{<:FermionBasis}, b::FermionBasis=wedge(bs))
 
 Compute the fermionic tensor product of matrices or vectors in `ms` with respect to the fermion bases `bs`, respectively. Return a matrix in the fermion basis `b`, which defaults to the wedge product of `bs`.
 """
-function fermionic_kron(ms, bs, b::FermionBasis=fermionic_kron(bs), phase_factors=use_wedge_phase_factors(bs, b); match_labels=true)
+function fermionic_kron(ms, Hs, H::AbstractHilbertSpace=wedge(Hs), phase_factors=use_wedge_phase_factors(Hs, H); match_labels=true)
     N = ndims(first(ms))
-    mout = allocate_wedge_result(ms, bs)
+    mout = allocate_wedge_result(ms, Hs)
 
     fockmapper = if match_labels
-        fermionpositions = map(Base.Fix2(siteindices, b.jw) ∘ collect ∘ keys, bs)
+        fermionpositions = map(Base.Fix2(siteindices, H.jw) ∘ collect ∘ keys, Hs)
         FockMapper(fermionpositions)
     else
-        Ms = map(nbr_of_modes, bs)
+        Ms = map(nbr_of_modes, Hs)
         shifts = (0, cumsum(Ms)...)
         FockShifter(shifts)
     end
 
     if N == 1
-        return fermionic_kron_vec!(mout, Tuple(ms), Tuple(bs), b, fockmapper)
+        return fermionic_kron_vec!(mout, Tuple(ms), Tuple(Hs), H, fockmapper)
     elseif N == 2
-        return fermionic_kron_mat!(mout, Tuple(ms), Tuple(bs), b, fockmapper, phase_factors)
+        return fermionic_kron_mat!(mout, Tuple(ms), Tuple(Hs), H, fockmapper, phase_factors)
     end
     throw(ArgumentError("Only 1D or 2D arrays are supported"))
 end
@@ -67,7 +46,7 @@ function allocate_wedge_result(ms, bs)
     N = ndims(first(ms))
     types = map(uniform_to_sparse_type ∘ typeof, ms)
     MT = Base.promote_op(kron, types...)
-    dimlengths = map(length ∘ get_fockstates, bs)
+    dimlengths = map(length ∘ focknumbers, bs)
     Nout = prod(dimlengths)
     _mout = Zeros(T, ntuple(j -> Nout, N))
     try
@@ -77,28 +56,33 @@ function allocate_wedge_result(ms, bs)
     end
 end
 
-wedge_iterator(m, ::FermionBasis) = findall(!iszero, m)
-wedge_iterator(::UniformScaling, b::FermionBasis) = diagind(I(length(get_fockstates(b))), IndexCartesian())
-wedge_iterator(::UniformScaling, b::FermionBasisTemplate) = diagind(I(length(get_fockstates(b))), IndexCartesian())
+wedge_iterator(m, ::AbstractFockHilbertSpace) = findall(!iszero, m)
+wedge_iterator(::UniformScaling, H::AbstractFockHilbertSpace) = diagind(I(length(focknumbers(H))), IndexCartesian())
+# wedge_iterator(::UniformScaling, b::FermionBasisTemplate) = diagind(I(length(focknumbers(b))), IndexCartesian())
 
-use_wedge_phase_factors(bs, b::FermionBasis) = true
+function use_wedge_phase_factors(Hs, H::AbstractHilbertSpace)
+    #check if all Hs and H have the same fermionic property, otherwise throw error
+    f = isfermionic(H)
+    all(H -> isfermionic(H) == f, Hs) || throw(ArgumentError("All Hilbert spaces should have the same fermionicity"))
+    return f
+end
 
-function fermionic_kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper, phase_factors=use_wedge_phase_factors(bs, b))
+function fermionic_kron_mat!(mout, ms::Tuple, Hs::Tuple, H::AbstractFockHilbertSpace, fockmapper, phase_factors=use_wedge_phase_factors(Hs, H))
     fill!(mout, zero(eltype(mout)))
-    jw = b.jw
-    partition = map(collect ∘ keys, bs) # using collect here turns out to be a bit faster
+    jw = H.jw
+    partition = map(collect ∘ keys, Hs) # using collect here turns out to be a bit faster
     isorderedpartition(partition, jw) || throw(ArgumentError("The partition must be ordered according to jw"))
 
-    inds = Base.product(map(wedge_iterator, ms, bs)...)
+    inds = Base.product(map(wedge_iterator, ms, Hs)...)
     for I in inds
         I1 = map(i -> i[1], I)
         I2 = map(i -> i[2], I)
-        fock1 = map(indtofock, I1, bs)
+        fock1 = map(indtofock, I1, Hs)
         fullfock1 = fockmapper(fock1)
-        outind1 = focktoind(fullfock1, b)
-        fock2 = map(indtofock, I2, bs)
+        outind1 = focktoind(fullfock1, H)
+        fock2 = map(indtofock, I2, Hs)
         fullfock2 = fockmapper(fock2)
-        outind2 = focktoind(fullfock2, b)
+        outind2 = focktoind(fullfock2, H)
         s = phase_factors ? phase_factor_h(fullfock1, fullfock2, partition, jw) : 1
         v = mapreduce((m, i1, i2) -> m[i1, i2], *, ms, I1, I2)
         mout[outind1, outind2] += v * s
@@ -106,26 +90,26 @@ function fermionic_kron_mat!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockma
     return mout
 end
 
-function fermionic_kron_vec!(mout, ms::Tuple, bs::Tuple, b::FermionBasis, fockmapper)
+function fermionic_kron_vec!(mout, ms::Tuple, Hs::Tuple, H::AbstractFockHilbertSpace, fockmapper)
     fill!(mout, zero(eltype(mout)))
-    U = embedding_unitary(bs, b)
-    dimlengths = map(length ∘ get_fockstates, bs)
+    U = embedding_unitary(Hs, H)
+    dimlengths = map(length ∘ focknumbers, Hs)
     inds = CartesianIndices(Tuple(dimlengths))
     for I in inds
         TI = Tuple(I)
-        fock = map(indtofock, TI, bs)
+        fock = map(indtofock, TI, Hs)
         fullfock = fockmapper(fock)
-        outind = focktoind(fullfock, b)
+        outind = focktoind(fullfock, H)
         mout[outind] += mapreduce((i1, m) -> m[i1], *, TI, ms)
     end
     return U * mout
 end
 
-embedding_unitary(partition, c::FermionBasis) = embedding_unitary(partition, get_fockstates(c), c.jw)
-embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis) where {B<:FermionBasis,N} = embedding_unitary(map(keys, cs), c)
+# embedding_unitary(partition, c::FermionBasis) = embedding_unitary(partition, focknumbers(c), c.jw)
+# embedding_unitary(cs::Union{<:AbstractVector{B},<:NTuple{N,B}}, c::FermionBasis) where {B<:FermionBasis,N} = embedding_unitary(map(keys, cs), c)
 
-bipartite_embedding_unitary(X, Xbar, c::FermionBasis) = bipartite_embedding_unitary(X, Xbar, get_fockstates(c), c.jw)
-bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis) = bipartite_embedding_unitary(keys(X), keys(Xbar), get_fockstates(c), c.jw)
+# bipartite_embedding_unitary(X, Xbar, c::FermionBasis) = bipartite_embedding_unitary(X, Xbar, focknumbers(c), c.jw)
+# bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis) = bipartite_embedding_unitary(keys(X), keys(Xbar), focknumbers(c), c.jw)
 
 
 """
@@ -133,13 +117,21 @@ bipartite_embedding_unitary(X::FermionBasis, Xbar::FermionBasis, c::FermionBasis
 
 Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis `bnew`.
 """
-function fermionic_embedding(m, b, bnew, phase_factors=true)
+function fermionic_embedding(m, H::AbstractFockHilbertSpace, Hnew, phase_factors=isfermionic(H))
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    bbar_labs = setdiff(collect(keys(bnew)), collect(keys(b))) # arrays to keep order
-    qn = NoSymmetry()
-    bbar = FermionBasisTemplate(JordanWignerOrdering(bbar_labs), qn)
-    bs = (b, bbar)
-    return fermionic_kron((m, I), bs, bnew, phase_factors)
+    # check if Hnew is the joint system or the extension
+    if isorderedsubsystem(H, Hnew)
+        bbar_labs = setdiff(collect(keys(Hnew)), collect(keys(H))) # arrays to keep order
+        bbar = SimpleFockHilbertSpace(JordanWignerOrdering(bbar_labs)) # FockHilbertSpace actually iterates over and stores focknumbers. Should avoid this.
+        Hs = (H, bbar)
+        return fermionic_kron((m, I), Hs, Hnew, phase_factors)
+    elseif isdisjoint(keys(H), keys(Hnew))
+        Hs = (H, Hnew)
+        Hout = wedge(Hs)
+        return fermionic_kron((m, I), Hs, Hout, phase_factors)
+    else
+        throw(ArgumentError("Can't embed $H into $Hnew"))
+    end
 end
 
 """
@@ -147,10 +139,10 @@ end
 
 Compute the ordered product of the fermionic embeddings of the matrices `ms` in the bases `bs` into the basis `b`.
 """
-function wedge(ms, bs, b)
+function wedge(ms, Hs, H)
     # See eq. 26 in J. Phys. A: Math. Theor. 54 (2021) 393001
-    isorderedpartition(bs, b) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
-    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, b), *, zip(ms, bs))
+    isorderedpartition(Hs, H) || throw(ArgumentError("The subsystems must be a partition consistent with the jordan-wigner ordering of the full system"))
+    return mapreduce(((m, fine_basis),) -> fermionic_embedding(m, fine_basis, H), *, zip(ms, Hs))
 end
 
 
@@ -327,7 +319,7 @@ end
         return phase
     end
     opsk = [[physical_ops[1:k-1]..., ops[k], physical_ops[k+1:end]...] for k in 1:length(ops)]
-    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.get_fockstates(c)]) * Uemb for k in 1:length(opsk)]
+    unitaries = [Diagonal([phase(k, f) for f in QuantumDots.focknumbers(c)]) * Uemb for k in 1:length(opsk)]
     embedding_prods = [wedge(ops, cs, c) for ops in opsk]
     kron_prods = [kron(ops, cs, c) for ops in opsk]
     @test all(op1 ≈ U * op2 * U for (op1, op2, U) in zip(embedding_prods, kron_prods, unitaries))
@@ -497,7 +489,7 @@ function phase_map(fockstates, M::Int)
     PhaseMap(phases, fockstates)
 end
 phase_map(N::Int) = phase_map(map(FockNumber, 0:2^N-1), N)
-phase_map(b::FermionBasis) = phase_map(collect(get_fockstates(b)), nbr_of_modes(b))
+phase_map(b::AbstractFockHilbertSpace) = phase_map(collect(focknumbers(b)), length(b.jw))
 LazyPhaseMap(N::Int) = LazyPhaseMap{N}(map(FockNumber, 0:2^N-1))
 SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest...) = SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(rest...)
 (p::PhaseMap)(op::AbstractMatrix) = p.phases .* op
@@ -512,7 +504,8 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     @test all(sum(phis[n].phases .== -1) == (2^n - 2) * 2^n / 2 for n in ns)
 
     for N in ns
-        c = FermionBasis(1:N)
+        H = SimpleFockHilbertSpace(1:N)
+        c = fermions(H)
         q = QubitBasis(1:N)
         @test all(map((c, q) -> q == phis[N](c), c, q))
         c2 = map(c -> phis[N](c), c)
@@ -554,32 +547,30 @@ partial_trace(v::AbstractVector, args...) = partial_trace(v * v', args...)
 
 Compute the partial trace of a matrix `m`, leaving the subsystem defined by the basis `bsub`.
 """
-function partial_trace(m::AbstractMatrix{T}, b::AbstractBasis, bout::AbstractBasis, phase_factors=use_partial_trace_phase_factors(b, bout)) where {T}
-    N = length(get_fockstates(bout))
-    mout = zeros(T, N, N)
-    partial_trace!(mout, m, b, bout, phase_factors)
+function partial_trace(m::AbstractMatrix{T}, H::AbstractHilbertSpace, Hout::AbstractHilbertSpace, phase_factors=use_partial_trace_phase_factors(H, Hout)) where {T}
+    mout = zeros(T, size(Hout))
+    partial_trace!(mout, m, H, Hout, phase_factors)
 end
 
-use_partial_trace_phase_factors(b1::FermionBasis, b2::FermionBasis) = true
+use_partial_trace_phase_factors(b1::AbstractHilbertSpace, b2::AbstractHilbertSpace) = use_wedge_phase_factors((b1,), b2)
 
 """
     partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors)
 
 Compute the fermionic partial trace of a matrix `m` in basis `b`, leaving only the subsystems specified by `labels`. The result is stored in `mout`, and `bout` determines the ordering of the basis states.
 """
-function partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout::AbstractManyBodyBasis, phase_factors=use_partial_trace_phase_factors(b, bout))
-    M = nbr_of_modes(b)
-    sym = symmetry(bout)
-    labels = collect(keys(bout))
+function partial_trace!(mout, m::AbstractMatrix, H::AbstractHilbertSpace, Hout::AbstractHilbertSpace, phase_factors=use_partial_trace_phase_factors(H, Hout))
+    M = length(H.jw)
+    labels = collect(keys(Hout))
     if phase_factors
-        consistent_ordering(labels, b.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
+        consistent_ordering(labels, H.jw) || throw(ArgumentError("Subsystem must be ordered in the same way as the full system"))
     end
     N = length(labels)
     fill!(mout, zero(eltype(mout)))
-    outinds = siteindices(labels, b.jw)
+    outinds = siteindices(labels, H.jw)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    fockstates = get_fockstates(b)
+    fockstates = focknumbers(H)
     for f1 in fockstates, f2 in fockstates
         if (f1 & bitmask) != (f2 & bitmask)
             continue
@@ -589,7 +580,7 @@ function partial_trace!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, bout:
         s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
         s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, N) : 1
         s = s2 * s1
-        mout[focktoind(newfocknbr1, sym), focktoind(newfocknbr2, sym)] += s * m[focktoind(f1, b), focktoind(f2, b)]
+        mout[focktoind(newfocknbr1, Hout), focktoind(newfocknbr2, Hout)] += s * m[focktoind(f1, H), focktoind(f2, H)]
     end
     return mout
 end
@@ -610,7 +601,7 @@ function partial_transpose!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, l
     outinds = siteindices(labels, b)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    fockstates = get_fockstates(b)
+    fockstates = focknumbers(b)
     for f1 in fockstates
         f1R = (f1 & bitmask)
         f1L = (f1 & ~bitmask)
@@ -627,7 +618,7 @@ function partial_transpose!(mout, m::AbstractMatrix, b::AbstractManyBodyBasis, l
     end
     return mout
 end
-use_partial_transpose_phase_factors(::FermionBasis) = true
+use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
 
 @testitem "Partial transpose" begin
     using LinearAlgebra
@@ -689,9 +680,9 @@ use_partial_transpose_phase_factors(::FermionBasis) = true
     @test all(pt(l, pt(l, M)) == M for l in Iterators.flatten((single_subsystems, pair_iterator, triple_iterator)))
 end
 
-FockSplitter(b::AbstractManyBodyBasis, bs) = FockSplitter(b.jw, map(b -> b.jw, bs))
-FockMapper(bs, b::AbstractManyBodyBasis) = FockMapper(map(b -> b.jw, bs), b.jw)
-use_reshape_phase_factors(b::FermionBasis, bs) = true
+FockSplitter(H::AbstractHilbertSpace, bs) = FockSplitter(H.jw, map(b -> b.jw, bs))
+FockMapper(Hs, H::AbstractHilbertSpace) = FockMapper(map(b -> b.jw, Hs), H.jw)
+use_reshape_phase_factors(H::AbstractHilbertSpace, Hs) = use_wedge_phase_factors(Hs, H)
 
 function project_on_parities(op::AbstractMatrix, b, bs, parities)
     length(bs) == length(parities) || throw(ArgumentError("The number of parities must match the number of subsystems"))
@@ -701,12 +692,12 @@ function project_on_parities(op::AbstractMatrix, b, bs, parities)
     return op
 end
 
-function project_on_subparity(op::AbstractMatrix, b::FermionBasis, bsub::FermionBasis, parity)
-    P = fermionic_embedding(parityoperator(bsub), bsub, b)
+function project_on_subparity(op::AbstractMatrix, H::AbstractHilbertSpace, Hsub::AbstractHilbertSpace, parity)
+    P = fermionic_embedding(parityoperator(Hsub), Hsub, H)
     return project_on_parity(op, P, parity)
 end
 
-project_on_parity(op::AbstractMatrix, b::FermionBasis, parity) = project_on_parity(op, parityoperator(b), parity)
+project_on_parity(op::AbstractMatrix, H::AbstractHilbertSpace, parity) = project_on_parity(op, parityoperator(H), parity)
 
 function project_on_parity(op::AbstractMatrix, P::AbstractMatrix, parity)
     Peven = (I + P) / 2
@@ -721,14 +712,14 @@ function project_on_parity(op::AbstractMatrix, P::AbstractMatrix, parity)
 end
 
 @testitem "Parity projection" begin
-    bs = [FermionBasis(2k-1:2k) for k in 1:3]
+    bs = [SimpleFockHilbertSpace(2k-1:2k) for k in 1:3]
     b = wedge(bs)
-    op = rand(ComplexF64, size(first(b)))
+    op = rand(ComplexF64, size(b))
     local_parity_iter = (1, -1)
     all_parities = Base.product([local_parity_iter for _ in 1:length(bs)]...)
     @test sum(project_on_parities(op, b, bs, parities) for parities in all_parities) ≈ op
 
-    ops = [rand(ComplexF64, size(first(b))) for b in bs]
+    ops = [rand(ComplexF64, size(b)) for b in bs]
     for parities in all_parities
         projected_ops = [project_on_parity(op, bsub, parity) for (op, bsub, parity) in zip(ops, bs, parities)]
         op = wedge(projected_ops, bs, b)
