@@ -66,7 +66,7 @@ focktoind(f, sym::FockSymmetry) = sym.focktoinddict[f]
 focknumbers(sym::FockSymmetry) = sym.indtofockdict
 
 """
-    blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis)
+    blockdiagonal(m::AbstractMatrix, basis::SymmetricFockHilbertSpace)
 
 Construct a BlockDiagonal version of `m` using the symmetry of `basis`. No checking is done to ensure this is a faithful representation.
 """

@@ -2,8 +2,7 @@ module QuantumDotsSymbolicsExt
 
 using QuantumDots, Symbolics, LinearAlgebra
 using QuantumDots.BlockDiagonals
-import QuantumDots: fastgenerator, fastblockdiagonal, 
-    NoSymmetry, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
+import QuantumDots: fastgenerator, fastblockdiagonal, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
     SymbolicMajoranaBasis, SymbolicFermionBasis
 
 function Symbolics._recursive_unwrap(val::Hermitian) # Fix for Symbolics >v.6.32

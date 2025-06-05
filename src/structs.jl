@@ -1,10 +1,6 @@
 abstract type AbstractBasis end
-abstract type AbstractManyBodyBasis <: AbstractBasis end
 abstract type AbstractSymmetry end
 struct NoSymmetry <: AbstractSymmetry end
-
-siteindex(label, b::AbstractManyBodyBasis) = siteindex(label, b.jw)
-siteindices(labels, b::AbstractManyBodyBasis) = siteindices(labels, b.jw)
 
 handle_labels(iter, iters...) = Base.product(iter, iters...)
 handle_labels(iter) = iter

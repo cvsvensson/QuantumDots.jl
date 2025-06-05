@@ -73,7 +73,7 @@ PrecompileTools.@compile_workload begin
     c2 = fermions(H2)
     blockdiagonal(c2[1, :s]'c2[1, :s], H2)
     c3 = fermions(H3)
-    partial_trace(rand(2^2), H1 => SimpleFockHilbertSpace(1:1))
+    partial_trace(rand(4, 4), H1 => SimpleFockHilbertSpace(1:1))
     H = wedge(H1, H3)
     Hs = (H1, H3)
     reshape(H => Hs)(wedge(Hs => H)(c1[1], c3[3]))

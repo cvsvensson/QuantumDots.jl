@@ -11,33 +11,6 @@ function lower_qubit(digitposition, statefocknbr)
     return allowed * newfocknbr, allowed
 end
 
-# struct QubitBasis{M,D,Sym,L} <: AbstractManyBodyBasis
-#     dict::D
-#     symmetry::Sym
-#     jw::JordanWignerOrdering{L}
-# end
-# function QubitBasis(iters...; qn=NoSymmetry(), kwargs...)
-#     labels = handle_labels(iters...)
-#     labelvec = collect(labels)[:]
-#     jw = JordanWignerOrdering(labelvec)
-#     M = length(labels)
-#     labelled_symmetry = instantiate(qn, jw)
-#     fockstates = map(FockNumber, get(kwargs, :fockstates, 0:2^M-1))
-#     sym_concrete = focksymmetry(fockstates, labelled_symmetry)
-#     reps = ntuple(n -> qubit_sparse_matrix(n, length(fockstates), sym_concrete), M)
-#     d = OrderedDict(zip(labels, reps))
-#     QubitBasis{M,typeof(d),typeof(sym_concrete),eltype(jw)}(d, sym_concrete, jw)
-# end
-# Base.getindex(b::QubitBasis, i) = b.dict[i]
-# function Base.getindex(b::QubitBasis, args...)
-#     if length(args) == length(first(keys(b)))
-#         return b.dict[args]
-#     else
-#         op = QubitOp{last(args)}()
-#         return qubit_operator(b[ntuple(i -> args[i], length(args) - 1)...], op)
-#     end
-# end
-
 struct QubitOp{S} end
 function QubitOperators(H::AbstractFockHilbertSpace)
     M = length(H.jw)

@@ -5,9 +5,9 @@ end
 function Base.reshape(m::AbstractVector, H::AbstractFockHilbertSpace, Hs, phase_factors=use_reshape_phase_factors(H, Hs))
     _reshape_vec_to_tensor(m, H, Hs, FockSplitter(H, Hs), phase_factors)
 end
-Base.reshape(Hs::Pair{<:AbstractFockHilbertSpace}, phase_factors=use_reshape_phase_factors(first(Hs), last(Hs))) =
+Base.reshape(Hs::Pair, phase_factors=use_reshape_phase_factors(first(Hs), last(Hs))) =
     m -> reshape(m, first(Hs), last(Hs), phase_factors)
-Base.reshape(m, Hs::Pair{<:AbstractFockHilbertSpace}, phase_factors=use_reshape_phase_factors(H, Hs)) = Base.reshape(m, first(Hs), last(Hs), phase_factors)
+Base.reshape(m, Hs::Pair, phase_factors=use_reshape_phase_factors(first(Hs), last(Hs))) = Base.reshape(m, first(Hs), last(Hs), phase_factors)
 
 function Base.reshape(t::AbstractArray, Hs, H::AbstractFockHilbertSpace, phase_factors=use_reshape_phase_factors(H, Hs))
     if ndims(t) == 2 * length(Hs)
@@ -119,13 +119,13 @@ end
         b1 = fermions(H1)
         b2 = fermions(H2)
         m = b[1]
-        t = reshape(m, H, Hs)
+        t = reshape(m, H => Hs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 1
         @test abs(dot(reshape(svd(m12).U, d1, d1, d2^2)[:, :, 1], b1[1])) ≈ norm(b1[1])
 
         m = b[1] + b[2]
-        t = reshape(m, H, Hs)
+        t = reshape(m, H => Hs)
         m12 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test rank(m12) == 2
 
@@ -138,8 +138,8 @@ end
         @test m ≈ m2
 
         v = rand(ComplexF64, d1 * d2)
-        tv = reshape(v, H => bs)
-        v2 = reshape(tv, Hs => b)
+        tv = reshape(v, H => Hs)
+        v2 = reshape(tv, Hs => H)
         @test v ≈ v2
         # Note the how reshaping without phase factors is used in a contraction
         @test sum(reshape(m, H => Hs, false)[:, :, i, j] * tv[i, j] for i in 1:d1, j in 1:d2) ≈ reshape(m * v, H => Hs)
@@ -177,22 +177,22 @@ end
         Hvirtual = rand(ComplexF64, length(basis1), length(basis2))
         Hoddoddvirtual = [Hvirtual[I] * norm(basis12oddodd[I]) for I in CartesianIndices(Hvirtual)]
         Hvirtual_no_oddodd = Hvirtual - Hoddoddvirtual
-        H = sum(Hvirtual[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
+        h = sum(Hvirtual[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
         H_no_oddodd = sum(Hvirtual_no_oddodd[I] * basis12all[I] for I in CartesianIndices(Hvirtual))
         Hotherbasis = sum(Hvirtual[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
         H_no_oddodd_otherbasis = sum(Hvirtual_no_oddodd[I] * basis12normalized[I] for I in CartesianIndices(Hvirtual))
         @test H_no_oddodd_otherbasis ≈ H_no_oddodd
 
-        t = reshape(H, b, bs)
+        t = reshape(h, H => Hs)
         Hvirtual2 = QuantumDots.reshape_to_matrix(t, (1, 3))
         @test svdvals(Hvirtual) ≈ svdvals(Hvirtual2)
-        Hvirtual3 = [tr(Γ' * H) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
+        Hvirtual3 = [tr(Γ' * h) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
         @test Hvirtual3 ≈ Hvirtual
         Hvirtual4 = [tr(Γ' * Hotherbasis) for Γ in basis12normalized]
         @test Hvirtual4 ≈ Hvirtual
         # @test svdvals(Hvirtual) ≈ svdvals(Hvirtual4)
 
-        t_no_oddodd = reshape(H_no_oddodd, b, bs, true)
+        t_no_oddodd = reshape(H_no_oddodd, H, Hs, true)
         Hvirtual_no_oddodd2 = QuantumDots.reshape_to_matrix(t_no_oddodd, (1, 3))
         @test svdvals(Hvirtual_no_oddodd) ≈ svdvals(Hvirtual_no_oddodd2)
         Hvirtual_no_oddodd3 = [tr(Γ' * H_no_oddodd) / sqrt(tr(Γ' * Γ) + 0im) for Γ in basis12all]
@@ -223,12 +223,12 @@ end
         mEE = project_on_parities(m, H, Hs, (1, 1))
         mOO = project_on_parities(m, H, Hs, (-1, -1))
 
-        F = partial_trace(m * fermionic_kron((m1, I), Hs, H), H, H2)
+        F = partial_trace(H => H2)(m * fermionic_kron(Hs => H)(m1, I))
         @test tr(F * m2) ≈ tr(m * fermionic_kron((m1, I), Hs, H) * fermionic_kron((I, m2), Hs, H))
 
         t = reshape(m, H => Hs, false)
         tpt = sum(t[k1, :, k2, :] * m1[k2, k1] for k1 in axes(t, 1), k2 in axes(t, 3))
-        @test partial_trace(m * kron((m1, I), Hs => H), b, b2, false) ≈ tpt
+        @test partial_trace(m * kron((m1, I), Hs, H), H => H2, false) ≈ tpt
 
         ## More bases
         H3 = hilbert_space(5:5, qn3)
