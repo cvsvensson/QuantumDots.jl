@@ -521,17 +521,18 @@ end
 @testitem "build_function" begin
     using Symbolics, BlockDiagonals
     N = 2
-    bases = [FermionBasis(1:N), FermionBasis(1:N; qn=ParityConservation()), FermionBdGBasis(1:N)]
+    Hs = [hilbert_space(1:N), hilbert_space(1:N, qn=ParityConservation()), FermionBdGBasis(1:N)]
+    cs = fermions.(Hs)
     @variables x
     ham(c) = x * sum(f -> 1.0 * f'f, c)
-    converts = [Matrix, x -> blockdiagonal(x, bases[2]), x -> BdGMatrix(x; check=false)]
-    hams = map((f, c) -> (f ∘ ham)(c), converts, bases)
+    converts = [Matrix, x -> blockdiagonal(x, Hs[2]), x -> BdGMatrix(x; check=false)]
+    hams = map((f, c) -> (f ∘ ham)(c), converts, cs)
     fs = [build_function(H, x; expression=Val{false}) for H in hams]
     newhams = map(f -> f[1](1.0), fs)
     @test newhams[1] isa Matrix
     @test newhams[2] isa BlockDiagonal
     @test newhams[3] isa BdGMatrix
-    @test all(isnothing(pretty_print(ham(b), b)) for b in bases[[1, 2]])
+    @test all(isnothing(pretty_print(ham(c), H)) for (c, H) in collect(zip(cs, Hs))[[1, 2]])
     cache = 0.1 .* newhams
     newhams = map(f -> f[1](0.3), fs)
     map((m, f) -> f[2](m, 0.3), cache, fs)
@@ -544,9 +545,10 @@ end
 
     N = 5
     params = rand(3)
-    _hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in 1:QuantumDots.nbr_of_modes(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
+    _hamiltonian(a, μ, t, Δ) = μ * sum(a[i]'a[i] for i in keys(a)) + t * (a[1]'a[2] + a[2]'a[1]) + Δ * (a[1]'a[2]' + a[2]a[1])
 
-    a = FermionBasis(1:N)
+    H = hilbert_space(1:N)
+    a = fermions(H)
     hamiltonian(params...) = _hamiltonian(a, params...)
     fastham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
@@ -554,14 +556,15 @@ end
     @test mat ≈ hamiltonian(params...)
 
     #parity conservation
-    a = FermionBasis(1:N; qn=ParityConservation())
+    H = hilbert_space(1:N, ParityConservation())
+    a = fermions(H)
     hamiltonian(params...) = _hamiltonian(a, params...)
     parityham! = QuantumDots.fastgenerator(hamiltonian, 3)
     mat = hamiltonian((2 .* params)...)
     parityham!(mat, params...)
     @test mat ≈ hamiltonian(params...)
 
-    _bd(m) = blockdiagonal(m, a).blocks
+    _bd(m) = blockdiagonal(m, H).blocks
     bdham = _bd ∘ hamiltonian
 
     oddham! = QuantumDots.fastgenerator(first ∘ bdham, 3)
@@ -583,7 +586,8 @@ end
     @test bdham.blocks |> last ≈ evenmat
 
     #number conservation
-    a = FermionBasis(1:N; qn=QuantumDots.fermionnumber)
+    H = hilbert_space(1:N, FermionConservation())
+    a = fermions(H)
     hamiltonian(params...) = _hamiltonian(a, params...)
 
     numberham! = QuantumDots.fastgenerator(hamiltonian, 3)
@@ -591,14 +595,15 @@ end
     numberham!(mat, params...)
     @test mat ≈ hamiltonian(params...)
 
-    numberbdham(params...) = blockdiagonal(hamiltonian(params...), a)
+    numberbdham(params...) = blockdiagonal(hamiltonian(params...), H)
     numberbd! = QuantumDots.fastblockdiagonal(numberbdham, 3)
     bdham = numberbdham(2params...)
     numberbd!(bdham, params...)
     @test bdham ≈ numberbdham(params...)
     @test bdham ≈ hamiltonian(params[1:end-1]..., 0.0)
 
-    b = FermionBasis(1:2, (:a, :b); qn=ParityConservation())
+    Hb = hilbert_space(Base.product(1:2, (:a, :b)), ParityConservation())
+    b = fermions(Hb)#FermionBasis(1:2, (:a, :b); qn=ParityConservation())
     nparams = 8
     params = rand(nparams)
     ham = (t, Δ, V, θ, h, U, Δ1, μ) -> Matrix(QuantumDots.BD1_hamiltonian(b; μ, t, Δ, V, θ, h, U, Δ1, ϕ=0))
@@ -608,7 +613,7 @@ end
     fastgen!(hammat2, params...)
     @test hammat2 ≈ hammat
 
-    hambd(p...) = QuantumDots.blockdiagonal(ham(p...), b)
+    hambd(p...) = QuantumDots.blockdiagonal(ham(p...), Hb)
     @test sort!(abs.(eigvals(hambd(params...)))) ≈ sort!(abs.(eigvals(hammat)))
 
     fastgen! = QuantumDots.fastblockdiagonal(hambd, nparams)
