@@ -110,9 +110,11 @@ Base.Vector(p::AbstractChainParameter, N; size=1) = _tovec(p, N; size)
 getvalue(v::Union{<:AbstractVector,<:Tuple}, i, N; size=1) = v[i]
 getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
+cell(j, b::AbstractBasis) = map(l->b[l], filter(isequal(j) ∘ first, collect(keys(b))))
+
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     M = nbr_of_modes(c)
-    spatial_indices = first_labels(c)
+    spatial_indices = unique(map(first, collect(keys(c))))
     @assert length(cell(first(spatial_indices), c)) == 2 "Each unit cell should have two fermions for this hamiltonian"
     N = div(M, 2)
     h1s = (_BD1_1site(cell(l, c); μ=getvalue(μ, j, N), h=getvalue(h, j, N), Δ=getvalue(Δ, j, N), U=getvalue(U, j, N)) for (j, l) in enumerate(spatial_indices))
