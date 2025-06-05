@@ -31,36 +31,8 @@ Base.size(d::AbstractDissipator) = size(Matrix(d))
 Base.eltype(d::AbstractDissipator) = eltype(Matrix(d))
 SciMLBase.islinear(d::AbstractDissipator) = true
 
-##
-"""
-    struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
-
-A struct representing a diagonalized Hamiltonian.
-
-# Fields
-- `values`: The eigenvalues of the Hamiltonian.
-- `vectors`: The eigenvectors of the Hamiltonian.
-- `original`: The original Hamiltonian.
-"""
-struct DiagonalizedHamiltonian{Vals,Vecs,H} <: AbstractDiagonalHamiltonian
-    values::Vals
-    vectors::Vecs
-    original::H
-end
-Base.eltype(::DiagonalizedHamiltonian{Vals,Vecs}) where {Vals,Vecs} = promote_type(eltype(Vals), eltype(Vecs))
-Base.size(h::DiagonalizedHamiltonian) = size(eigenvectors(h))
-Base.:-(h::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(-h.values, -h.vectors, -h.original)
-Base.iterate(S::DiagonalizedHamiltonian) = (S.values, Val(:vectors))
-Base.iterate(S::DiagonalizedHamiltonian, ::Val{:vectors}) = (S.vectors, Val(:original))
-Base.iterate(S::DiagonalizedHamiltonian, ::Val{:original}) = (S.original, Val(:done))
-Base.iterate(::DiagonalizedHamiltonian, ::Val{:done}) = nothing
-Base.adjoint(H::DiagonalizedHamiltonian) = DiagonalizedHamiltonian(conj(H.values), adjoint(H.vectors), adjoint(H.original))
-original_hamiltonian(H::DiagonalizedHamiltonian) = H.original
-
 abstract type AbstractOpenSystem end
 SciMLBase.islinear(d::AbstractOpenSystem) = true
-
-abstract type AbstractOpenSolver end
 
 """
     normalized_steady_state_rhs(A)

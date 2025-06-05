@@ -1,5 +1,3 @@
-struct Pauli <: AbstractOpenSolver end
-
 
 struct PauliSystem{A,W,I,D} <: AbstractOpenSystem
     total_master_matrix::A
@@ -44,8 +42,7 @@ end
 internal_rep(u::UniformScaling, sys::PauliSystem) = u[1, 1] * ones(size(sys.total_master_matrix, 2))
 internal_rep(u::AbstractMatrix, ::PauliSystem) = diag(u)
 internal_rep(u::AbstractVector, ::PauliSystem) = u
-tomatrix(u::AbstractVector, ::PauliSystem) = tomatrix(u, Pauli())
-tomatrix(u::AbstractVector, ::Pauli) = Diagonal(u)
+tomatrix(u::AbstractVector, ::PauliSystem) = Diagonal(u)
 function LinearOperator(L::PauliSystem, args...; normalizer=false)
     A = normalizer ? add_normalizer(L.total_master_matrix) : L.total_master_matrix
     MatrixOperator(A)

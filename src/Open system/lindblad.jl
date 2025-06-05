@@ -1,5 +1,3 @@
-struct Lindblad <: AbstractOpenSolver end
-
 
 """
     struct LindbladSystem{T,U,DS,V,H,C} <: AbstractOpenSystem
