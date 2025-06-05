@@ -35,10 +35,11 @@ end
 _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pairing(Δ, f1, f2)
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
-function kitaev_hamiltonian(c::AbstractBasis; μ, t, Δ, V=0)
-    N = nbr_of_modes(c)
-    h1s = (_kitaev_1site(c[j]; μ=getvalue(μ, j, N)) for j in 1:N)
-    h2s = (_kitaev_2site(c[j], c[mod1(j + 1, N)]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
+function kitaev_hamiltonian(c; μ, t, Δ, V=0)
+    indices = collect(eachindex(c))
+    N = length(indices)
+    h1s = (_kitaev_1site(c[k]; μ=getvalue(μ, j, N)) for (j, k) in enumerate(indices))
+    h2s = (_kitaev_2site(c[indices[j]], c[indices[mod1(j + 1, N)]]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for j in 1:N)
     sum(h1s) + sum(h2s)
 end
 
@@ -110,7 +111,7 @@ Base.Vector(p::AbstractChainParameter, N; size=1) = _tovec(p, N; size)
 getvalue(v::Union{<:AbstractVector,<:Tuple}, i, N; size=1) = v[i]
 getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
-cell(j, b::AbstractBasis) = map(l->b[l], filter(isequal(j) ∘ first, collect(keys(b))))
+cell(j, b::AbstractBasis) = map(l -> b[l], filter(isequal(j) ∘ first, collect(keys(b))))
 
 function BD1_hamiltonian(c::AbstractBasis; μ, h, t, Δ, Δ1, U, V, θ, ϕ)
     M = nbr_of_modes(c)
