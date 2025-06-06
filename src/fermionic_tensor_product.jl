@@ -722,7 +722,7 @@ end
     ops = [rand(ComplexF64, size(b)) for b in bs]
     for parities in all_parities
         projected_ops = [project_on_parity(op, bsub, parity) for (op, bsub, parity) in zip(ops, bs, parities)]
-        op = wedge(projected_ops, bs, b)
+        local op = wedge(projected_ops, bs, b)
         @test op ≈ project_on_parities(op, b, bs, parities)
     end
 end

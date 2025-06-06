@@ -20,8 +20,8 @@ focknbr_from_site_labels(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) 
 
 siteindices(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = siteindices(H.jw, jw)
 
-mode_ordering(H::AbstractFockHilbertSpace) = H.jw
-mode_ordering(jw::JordanWignerOrdering) = jw
+mode_ordering(H::AbstractFockHilbertSpace) = H.jw.labels
+mode_ordering(jw::JordanWignerOrdering) = jw.labels
 mode_ordering(v::AbstractVector) = v
 embedding_unitary(partition, H::AbstractFockHilbertSpace) = embedding_unitary(partition, focknumbers(H), H.jw)
 bipartite_embedding_unitary(X, Xbar, H::AbstractFockHilbertSpace) = bipartite_embedding_unitary(X, Xbar, focknumbers(H), H.jw)
