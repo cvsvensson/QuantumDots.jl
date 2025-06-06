@@ -210,7 +210,12 @@ order_mul(x::Number) = x
 ## Instantiating sparse matrices
 _labels(a::FermionMul) = [s.label for s in a.factors]
 matrix_representation(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, H::AbstractFockHilbertSpace) = matrix_representation(op, H.jw, focknumbers(H), focknumbers(H))
-matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates) = matrix_representation(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
+matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
+matrix_representation(op, labels, instates) = matrix_representation(op, labels, instates, instates)
+function sparsetuple(op, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates))))
+    indsout, ininds, amps = Int[], Int[], []
+    return sparsetuple!((indsout, ininds, amps), op, jw, outstates, instates; fock_to_outind)
+end
 function sparsetuple!((indsout, ininds, amps), op::FermionMul{C}, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates)))) where {C}
     digitpositions = reverse(siteindices(_labels(op), jw))
     daggers = reverse([s.creation for s in op.factors])
@@ -235,11 +240,9 @@ function matrix_representation(op::FermionAdd{C}, jw, outstates, instates) where
     for op in fermionterms(op)
         sparsetuple!((indsout, ininds, amps), op, jw, outstates, instates; fock_to_outind=fock_to_outind)
     end
-
     return op.coeff * I + sparse(indsout, ininds, identity.(amps), length(outstates), length(instates))
-
 end
-sparsetuple(op::AbstractFermionSym, jw, outstates, instates) = sparsetuple(FermionMul(1, [op]), jw, outstates, instates)
+sparsetuple!((indsout, ininds, amps), op::AbstractFermionSym, jw, outstates, instates; kwargs...) = sparsetuple!((indsout, ininds, amps), FermionMul(1, [op]), jw, outstates, instates; kwargs...)
 
 @testitem "Instantiating symbolic fermions" begin
     using SparseArrays, LinearAlgebra
@@ -250,7 +253,7 @@ sparsetuple(op::AbstractFermionSym, jw, outstates, instates) = sparsetuple(Fermi
     H = FockHilbertSpace(labels)
     fmb = fermions(H)
     fockstates = map(FockNumber, 0:2^N-1)
-    get_mat(op) = sparse(op, H)
+    get_mat(op) = matrix_representation(op, H)
     @test all(get_mat(f[l]) == fmb[l] for l in labels)
     @test all(get_mat(f[l]') == fmb[l]' for l in labels)
     @test all(get_mat(f[l]') == get_mat(f[l])' for l in labels)
@@ -262,7 +265,7 @@ sparsetuple(op::AbstractFermionSym, jw, outstates, instates) = sparsetuple(Fermi
     mat = sum(fmb[l]' * fmb[l] for l in labels)
     @test newmat == mat
 
-    @test all(sparse(sum(f[l]' * f[l] for l in labels), jw, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
+    @test all(matrix_representation(sum(f[l]' * f[l] for l in labels), H.jw, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
     @test all(eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
     @test all(eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)

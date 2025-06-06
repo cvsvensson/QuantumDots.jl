@@ -628,7 +628,7 @@ use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
     B = rand(ComplexF64, 2, 2)
     C = fermionic_kron((A, B), (H1, H2), H12)
     Cpt = partial_transpose(C, H12, H1)
-    Cpt == partial_transpose(C, H12, (1,))
+    @test Cpt == partial_transpose(C, H12, (1,))
     Cpt2 = fermionic_kron((transpose(A), B), (H1, H2), H12)
     @test Cpt ≈ Cpt2
 
