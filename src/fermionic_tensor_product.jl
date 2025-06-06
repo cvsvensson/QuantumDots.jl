@@ -626,9 +626,9 @@ use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
     c12 = fermions(H12)
     A = rand(ComplexF64, 2, 2)
     B = rand(ComplexF64, 2, 2)
-    C = fermionic_kron((A, B), (c1, c2), c12)
-    Cpt = partial_transpose(C, c12, (1,))
-    Cpt2 = fermionic_kron((transpose(A), B), (c1, c2), c12)
+    C = fermionic_kron((A, B), (H1, H2), H12)
+    Cpt = partial_transpose(C, H12, (1,))
+    Cpt2 = fermionic_kron((transpose(A), B), (H1, H2), H12)
     @test Cpt ≈ Cpt2
 
     ## Larger system
@@ -650,23 +650,23 @@ use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
     pair_iterator = [(i, j) for i in 1:4, j in 1:4 if i != j]
     triple_iterator = [(i, j, k) for i in 1:4, j in 1:4, k in 1:4 if length(unique((i, j, k))) == 3]
     for (i, j) in pair_iterator
-        Mpt = partial_transpose(M, cN, (i, j))
+        Mpt = partial_transpose(M, HN, (i, j))
         Mpt2 = fermionic_kron([(n == i || n == j) ? transpose(M) : M for (n, M) in enumerate(Ms)], Hs, HN)
         @test Mpt ≈ Mpt2
     end
     for (i, j, k) in triple_iterator
-        Mpt = partial_transpose(M, cN, (i, j, k))
+        Mpt = partial_transpose(M, HN, (i, j, k))
         Mpt2 = fermionic_kron([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], Hs, Hn)
         @test Mpt ≈ Mpt2
     end
-    Mpt = partial_transpose(M, cN, labels)
-    Mpt2 = fermionic_kron([transpose(M) for M in Ms], Hs, cN)
+    Mpt = partial_transpose(M, HN, labels)
+    Mpt2 = fermionic_kron([transpose(M) for M in Ms], Hs, HN)
     @test Mpt ≈ Mpt2
     @test !(Mpt ≈ transpose(M)) # partial transpose is not the same as transpose even if the full system is transposed
-    @test M ≈ partial_transpose(M, cN, ())
+    @test M ≈ partial_transpose(M, HN, ())
 
     M = rand(ComplexF64, 2^N, 2^N)
-    pt(l, M) = partial_transpose(M, cN, l)
+    pt(l, M) = partial_transpose(M, HN, l)
     for (i, j) in pair_iterator
         @test pt((i, j), M) ≈ pt((j, i), M) ≈ pt(j, pt(i, M)) ≈ pt(i, pt(j, M))
     end
