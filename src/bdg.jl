@@ -564,7 +564,7 @@ end
 
 
 @testitem "BdG" begin
-    using QuantumDots.SkewLinearAlgebra, LinearAlgebra, Random, SparseArrays
+    using QuantumDots.SkewLinearAlgebra, LinearAlgebra, Random, SparseArrays, BlockDiagonals
     Random.seed!(1234)
 
     N = 2
@@ -704,12 +704,12 @@ end
     χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
     @test iszero(χ * χ)
     @test iszero(χ' * χ')
-    χ_mb = sum(us .* [fmb[i] for i in keys(b_mb)]) + sum(vs .* [fmb[i]' for i in keys(b)])
-    @test χ_mb ≈ QuantumDots.many_body_fermion(χ, fmb)
-    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ', fmb)
+    χ_mb = sum(us .* [f_mb[i] for i in keys(b_mb)]) + sum(vs .* [f_mb[i]' for i in keys(b)])
+    @test χ_mb ≈ QuantumDots.many_body_fermion(χ, f_mb)
+    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ', f_mb)
 
-    @test all(fmb[k] ≈ QuantumDots.many_body_fermion(b[k], fmb) for k in 1:N)
-    @test all(fmb[k]' ≈ QuantumDots.many_body_fermion(b[k]', fmb) for k in 1:N)
+    @test all(f_mb[k] ≈ QuantumDots.many_body_fermion(b[k], f_mb) for k in 1:N)
+    @test all(f_mb[k]' ≈ QuantumDots.many_body_fermion(b[k]', f_mb) for k in 1:N)
 
 
     # Longer kitaev 

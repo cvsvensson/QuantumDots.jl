@@ -36,6 +36,7 @@ function fermion_to_majorana end
 function majorana_to_fermion end
 ## BlockDiagonals extension
 function blockdiagonal end
+function blocks end
 
 ## Files
 include("structs.jl")
