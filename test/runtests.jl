@@ -205,11 +205,11 @@ end
     ham = Hermitian(QuantumDots.kitaev_hamiltonian(c; μ=0.0, t=1.0, Δ=1.0))
     vals, vecs = diagonalize(ham)
     @test abs(vals[1] - vals[2]) < 1e-12
-    p = parityoperator(c)
+    p = parityoperator(H)
     v1, v2 = eachcol(vecs[:, 1:2])
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
-    w = [dot(v1, f + f', v2) for f in c]
-    z = [dot(v1, (f' - f), v2) for f in c]
+    w = [dot(v1, f + f', v2) for f in values(c)]
+    z = [dot(v1, (f' - f), v2) for f in values(c)]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 1]
 
     eig = diagonalize(ham)
@@ -229,8 +229,8 @@ end
     v1 = vecs[:, 1]
     v2 = vecs[:, 1+size(vecs.blocks[1], 1)]
     @test dot(v1, p, v1) * dot(v2, p, v2) ≈ -1
-    w = [dot(v1, f + f', v2) for f in c]
-    z = [dot(v1, (f' - f), v2) for f in c]
+    w = [dot(v1, f + f', v2) for f in values(c)]
+    z = [dot(v1, (f' - f), v2) for f in values(c)]
     @test abs.(w .^ 2 - z .^ 2) ≈ [1, 0, 0, 0, 1]
 
     eig = diagonalize(ham)
@@ -320,7 +320,7 @@ end
     evenham!(evenmat, params...)
     @test evenmat ≈ bdham(params...) |> last
 
-    _bd2(xs...) = blockdiagonal(hamiltonian(xs...), a)
+    _bd2(xs...) = blockdiagonal(hamiltonian(xs...), H)
     paritybd! = QuantumDots.fastblockdiagonal(_bd2, 3)
     bdham = _bd2(2params...)
     paritybd!(bdham, params...)
