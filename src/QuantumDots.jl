@@ -18,9 +18,9 @@ import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, 
 
 export FockNumber, JordanWignerOrdering, bits, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
 export FockHilbertSpace, SymmetricFockHilbertSpace, SimpleFockHilbertSpace, hilbert_space
-export parityoperator, numberoperator, fermions, majoranas
+export parityoperator, numberoperator, fermions, majoranas, matrix_representation
 
-export qns, pretty_print
+export pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
 export partial_trace, fermionic_kron, wedge, embedding, many_body_density_matrix

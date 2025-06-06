@@ -347,7 +347,7 @@ end
                 b2f = b2[k2]
                 b3f = b3[k2] * b3[k1]
                 b3fw = wedge([b1f, b2f], Hs => H3)
-                v3w = fermionic_kron([b1f * v1, b2f * v2], Hbs => H3)
+                v3w = fermionic_kron([b1f * v1, b2f * v2], Hs => H3)
                 v3f = b3f * v3
                 @test v3f == v3w || v3f == -v3w #Vectors are the same up to a sign
             end

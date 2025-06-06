@@ -17,12 +17,9 @@ end
 Return the parity operator of `H`.
 """
 function parityoperator(H::AbstractFockHilbertSpace)
-    fs = focknumbers(H)
-    N = length(fs)
-    mat = spzeros(Int, N, N)
-    _fill!(mat, fs -> (fs, parity(fs)), H)
-    return mat
+    sparse_fockoperator(f -> (f, parity(f)), H)
 end
+
 
 """
     numberoperator(basis::AbstractFockHilbertSpace)
@@ -30,18 +27,7 @@ end
 Return the number operator of `H`.
 """
 function numberoperator(H::AbstractFockHilbertSpace)
-    mat = spzeros(Int, size(H))
-    _fill!(mat, f -> (f, fermionnumber(f)), H)
-    return mat
-end
-
-function _fill!(mat, op, H::AbstractFockHilbertSpace)
-    for ind in axes(mat, 2)
-        newfockstate, amp = op(indtofock(ind, H))
-        newind = focktoind(newfockstate, H)
-        mat[newind, ind] += amp
-    end
-    return mat
+    sparse_fockoperator(f -> (f, fermionnumber(f)), H)
 end
 
 function togglefermions(digitpositions, daggers, focknbr)
@@ -97,9 +83,29 @@ Constructs a sparse matrix of size representing a fermionic annihilation operato
 #     return sparse(outinds, ininds, amps, N, N)
 # end
 function fermion_sparse_matrix(fermion_number, H::AbstractFockHilbertSpace)
-    mat = spzeros(Int, size(H))
-    _fill!(mat, f -> removefermion(fermion_number, f), H)
-    mat
+    sparse_fockoperator(Base.Fix1(removefermion, fermion_number), H)
+end
+
+
+function sparse_fockoperator(op, H::AbstractFockHilbertSpace)
+    fs = focknumbers(H)
+    N = length(fs)
+    amps = Int[]
+    ininds = Int[]
+    outinds = Int[]
+    sizehint!(amps, N)
+    sizehint!(ininds, N)
+    sizehint!(outinds, N)
+    for f in fs
+        n = focktoind(f, H)
+        newfockstate, amp = op(f)
+        if !iszero(amp)
+            push!(amps, amp)
+            push!(ininds, n)
+            push!(outinds, focktoind(newfockstate, H))
+        end
+    end
+    return sparse(outinds, ininds, amps, N, N)
 end
 
 
