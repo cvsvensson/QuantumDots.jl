@@ -584,18 +584,18 @@ end
 
 Compute the fermionic partial transpose of a matrix `m` in subsystem denoted by `labels`.
 """
-function partial_transpose(m::AbstractMatrix, b::AbstractHilbertSpace, labels, phase_factors=use_partial_transpose_phase_factors(b))
+function partial_transpose(m::AbstractMatrix, H::AbstractHilbertSpace, labels, phase_factors=use_partial_transpose_phase_factors(H))
     mout = zero(m)
-    partial_transpose!(mout, m, b, labels, phase_factors)
+    partial_transpose!(mout, m, H, labels, phase_factors)
 end
-function partial_transpose!(mout, m::AbstractMatrix, b::AbstractHilbertSpace, labels, phase_factors=use_partial_transpose_phase_factors(b))
+function partial_transpose!(mout, m::AbstractMatrix, H::AbstractHilbertSpace, labels, phase_factors=use_partial_transpose_phase_factors(H))
     @warn "partial_transpose may not be physically meaningful" maxlog = 10
-    M = nbr_of_modes(b)
+    M = length(H.jw)
     fill!(mout, zero(eltype(mout)))
-    outinds = siteindices(labels, b)
+    outinds = siteindices(labels, H.jw)
     bitmask = FockNumber(2^M - 1) - focknbr_from_site_indices(outinds)
     outbits(f) = map(i -> _bit(f, i), outinds)
-    fockstates = focknumbers(b)
+    fockstates = focknumbers(H)
     for f1 in fockstates
         f1R = (f1 & bitmask)
         f1L = (f1 & ~bitmask)
@@ -607,7 +607,7 @@ function partial_transpose!(mout, m::AbstractMatrix, b::AbstractHilbertSpace, la
             s1 = phase_factors ? phase_factor_f(f1, f2, M) : 1
             s2 = phase_factors ? phase_factor_f(newfocknbr1, newfocknbr2, M) : 1
             s = s2 * s1
-            mout[focktoind(newfocknbr1, b), focktoind(newfocknbr2, b)] = s * m[focktoind(f1, b), focktoind(f2, b)]
+            mout[focktoind(newfocknbr1, H), focktoind(newfocknbr2, H)] = s * m[focktoind(f1, H), focktoind(f2, H)]
         end
     end
     return mout
@@ -627,7 +627,8 @@ use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
     A = rand(ComplexF64, 2, 2)
     B = rand(ComplexF64, 2, 2)
     C = fermionic_kron((A, B), (H1, H2), H12)
-    Cpt = partial_transpose(C, H12, (1,))
+    Cpt = partial_transpose(C, H12, H1)
+    Cpt == partial_transpose(C, H12, (1,))
     Cpt2 = fermionic_kron((transpose(A), B), (H1, H2), H12)
     @test Cpt ≈ Cpt2
 
@@ -656,7 +657,7 @@ use_partial_transpose_phase_factors(H::AbstractHilbertSpace) = isfermionic(H)
     end
     for (i, j, k) in triple_iterator
         Mpt = partial_transpose(M, HN, (i, j, k))
-        Mpt2 = fermionic_kron([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], Hs, Hn)
+        Mpt2 = fermionic_kron([(n == i || n == j || n == k) ? transpose(M) : M for (n, M) in enumerate(Ms)], Hs, HN)
         @test Mpt ≈ Mpt2
     end
     Mpt = partial_transpose(M, HN, labels)

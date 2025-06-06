@@ -18,6 +18,8 @@ issubsystem(subsystem::AbstractFockHilbertSpace, H::AbstractFockHilbertSpace) = 
 consistent_ordering(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = consistent_ordering(subsystem.jw, jw)
 focknbr_from_site_labels(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = focknbr_from_site_labels(keys(H), jw)
 
+siteindices(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = siteindices(H.jw, jw)
+
 mode_ordering(H::AbstractFockHilbertSpace) = H.jw
 mode_ordering(jw::JordanWignerOrdering) = jw
 mode_ordering(v::AbstractVector) = v
