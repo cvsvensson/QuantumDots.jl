@@ -1,7 +1,7 @@
-module QuantumDotsBlockDiagonalsExt
+# module QuantumDotsBlockDiagonalsExt
 
-using QuantumDots, BlockDiagonals, LinearAlgebra, SparseArrays
-import QuantumDots: FockSymmetry, DiagonalizedHamiltonian, blockdiagonal, KhatriRaoVectorizer, vecdp
+# using QuantumDots, BlockDiagonals, LinearAlgebra, SparseArrays
+# import QuantumDots: FockSymmetry, DiagonalizedHamiltonian, blockdiagonal, KhatriRaoVectorizer, vecdp
 
 
 function diagonalize(m::BlockDiagonal)
@@ -103,4 +103,4 @@ function remove_high_energy_states(ham::DiagonalizedHamiltonian{<:Any,<:BlockDia
     DiagonalizedHamiltonian(E, vecs, original_hamiltonian(E, vecs))
 end
 
-end
+# end

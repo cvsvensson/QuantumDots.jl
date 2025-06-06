@@ -9,6 +9,7 @@ import OrderedCollections: OrderedDict
 import DifferentiationInterface
 using TestItems
 using TermInterface
+using BlockDiagonals
 
 import AxisKeys
 import Crayons
@@ -24,7 +25,6 @@ export pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
 export partial_trace, fermionic_kron, wedge, embedding, many_body_density_matrix
-export QubitBasis
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 export project_on_parity, project_on_parities
@@ -34,9 +34,6 @@ function fastgenerator end
 function fastblockdiagonal end
 function fermion_to_majorana end
 function majorana_to_fermion end
-## BlockDiagonals extension
-function blockdiagonal end
-function blocks end
 
 ## Files
 include("structs.jl")
@@ -67,6 +64,7 @@ include("symbolics/muladd.jl")
 include("symbolics/symbolic_fermions.jl")
 include("symbolics/symbolic_majoranas.jl")
 
+include("blockdiagonal.jl")
 
 import PrecompileTools
 

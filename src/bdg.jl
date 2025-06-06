@@ -565,14 +565,15 @@ end
 
 @testitem "BdG" begin
     using QuantumDots.SkewLinearAlgebra, LinearAlgebra, Random, SparseArrays, BlockDiagonals
+    using QuantumDots: many_body_fermion, QuasiParticle
     Random.seed!(1234)
 
     N = 2
     labels = 1:N
     μ1 = rand()
     μ2 = rand()
-    b = QuantumDots.FermionBdGBasis(labels)
-    length(QuantumDots.FermionBdGBasis(1:2, (:a, :b))) == 4
+    b = FermionBdGBasis(labels)
+    length(FermionBdGBasis(1:2, (:a, :b))) == 4
 
     @test all(f == b[n] for (n, f) in enumerate(b))
 
@@ -588,8 +589,8 @@ end
     @test b[1] * b[1] isa SparseMatrixCSC
     @test b[1].hole
     @test !b[1]'.hole
-    @test b[1] + b[1] isa QuantumDots.QuasiParticle
-    @test b[1] - b[1] isa QuantumDots.QuasiParticle
+    @test b[1] + b[1] isa QuasiParticle
+    @test b[1] - b[1] isa QuasiParticle
     @test norm(QuantumDots.rep(b[1] - b[1])) == 0
     @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
 
@@ -638,7 +639,7 @@ end
 
     @test QuantumDots.check_ph_symmetry(es, ops)
     @test norm(sort(es, by=abs)[1:2]) < 1e-12
-    qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
+    qps = map(op -> QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
 
     b_mb = hilbert_space(labels)
@@ -667,7 +668,7 @@ end
     ρeven_mb = one_particle_density_matrix(gs_even * gs_even', b_mb)
     ρodd_mb = one_particle_density_matrix(gs_odd * gs_odd', b_mb)
     f_mb = fermions(b_mb)
-    qps_mb = map(qp -> QuantumDots.many_body_fermion(qp, f_mb), qps)
+    qps_mb = map(qp -> many_body_fermion(qp, f_mb), qps)
 
     @test ρeven ≈ ρeven_mb
     @test ρodd ≈ ρodd_mb
@@ -679,16 +680,16 @@ end
     @test poor_mans_ham ≈ mapreduce((e, qp) -> e * qp' * qp / 2, +, es, qps)
 
     qp = qps[2]
-    @test qp isa QuantumDots.QuasiParticle
-    @test 2 * qp isa QuantumDots.QuasiParticle
-    @test qp * 2 isa QuantumDots.QuasiParticle
-    @test qp / 2 isa QuantumDots.QuasiParticle
-    @test qp + qp isa QuantumDots.QuasiParticle
-    @test qp - qp isa QuantumDots.QuasiParticle
-    @test qp + b[1] isa QuantumDots.QuasiParticle
-    @test b[1] + qp isa QuantumDots.QuasiParticle
-    @test qp - b[1] isa QuantumDots.QuasiParticle
-    @test b[1] - qp isa QuantumDots.QuasiParticle
+    @test qp isa QuasiParticle
+    @test 2 * qp isa QuasiParticle
+    @test qp * 2 isa QuasiParticle
+    @test qp / 2 isa QuasiParticle
+    @test qp + qp isa QuasiParticle
+    @test qp - qp isa QuasiParticle
+    @test qp + b[1] isa QuasiParticle
+    @test b[1] + qp isa QuasiParticle
+    @test qp - b[1] isa QuasiParticle
+    @test b[1] - qp isa QuasiParticle
     @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
 
     @test qp[(1, :h)] == qp[1, :h]
@@ -704,12 +705,12 @@ end
     χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
     @test iszero(χ * χ)
     @test iszero(χ' * χ')
-    χ_mb = sum(us .* [f_mb[i] for i in keys(b_mb)]) + sum(vs .* [f_mb[i]' for i in keys(b)])
-    @test χ_mb ≈ QuantumDots.many_body_fermion(χ, f_mb)
-    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ', f_mb)
+    χ_mb = sum(us .* [f_mb[i] for i in keys(f_mb)]) + sum(vs .* [f_mb[i]' for i in keys(f_mb)])
+    @test χ_mb ≈ many_body_fermion(χ, f_mb)
+    @test χ_mb' ≈ many_body_fermion(χ', f_mb)
 
-    @test all(f_mb[k] ≈ QuantumDots.many_body_fermion(b[k], f_mb) for k in 1:N)
-    @test all(f_mb[k]' ≈ QuantumDots.many_body_fermion(b[k]', f_mb) for k in 1:N)
+    @test all(f_mb[k] ≈ many_body_fermion(b[k], f_mb) for k in 1:N)
+    @test all(f_mb[k]' ≈ many_body_fermion(b[k]', f_mb) for k in 1:N)
 
 
     # Longer kitaev 
@@ -722,7 +723,7 @@ end
     es, ops = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.SkewEigenAlg(1e-10))
     es2, ops2 = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.NormalEigenAlg(1e-10))
     @test QuantumDots.check_ph_symmetry(es, ops)
-    qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
+    qps = map(op -> QuasiParticle(op, b), eachcol(ops))
     @test all(map(qp -> iszero(qp * qp), qps))
 
     eig = diagonalize(pmmham)
