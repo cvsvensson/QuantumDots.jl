@@ -1,7 +1,6 @@
 module QuantumDotsSymbolicsExt
 
 using QuantumDots, Symbolics, LinearAlgebra
-# using QuantumDots.BlockDiagonals
 import QuantumDots: fastgenerator, fastblockdiagonal, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
     SymbolicMajoranaBasis, SymbolicFermionBasis
 

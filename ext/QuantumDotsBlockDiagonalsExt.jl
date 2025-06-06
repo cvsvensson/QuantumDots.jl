@@ -1,7 +1,7 @@
 module QuantumDotsBlockDiagonalsExt
 
 using QuantumDots, BlockDiagonals, LinearAlgebra, SparseArrays
-using QuantumDots: FockSymmetry, DiagonalizedHamiltonian, blockdiagonal, KhatriRaoVectorizer, vecdp
+import QuantumDots: FockSymmetry, DiagonalizedHamiltonian, blockdiagonal, KhatriRaoVectorizer, vecdp
 
 
 function diagonalize(m::BlockDiagonal)

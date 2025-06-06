@@ -29,11 +29,15 @@ export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 export project_on_parity, project_on_parities
 
+## Symbolics extension
 function fastgenerator end
 function fastblockdiagonal end
 function fermion_to_majorana end
 function majorana_to_fermion end
+## BlockDiagonals extension
+function blockdiagonal end
 
+## Files
 include("structs.jl")
 include("Fock/fock.jl")
 include("Fock/phase_factors.jl")

@@ -16,6 +16,14 @@ isorderedsubsystem(Hsub::AbstractHilbertSpace, jw::JordanWignerOrdering) = isord
 # ispartition(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = ispartition(H.jw, jw)
 issubsystem(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = issubsystem(subsystem.jw, jw)
 issubsystem(subsystem::AbstractFockHilbertSpace, H::AbstractFockHilbertSpace) = issubsystem(subsystem.jw, H.jw)
+consistent_ordering(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = consistent_ordering(subsystem.jw, jw)
+focknbr_from_site_labels(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = focknbr_from_site_labels(keys(H), jw)
+
+mode_ordering(H::AbstractFockHilbertSpace) = H.jw
+mode_ordering(jw::JordanWignerOrdering) = jw
+mode_ordering(v::AbstractVector) = v
+embedding_unitary(partition, H::AbstractFockHilbertSpace) = embedding_unitary(partition, focknumbers(H), H.jw)
+bipartite_embedding_unitary(X, Xbar, H::AbstractFockHilbertSpace) = bipartite_embedding_unitary(X, Xbar, focknumbers(H), H.jw)
 
 
 struct SimpleFockHilbertSpace{L} <: AbstractFockHilbertSpace
