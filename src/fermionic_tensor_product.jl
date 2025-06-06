@@ -371,15 +371,15 @@ end
             @test wedge([m1, m2], Hs => H3) == m3
         end
 
-        H1 = Matrix(0.5b1[1]' * b1[1])
-        H2 = Matrix(-0.1b2[2]' * b2[2] + 0.3b2[3]' * b2[3] + (b2[2]' * b2[3] + hc))
-        vals1, vecs1 = eigen(H1)
-        vals2, vecs2 = eigen(H2)
-        H3 = Matrix(0.5b3[1]' * b3[1] - 0.1b3[2]' * b3[2] + 0.3b3[3]' * b3[3] + (b3[2]' * b3[3] + hc))
-        vals3, vecs3 = eigen(H3)
+        h1 = Matrix(0.5b1[1]' * b1[1])
+        h2 = Matrix(-0.1b2[2]' * b2[2] + 0.3b2[3]' * b2[3] + (b2[2]' * b2[3] + hc))
+        vals1, vecs1 = eigen(h1)
+        vals2, vecs2 = eigen(h2)
+        h3 = Matrix(0.5b3[1]' * b3[1] - 0.1b3[2]' * b3[2] + 0.3b3[3]' * b3[3] + (b3[2]' * b3[3] + hc))
+        vals3, vecs3 = eigen(h3)
 
         # test wedging with I (UniformScaling)
-        H3w = wedge([H1, I], Hs => H3) + wedge([I, H2], Hs => H3)
+        H3w = wedge([h1, I], Hs => H3) + wedge([I, h2], Hs => H3)
         @test H3w == H3
         @test wedge([I, I], Hs => H3) == one(H3)
 
@@ -391,11 +391,11 @@ end
         @test all(map((v3, v3w) -> abs(dot(v3, v3w)) ≈ norm(v3) * norm(v3w), eachcol(vecs3), vecs3w))
 
         β = 0.7
-        rho1 = exp(-β * H1)
+        rho1 = exp(-β * h1)
         rmul!(rho1, 1 / tr(rho1))
-        rho2 = exp(-β * H2)
+        rho2 = exp(-β * h2)
         rmul!(rho2, 1 / tr(rho2))
-        rho3 = exp(-β * H3)
+        rho3 = exp(-β * h3)
         rmul!(rho3, 1 / tr(rho3))
         rho3w = wedge([rho1, rho2], Hs => H3)
         @test rho3w ≈ rho3
@@ -421,16 +421,16 @@ end
         H1 = Matrix(QuantumDots.BD1_hamiltonian(b1; params1...))
         H2 = Matrix(QuantumDots.BD1_hamiltonian(b2; params2...))
 
-        H12w = Matrix(wedge([H1, I], bs, b12w) + wedge([I, H2], bs, b12w))
-        H12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
+        h12w = Matrix(wedge([h1, I], bs, b12w) + wedge([I, h2], bs, b12w))
+        h12 = Matrix(QuantumDots.BD1_hamiltonian(b12; params12...))
 
-        v12w = fermionic_kron([eigvecs(Matrix(H1))[:, 1], eigvecs(Matrix(H2))[:, 1]], bs, b12w)
-        v12 = eigvecs(H12)[:, 1]
-        v12ww = eigvecs(H12w)[:, 1]
+        v12w = fermionic_kron([eigvecs(Matrix(h1))[:, 1], eigvecs(Matrix(H2))[:, 1]], Hs, H12w)
+        v12 = eigvecs(h12)[:, 1]
+        v12ww = eigvecs(h12w)[:, 1]
         sort(abs.(v12w)) - sort(abs.(v12))
         @test sum(abs, v12w) ≈ sum(abs, v12)
         @test sum(abs, v12w) ≈ sum(abs, v12ww)
-        @test diff(eigvals(H12w)) ≈ diff(eigvals(H12))
+        @test diff(eigvals(h12w)) ≈ diff(eigvals(h12))
 
         # Test zero-mode wedge
         H1 = hilbert_space(1:0, qn)
