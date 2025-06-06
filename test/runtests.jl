@@ -114,14 +114,15 @@ end
     G3 = (opdm_bdg[[1, 2, 3, 1 + N, 2 + N, 3 + N], [1, 2, 3, 1 + N, 2 + N, 3 + N]])
     G13 = (opdm_bdg[[1, 3, 1 + N, 3 + N], [1, 3, 1 + N, 3 + N]])
     H1 = hilbert_space(1:1)
-    @test norm(partial_trace(gs, H, H1)) ≈ norm(one_particle_density_matrix(gs * gs', H, (1,))) ≈ norm(G1)
-    @test one_particle_density_matrix(gs * gs', H, (1, 2)) ≈ G2
-    @test one_particle_density_matrix(gs * gs', H, (1, 2, 3)) == one_particle_density_matrix(gs * gs', H) ≈ G3
+    rhogs = gs*gs'
+    @test norm(partial_trace(rhogs, H, H1)) ≈ norm(one_particle_density_matrix(gs * gs', H, (1,))) ≈ norm(G1)
+    @test one_particle_density_matrix(rhogs, H, (1, 2)) ≈ G2
+    @test one_particle_density_matrix(rhogs, H, (1, 2, 3)) == one_particle_density_matrix(rhogs, H) ≈ G3
 
-    reduced_density_matrix = partial_trace(gs, H, hilbert_space((1,)))
-    reduced_density_matrix2 = partial_trace(gs, H, hilbert_space((1, 2)))
-    reduced_density_matrix3 = partial_trace(gs, H, hilbert_space((1, 2, 3)))
-    reduced_density_matrix13 = partial_trace(gs, H, hilbert_space((1, 3)))
+    reduced_density_matrix = partial_trace(rhogs, H, hilbert_space((1,)))
+    reduced_density_matrix2 = partial_trace(rhogs, H, hilbert_space((1, 2)))
+    reduced_density_matrix3 = partial_trace(rhogs, H, hilbert_space((1, 2, 3)))
+    reduced_density_matrix13 = partial_trace(rhogs, H, hilbert_space((1, 3)))
     c1 = hilbert_space(1:1)
     c12 = hilbert_space(1:2)
     @test reduced_density_matrix ≈ many_body_density_matrix(G1, c1)
