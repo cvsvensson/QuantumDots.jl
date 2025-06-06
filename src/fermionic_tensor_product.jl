@@ -513,7 +513,7 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     H2 = hilbert_space(2:2)
     c2 = fermions(H2)
     H12 = hilbert_space(1:2)
-    c12 = fermions(H2)
+    c12 = fermions(H12)
     p1 = QuantumDots.LazyPhaseMap(1)
     p2 = QuantumDots.phase_map(2)
     @test QuantumDots.fermionic_tensor_product_with_kron_and_maps((c1[1], I(2)), (p1, p1), p2) == c12[1]
