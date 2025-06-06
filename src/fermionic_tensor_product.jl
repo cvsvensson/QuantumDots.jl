@@ -330,11 +330,11 @@ end
 
         #test that they keep sparsity
         @test typeof(wedge((b1[1], b2[2]), Hs => H3)) == typeof(b1[1])
-        @test typeof(kron((b1[1], b2[2]), Hs => H3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], b2[2]), Hs, H3)) == typeof(b1[1])
         @test typeof(wedge((b1[1], I), Hs => H3)) == typeof(b1[1])
-        @test typeof(kron((b1[1], I), Hs => H3)) == typeof(b1[1])
+        @test typeof(kron((b1[1], I), Hs, H3)) == typeof(b1[1])
         @test wedge((I, I), Hs => H3) isa SparseMatrixCSC
-        @test kron((I, I), Hs => H3) isa SparseMatrixCSC
+        @test kron((I, I), Hs, H3) isa SparseMatrixCSC
 
         O1 = isodd.(numberoperator(H1))
         O2 = isodd.(numberoperator(H2))
