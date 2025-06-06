@@ -16,7 +16,10 @@ isorderedsubsystem(Hsub::AbstractHilbertSpace, jw::JordanWignerOrdering) = isord
 issubsystem(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = issubsystem(subsystem.jw, jw)
 issubsystem(subsystem::AbstractFockHilbertSpace, H::AbstractFockHilbertSpace) = issubsystem(subsystem.jw, H.jw)
 consistent_ordering(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = consistent_ordering(subsystem.jw, jw)
+consistent_ordering(subsystem::AbstractFockHilbertSpace, H::AbstractFockHilbertSpace) = consistent_ordering(subsystem.jw, H.jw)
 focknbr_from_site_labels(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = focknbr_from_site_labels(keys(H), jw)
+ispartition(partition, H::AbstractFockHilbertSpace) = ispartition(partition, H.jw)
+isorderedpartition(partition, H::AbstractFockHilbertSpace) = isorderedpartition(partition, H.jw)
 
 siteindices(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = siteindices(H.jw, jw)
 
@@ -134,3 +137,51 @@ hilbert_space(labels, ::NoSymmetry; fermionic=true) = SimpleFockHilbertSpace(lab
 hilbert_space(labels, ::NoSymmetry, focknumbers; fermionic=true) = FockHilbertSpace(labels, focknumbers; fermionic=fermionic)
 hilbert_space(labels, qn::AbstractSymmetry, focknumbers; fermionic=true) = SymmetricFockHilbertSpace(labels, qn, focknumbers; fermionic)
 hilbert_space(labels, qn::AbstractSymmetry; fermionic=true) = SymmetricFockHilbertSpace(labels, qn; fermionic)
+
+#= Tests for isorderedsubsystem, issubsystem, and consistent_ordering for Hilbert spaces =#
+@testitem "Hilbert space subsystem and ordering" begin
+    import QuantumDots: isorderedsubsystem, issubsystem, consistent_ordering
+    # Simple Hilbert spaces
+    H = hilbert_space([1, 2, 3])
+    Hsub1 = hilbert_space([1, 2])
+    Hsub2 = hilbert_space([2, 3])
+    Hsub3 = hilbert_space([2, 1])
+    Hsub4 = hilbert_space([3, 2])
+    Hsub5 = hilbert_space([4])
+
+    # issubsystem
+    @test issubsystem(Hsub1, H)
+    @test issubsystem(Hsub2, H)
+    @test !issubsystem(Hsub5, H)
+    @test issubsystem(Hsub1, H.jw)
+    @test !issubsystem(Hsub5, H.jw)
+
+    # consistent_ordering
+    @test consistent_ordering(Hsub1, H)
+    @test consistent_ordering(Hsub2, H.jw)
+    @test !consistent_ordering(Hsub3, H)
+    @test !consistent_ordering(Hsub4, H.jw)
+
+    # isorderedsubsystem
+    @test isorderedsubsystem(Hsub1, H)
+    @test isorderedsubsystem(Hsub2, H.jw)
+    @test !isorderedsubsystem(Hsub3, H)
+    @test !isorderedsubsystem(Hsub4, H)
+    @test !isorderedsubsystem(Hsub5, H)
+
+    # ispartition and isorderedpartition
+    import QuantumDots: ispartition, isorderedpartition
+    # Partition of Hilbert spaces (as required by isorderedpartition(Hs, H))
+    H = hilbert_space([1, 2, 3])
+    Hs1 = [hilbert_space([1]), hilbert_space([2, 3])]
+    Hs2 = [hilbert_space([2]), hilbert_space([1, 3])]
+    Hs3 = [hilbert_space([1, 2, 3])]
+    Hs4 = [hilbert_space([1]), hilbert_space([2])]
+    @test ispartition(Hs1, H.jw)
+    @test ispartition(map(keys, Hs2), H.jw)
+    @test ispartition(map(keys, Hs2), H)
+    @test !ispartition(Hs4, H)
+    @test isorderedpartition(Hs1, H.jw)
+    @test isorderedpartition(map(keys, Hs3), H)
+    @test !isorderedpartition(Hs4, H)
+end
