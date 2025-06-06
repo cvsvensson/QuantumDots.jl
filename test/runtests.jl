@@ -264,7 +264,7 @@ end
 @testitem "build_function" begin
     using Symbolics, BlockDiagonals
     N = 2
-    Hs = [hilbert_space(1:N), hilbert_space(1:N, qn=ParityConservation()), FermionBdGBasis(1:N)]
+    Hs = [hilbert_space(1:N), hilbert_space(1:N, ParityConservation()), FermionBdGBasis(1:N)]
     cs = fermions.(Hs)
     @variables x
     ham(c) = x * sum(f -> 1.0 * f'f, c)
@@ -412,12 +412,12 @@ end
         # Pkg.activate("./test")
         # using LinearSolve, LinearAlgebra
         # import DifferentiationInterface as AD, ForwardDiff, FiniteDifferences
-        # qn = QuantumDots.NoSymmetry()
+        # qn = NoSymmetry()
         # qn = ParityConservation()
         N = 1
         H = hilbert_space(1:N, qn)
         a = fermions(H)
-        bd(m) = QuantumDots.blockdiagonal(m, H)
+        bd(m) = blockdiagonal(m, H)
         get_hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
         T = rand()
         μL, μR, μH = rand(3)
@@ -538,9 +538,9 @@ end
         soll = solve(ODEProblem(A', vl, (0, 10)), Tsit5(); abstol=1e-5)
         @test isapprox(dot(soll(10), vr), dot(vl, solr(10)); atol=1e-4)
     end
-    test_qd_transport(QuantumDots.NoSymmetry())
+    test_qd_transport(NoSymmetry())
     test_qd_transport(ParityConservation())
-    test_qd_transport(QuantumDots.fermionnumber)
+    test_qd_transport(FermionConservation())
 
 
     N = 2
@@ -641,7 +641,7 @@ end
 
 @testitem "Khatri-Rao" begin
     using Random, BlockDiagonals, LinearAlgebra
-    using QuantumDots: khatri_rao, khatri_rao_lazy_dissipator, khatri_rao_dissipator, khatri_rao_lazy, khatri_rao_commutator, KhatriRaoVectorizer
+    using QuantumDots: khatri_rao, khatri_rao_lazy_dissipator, khatri_rao_dissipator, khatri_rao_lazy, khatri_rao_commutator, khatri_rao_lazy_commutator, KhatriRaoVectorizer
     Random.seed!(1234)
 
     bdm = BlockDiagonal([rand(2, 2), rand(3, 3), rand(5, 5)])
