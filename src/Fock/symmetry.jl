@@ -44,8 +44,13 @@ Constructs a `FockSymmetry` object that represents the symmetry of a many-body s
 - `focknumbers`: The focknumbers to iterate over
 - `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
 """
-function focksymmetry(focknumbers, qn)
-    focknumbers = sort(focknumbers, by=f -> f.f)
+function focksymmetry(_focknumbers, qn; allowed_qns=nothing)
+    focknumbers = copy(_focknumbers)
+    if allowed_qns !== nothing
+        allowed_qns_set = Set(allowed_qns)
+        filter!(f -> qn(f) in allowed_qns_set, focknumbers)
+    end
+    sort!(focknumbers, by=f -> f.f)
     oldinds = eachindex(focknumbers)
     qntooldinds = group(ind -> qn(focknumbers[ind]), oldinds)
     sortkeys!(qntooldinds)
