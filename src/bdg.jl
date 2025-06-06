@@ -509,6 +509,7 @@ function diagonalize(A::AbstractMatrix, alg::SkewEigenAlg)
     enforce_ph_symmetry(skew_eigen_to_bdg(es, ops)...; cutoff=alg.cutoff)
 end
 
+fermions(c::FermionBdGBasis) = c
 
 function many_body_density_matrix_exp(G, H=hilbert_space(1:div(size(G, 1), 2), ParityConservation()); alg=SkewEigenAlg())
     G = remove_trace(G)

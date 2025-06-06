@@ -267,7 +267,7 @@ end
     Hs = [hilbert_space(1:N), hilbert_space(1:N, ParityConservation()), FermionBdGBasis(1:N)]
     cs = fermions.(Hs)
     @variables x
-    ham(c) = x * sum(f -> 1.0 * f'f, c)
+    ham(c) = x * sum(f -> 1.0 * f'f, values(c))
     converts = [Matrix, x -> blockdiagonal(x, Hs[2]), x -> BdGMatrix(x; check=false)]
     hams = map((f, c) -> (f ∘ ham)(c), converts, cs)
     fs = [build_function(H, x; expression=Val{false}) for H in hams]
