@@ -59,7 +59,7 @@ function _BD1_1site((cup, cdn); μ, h, Δ, U)
 end
 
 
-getvalue(v::Union{<:AbstractVector,<:Tuple}, i, N; size=1) = v[i]
+getvalue(v::Union{<:AbstractVector,<:Tuple,<:StepRange}, i, N; size=1) = v[i]
 getvalue(x::Number, i, N; size=1) = 1 <= i <= N + 1 - size ? x : zero(x)
 
 cell(j, b) = map(l -> b[l], filter(isequal(j) ∘ first, collect(keys(b))))
