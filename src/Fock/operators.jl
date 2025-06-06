@@ -145,7 +145,34 @@ end
 
 function fermions(H::AbstractFockHilbertSpace)
     M = length(H.jw)
-    labelvec = keys(H.jw)
+    labelvec = keys(H)
     reps = [fermion_sparse_matrix(n, H) for n in 1:M]
     OrderedDict(zip(labelvec, reps))
+end
+
+function majoranas(H::AbstractFockHilbertSpace, labels=Base.product(keys(H), (:-, :+)))
+    fs = values(fermions(H))
+    majA = map(f -> f + f', fs)
+    majB = map(f -> 1im * (f - f'), fs)
+    majs = vcat(majA, majB)
+    OrderedDict(zip(labels, majs))
+end
+
+@testitem "Majorana operators" begin
+    using LinearAlgebra
+    using QuantumDots: FockHilbertSpace, majoranas
+    H = FockHilbertSpace(1:2)
+    γ = majoranas(H)
+    # There should be 4 Majorana operators for 2 modes
+    @test length(γ) == 4
+    # Test Hermiticity: γ₁ = c + c†, γ₂ = i(c - c†) are Hermitian
+    for op in values(γ)
+        @test op ≈ op'
+    end
+    # Test anticommutation: {γ_i, γ_j} = 2δ_{ij}I
+    γops = values(γ)
+    for γ1 in γops, γ2 in γops
+        anticom = γ1 * γ2 + γ2 * γ1
+        @test anticom ≈ 2I * (γ1 == γ2)
+    end
 end
