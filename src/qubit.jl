@@ -60,7 +60,7 @@ qubit_operator(c, ::QubitOp{:H}) = 1 / sqrt(2) * (qubit_operator(c, QubitOp{:Z}(
     ## Test that partial trace is the adjoint of embedding
     using LinearMaps
     ptmap = LinearMap(rhovec -> vec(partial_trace(reshape(rhovec, size(H)), H, H1)), prod(size(H1)), prod(size(H)))
-    embeddingmap = LinearMap(rhovec -> vec(fermionic_embedding(reshape(rhovec, size(H1)), H1, H)), prod(size(H)), prod(size(H1)))
+    embeddingmap = LinearMap(rhovec -> vec(embedding(reshape(rhovec, size(H1)), H1, H)), prod(size(H)), prod(size(H1)))
     @test Matrix(ptmap) ≈ Matrix(embeddingmap)'
 
 end
