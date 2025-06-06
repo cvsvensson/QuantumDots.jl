@@ -1,5 +1,5 @@
 function qubit_sparse_matrix(qubit_number, H::AbstractFockHilbertSpace)
-    sparse_fockoperator(f -> (f, lower_qubit(qubit_number, f)), H)
+    sparse_fockoperator(f -> lower_qubit(qubit_number, f), H)
 end
 
 function lower_qubit(digitposition, statefocknbr)

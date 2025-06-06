@@ -496,8 +496,7 @@ SparseArrays.HigherOrderFns.is_supported_sparse_broadcast(::LazyPhaseMap, rest..
     for N in ns
         H = SimpleFockHilbertSpace(1:N)
         c = fermions(H)
-        # q = QubitBasis(1:N)
-        q = QubitOperators(H)
+        q = QuantumDots.QubitOperators(H)
         @test all(map(n -> q[n] == phis[N](c[n]), 1:N))
         c2 = map(n -> phis[N](c[n]), 1:N)
         @test phis[N](phis[N](c[1])) == c[1]
