@@ -415,8 +415,8 @@ end
         b12 = fermions(H12)
         θ1 = 0.5
         θ2 = 0.2
-        params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=parameter(θ1, :diff), ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
-        params2 = (; μ=1, t=0.1, Δ=1.0, V=0, θ=parameter(θ2, :diff), ϕ=5.0, h=1.0, U=10.0, Δ1=-1.0)
+        params1 = (; μ=1, t=0.5, Δ=2.0, V=0, θ=1:4 .* θ1, ϕ=1.0, h=4.0, U=2.0, Δ1=0.1)
+        params2 = (; μ=1, t=0.1, Δ=1.0, V=0, θ=1:4 .* θ2, ϕ=5.0, h=1.0, U=10.0, Δ1=-1.0)
         params12 = (; μ=[params1.μ, params1.μ, params2.μ, params2.μ], t=[params1.t, 0, params2.t, 0], Δ=[params1.Δ, params1.Δ, params2.Δ, params2.Δ], V=[params1.V, 0, params2.V, 0], θ=[0, θ1, 0, θ2], ϕ=[params1.ϕ, params1.ϕ, params2.ϕ, params2.ϕ], h=[params1.h, params1.h, params2.h, params2.h], U=[params1.U, params1.U, params2.U, params2.U], Δ1=[params1.Δ1, 0, params2.Δ1, 0])
         H1 = Matrix(QuantumDots.BD1_hamiltonian(b1; params1...))
         H2 = Matrix(QuantumDots.BD1_hamiltonian(b2; params2...))

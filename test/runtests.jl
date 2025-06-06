@@ -867,39 +867,40 @@ end
 
 @testitem "Khatri-Rao" begin
     using Random, BlockDiagonals, LinearAlgebra
+    using QuantumDots: khatri_rao, khatri_rao_lazy_dissipator, khatri_rao_dissipator, khatri_rao_lazy, khatri_rao_commutator, KhatriRaoVectorizer
     Random.seed!(1234)
 
     bdm = BlockDiagonal([rand(2, 2), rand(3, 3), rand(5, 5)])
     bz = size.(blocks(bdm), 1)
-    kv = QuantumDots.KhatriRaoVectorizer(bz)
+    kv = KhatriRaoVectorizer(bz)
     m = Matrix(bdm)
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(QuantumDots.khatri_rao_dissipator(bdm, kv))
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(QuantumDots.khatri_rao_lazy_dissipator(m, kv))
-    @test Matrix(QuantumDots.khatri_rao_lazy_dissipator(bdm, kv)) ≈ QuantumDots.khatri_rao_dissipator(m, kv)
-    @test QuantumDots.khatri_rao_dissipator(m, kv) isa Matrix
-    @test QuantumDots.khatri_rao(m, m, kv) ≈ cat(map(kron, bdm.blocks, bdm.blocks)...; dims=(1, 2))
-    @test QuantumDots.khatri_rao(m, m, kv) ≈
-          QuantumDots.khatri_rao(bdm, bdm, kv) ≈
-          QuantumDots.khatri_rao(m, bdm, kv) ≈
-          QuantumDots.khatri_rao(m, bdm, kv) ≈
-          QuantumDots.khatri_rao(bdm, m, kv) ≈
-          Matrix(QuantumDots.khatri_rao_lazy(m, m, kv)) ≈
-          Matrix(QuantumDots.khatri_rao_lazy(m, bdm, kv)) ≈
-          Matrix(QuantumDots.khatri_rao_lazy(bdm, bdm, kv)) ≈
-          Matrix(QuantumDots.khatri_rao_lazy(bdm, m, kv))
+    @test Matrix(khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(khatri_rao_dissipator(bdm, kv))
+    @test Matrix(khatri_rao_lazy_dissipator(bdm, kv)) ≈ Matrix(khatri_rao_lazy_dissipator(m, kv))
+    @test Matrix(khatri_rao_lazy_dissipator(bdm, kv)) ≈ khatri_rao_dissipator(m, kv)
+    @test khatri_rao_dissipator(m, kv) isa Matrix
+    @test khatri_rao(m, m, kv) ≈ cat(map(kron, bdm.blocks, bdm.blocks)...; dims=(1, 2))
+    @test khatri_rao(m, m, kv) ≈
+          khatri_rao(bdm, bdm, kv) ≈
+          khatri_rao(m, bdm, kv) ≈
+          khatri_rao(m, bdm, kv) ≈
+          khatri_rao(bdm, m, kv) ≈
+          Matrix(khatri_rao_lazy(m, m, kv)) ≈
+          Matrix(khatri_rao_lazy(m, bdm, kv)) ≈
+          Matrix(khatri_rao_lazy(bdm, bdm, kv)) ≈
+          Matrix(khatri_rao_lazy(bdm, m, kv))
 
     d = Diagonal(m)
-    dkv = QuantumDots.KhatriRaoVectorizer(fill(1, size(d, 1)))
-    @test QuantumDots.khatri_rao(d, d, dkv) ≈ d^2 ≈
-          Matrix(QuantumDots.khatri_rao_lazy(d, d, dkv))
+    dkv = KhatriRaoVectorizer(fill(1, size(d, 1)))
+    @test khatri_rao(d, d, dkv) ≈ d^2 ≈
+          Matrix(khatri_rao_lazy(d, d, dkv))
 
-    @test QuantumDots.khatri_rao_commutator(m, kv) ≈ QuantumDots.khatri_rao_commutator(bdm, kv)
+    @test khatri_rao_commutator(m, kv) ≈ khatri_rao_commutator(bdm, kv)
     id = I(size(m, 1))
-    @test QuantumDots.khatri_rao_commutator(m, kv) ≈
-          QuantumDots.khatri_rao(id, m, kv) - QuantumDots.khatri_rao(transpose(m), id, kv) ≈
-          QuantumDots.khatri_rao_commutator(bdm, kv) ≈
-          QuantumDots.khatri_rao(id, bdm, kv) - QuantumDots.khatri_rao(transpose(bdm), id, kv) ≈
-          Matrix(QuantumDots.khatri_rao_lazy_commutator(m, kv)) ≈
-          Matrix(QuantumDots.khatri_rao_lazy_commutator(bdm, kv))
+    @test khatri_rao_commutator(m, kv) ≈
+          khatri_rao(id, m, kv) - khatri_rao(transpose(m), id, kv) ≈
+          khatri_rao_commutator(bdm, kv) ≈
+          khatri_rao(id, bdm, kv) - khatri_rao(transpose(bdm), id, kv) ≈
+          Matrix(khatri_rao_lazy_commutator(m, kv)) ≈
+          Matrix(khatri_rao_lazy_commutator(bdm, kv))
 
 end
