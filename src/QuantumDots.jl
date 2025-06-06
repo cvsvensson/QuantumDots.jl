@@ -16,7 +16,7 @@ import Crayons
 using SciMLBase
 import SciMLBase: LinearSolution, ODEProblem, ODESolution, solve, solve!, init, LinearProblem, MatrixOperator
 
-export FockNumber, JordanWignerOrdering, bits, blockdiagonal, parameter, hc, diagonalize, majorana_coefficients, majorana_polarization, focknumbers
+export FockNumber, JordanWignerOrdering, bits, blockdiagonal, hc, diagonalize, focknumbers
 export FockHilbertSpace, SymmetricFockHilbertSpace, SimpleFockHilbertSpace, hilbert_space
 export parityoperator, numberoperator, fermions, majoranas, matrix_representation
 

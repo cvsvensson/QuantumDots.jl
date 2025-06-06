@@ -4,37 +4,6 @@
 using TestItemRunner
 @run_package_tests
 
-@testitem "Parameters" begin
-    using Random
-    Random.seed!(1234)
-    N = 4
-    ph = parameter(1)
-    ph2 = parameter(1; closed=true)
-    @test ph isa QuantumDots.HomogeneousChainParameter
-    @test ph2 isa QuantumDots.HomogeneousChainParameter
-    @test ph == QuantumDots.parameter(1, :homogeneous)
-    @test ph2 == QuantumDots.parameter(1, :homogeneous; closed=true)
-    pih = parameter(rand(N), :inhomogeneous)
-    @test pih isa QuantumDots.InHomogeneousChainParameter
-    pd = parameter(1, :diff)
-    @test pd isa QuantumDots.DiffChainParameter
-    pr = parameter(rand(Int(ceil(N / 2))), :reflected)
-    @test pr isa QuantumDots.ReflectedChainParameter
-    @test_throws ErrorException parameter(1, :not_a_valid_option)
-    @test Vector(ph, N; size=1) == fill(1, N)
-    @test Vector(ph, N; size=2) == [fill(1, N - 1)..., 0]
-    @test Vector(ph2, N) == fill(1, N)
-    @test Vector(ph2, N; size=2) == fill(1, N)
-    @test Vector(pih, N) == pih.values
-    @test Vector(pr, N)[1:Int(ceil(N / 2))] == pr.values
-    @test Vector(pr, N)[1:Int(ceil(N / 2))] == reverse(Vector(pr, N)[Int(ceil((N + 1) / 2)):end])
-    @test Vector(pd, N) == 0:N-1
-
-    for p in (ph, ph2, pih, pr, pd)
-        @test [QuantumDots.getvalue(p, i, N) for i in 1:N] == Vector(p, N; size=1)
-    end
-end
-
 @testitem "CAR" begin
     using LinearAlgebra
     for qn in [NoSymmetry(), ParityConservation(), FermionConservation()]
@@ -625,36 +594,35 @@ end
 
 @testitem "rotations" begin
     using Random
+    using QuantumDots: hopping, pairing, cell, hopping_rotated, pairing_rotated, BD1_hamiltonian
     Random.seed!(1234)
 
     N = 2
     H = hilbert_space(Base.product(1:N, (:↑, :↓)))
     b = fermions(H)
-    standard_hopping = QuantumDots.hopping(1, b[1, :↑], b[2, :↑]) + QuantumDots.hopping(1, b[1, :↓], b[2, :↓])
-    standard_pairing = QuantumDots.pairing(1, b[1, :↑], b[2, :↓]) - QuantumDots.pairing(1, b[1, :↓], b[2, :↑])
-    local_pairing = sum(QuantumDots.pairing(1, QuantumDots.cell(j, b)...) for j in 1:N)
+    standard_hopping = hopping(1, b[1, :↑], b[2, :↑]) + hopping(1, b[1, :↓], b[2, :↓])
+    standard_pairing = pairing(1, b[1, :↑], b[2, :↓]) - pairing(1, b[1, :↓], b[2, :↑])
+    local_pairing = sum(pairing(1, cell(j, b)...) for j in 1:N)
     θ = rand()
     ϕ = rand()
-    @test QuantumDots.hopping_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (0, 0), (0, 0)) ≈ standard_hopping
-    @test QuantumDots.hopping_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (θ, ϕ), (θ, ϕ)) ≈ standard_hopping
-    @test QuantumDots.pairing_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (0, 0), (0, 0)) ≈ standard_pairing
-    @test QuantumDots.pairing_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (θ, ϕ), (θ, ϕ)) ≈ standard_pairing
+    @test hopping_rotated(1, cell(1, b), cell(2, b), (0, 0), (0, 0)) ≈ standard_hopping
+    @test hopping_rotated(1, cell(1, b), cell(2, b), (θ, ϕ), (θ, ϕ)) ≈ standard_hopping
+    @test pairing_rotated(1, cell(1, b), cell(2, b), (0, 0), (0, 0)) ≈ standard_pairing
+    @test pairing_rotated(1, cell(1, b), cell(2, b), (θ, ϕ), (θ, ϕ)) ≈ standard_pairing
 
-    soc = QuantumDots.hopping(exp(1im * ϕ), b[1, :↓], b[2, :↑]) - QuantumDots.hopping(exp(-1im * ϕ), b[1, :↑], b[2, :↓])
-    @test QuantumDots.hopping_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (0, 0), (θ, ϕ)) ≈ standard_hopping * cos(θ / 2) + sin(θ / 2) * soc
+    soc = hopping(exp(1im * ϕ), b[1, :↓], b[2, :↑]) - hopping(exp(-1im * ϕ), b[1, :↑], b[2, :↓])
+    @test hopping_rotated(1, cell(1, b), cell(2, b), (0, 0), (θ, ϕ)) ≈ standard_hopping * cos(θ / 2) + sin(θ / 2) * soc
 
-    Δk = QuantumDots.pairing(exp(1im * ϕ), b[1, :↑], b[2, :↑]) + QuantumDots.pairing(exp(-1im * ϕ), b[1, :↓], b[2, :↓])
-    @test QuantumDots.pairing_rotated(1, QuantumDots.cell(1, b), QuantumDots.cell(2, b), (0, 0), (θ, ϕ)) ≈ standard_pairing * cos(θ / 2) + sin(θ / 2) * Δk
+    Δk = pairing(exp(1im * ϕ), b[1, :↑], b[2, :↑]) + pairing(exp(-1im * ϕ), b[1, :↓], b[2, :↓])
+    @test pairing_rotated(1, cell(1, b), cell(2, b), (0, 0), (θ, ϕ)) ≈ standard_pairing * cos(θ / 2) + sin(θ / 2) * Δk
 
-    θp = parameter(θ, :homogeneous)
-    ϕp = parameter(ϕ, :homogeneous)
-    @test standard_hopping ≈ QuantumDots.BD1_hamiltonian(b; t=1, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0)
-    @test standard_pairing ≈ QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=1)
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=1, Δ1=0) ≈ local_pairing
+    @test standard_hopping ≈ BD1_hamiltonian(b; t=1, μ=0, V=0, U=0, h=0, θ, ϕ, Δ=0, Δ1=0)
+    @test standard_pairing ≈ BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ, ϕ, Δ=0, Δ1=1)
+    @test BD1_hamiltonian(b; t=0, μ=0, V=0, U=0, h=0, θ, ϕ, Δ=1, Δ1=0) ≈ local_pairing
 
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) ≈ -numberoperator(H)
+    @test BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ, ϕ, Δ=0, Δ1=0) ≈ -numberoperator(H)
 
-    @test QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θp, ϕ=ϕp, Δ=0, Δ1=0) == QuantumDots.BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
+    @test BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ, ϕ, Δ=0, Δ1=0) == BD1_hamiltonian(b; t=0, μ=1, V=0, U=0, h=0, θ=θ .* [0, 1], ϕ=ϕ .* [0, 1], Δ=0, Δ1=0)
 end
 
 
