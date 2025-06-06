@@ -23,9 +23,10 @@ end
 function ispartition(partition, jw::JordanWignerOrdering)
     length(jw) == sum(length ∘ keys, partition) || return false
     allunique(partition) || return false
-    injw = in(jw.labels)
-    injw2 = Base.Fix1(all, injw)
-    all(injw2, partition)
+    for subsystem in partition
+        issubsystem(subsystem, jw) || return false
+    end
+    return true
 end
 function isorderedpartition(partition, jw::JordanWignerOrdering)
     ispartition(partition, jw) || return false
@@ -36,6 +37,10 @@ function isorderedpartition(partition, jw::JordanWignerOrdering)
 end
 function isorderedsubsystem(subsystem, jw::JordanWignerOrdering)
     consistent_ordering(subsystem, jw) || return false
+    issubsystem(subsystem, jw) || return false
+    return true
+end
+function issubsystem(subsystem, jw::JordanWignerOrdering)
     all(in(s, jw) for s in subsystem) || return false
     return true
 end

@@ -65,32 +65,6 @@ indtofock(ind, sym::FockSymmetry) = FockNumber(sym.indtofockdict[ind])
 focktoind(f, sym::FockSymmetry) = sym.focktoinddict[f]
 focknumbers(sym::FockSymmetry) = sym.indtofockdict
 
-"""
-    blockdiagonal(m::AbstractMatrix, basis::SymmetricFockHilbertSpace)
-
-Construct a BlockDiagonal version of `m` using the symmetry of `basis`. No checking is done to ensure this is a faithful representation.
-"""
-blockdiagonal(m::AbstractMatrix, basis::SymmetricFockHilbertSpace) = blockdiagonal(m, basis.symmetry)
-blockdiagonal(::Type{T}, m::AbstractMatrix, basis::SymmetricFockHilbertSpace) where {T} = blockdiagonal(T, m, basis.symmetry)
-
-blockdiagonal(m::AbstractMatrix, ::NoSymmetry) = m
-function blockdiagonal(m::AbstractMatrix, sym::FockSymmetry)
-    blockinds = values(sym.qntoinds)
-    BlockDiagonal([m[block, block] for block in blockinds])
-end
-function blockdiagonal(::Type{T}, m::AbstractMatrix, sym::FockSymmetry) where {T}
-    blockinds = values(sym.qntoinds)
-    BlockDiagonal([T(m[block, block]) for block in blockinds])
-end
-function blockdiagonal(m::Hermitian, sym::FockSymmetry)
-    blockinds = values(sym.qntoinds)
-    Hermitian(BlockDiagonal([m[block, block] for block in blockinds]))
-end
-function blockdiagonal(::Type{T}, m::Hermitian, sym::FockSymmetry) where {T}
-    blockinds = values(sym.qntoinds)
-    Hermitian(BlockDiagonal([T(m[block, block]) for block in blockinds]))
-end
-
 focktoind(fs::FockNumber, ::NoSymmetry) = fs.f + 1
 indtofock(ind, ::NoSymmetry) = FockNumber(ind - 1)
 

@@ -311,7 +311,7 @@ end
 
 
 @testitem "Wedge" begin
-    using Random, LinearAlgebra
+    using Random, LinearAlgebra, BlockDiagonals
     import SparseArrays: SparseMatrixCSC
     Random.seed!(1234)
 

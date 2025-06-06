@@ -1,5 +1,5 @@
 module QuantumDots
-using LinearAlgebra, SparseArrays, LinearMaps, BlockDiagonals
+using LinearAlgebra, SparseArrays, LinearMaps
 using SplitApplyCombine: group, sortkeys!
 using Dictionaries: dictionary, Dictionary
 import FillArrays: Eye, Zeros
@@ -71,7 +71,7 @@ PrecompileTools.@compile_workload begin
     H3 = SymmetricFockHilbertSpace(3:3, FermionConservation())
     c1 = fermions(H1)
     c2 = fermions(H2)
-    blockdiagonal(c2[1, :s]'c2[1, :s], H2)
+    # blockdiagonal(c2[1, :s]'c2[1, :s], H2)
     c3 = fermions(H3)
     partial_trace(rand(4, 4), H1 => SimpleFockHilbertSpace(1:1))
     H = wedge(H1, H3)

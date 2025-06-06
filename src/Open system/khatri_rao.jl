@@ -133,18 +133,9 @@ function khatri_rao(L1::Diagonal{T1}, L2::Diagonal{T2}, kv::KhatriRaoVectorizer)
 end
 
 khatri_rao(L1::Diagonal, L2::Diagonal) = kron(L1, L2)
-khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal) = cat([kron(B1, B2) for (B1, B2) in zip(blocks(L1), blocks(L2))]...; dims=(1, 2))
-function khatri_rao(L1::BlockDiagonal, L2::BlockDiagonal, kv::KhatriRaoVectorizer)
-    if kv.sizes == first.(blocksizes(L1)) == first.(blocksizes(L2)) == last.(blocksizes(L1)) == last.(blocksizes(L2))
-        return khatri_rao(L1, L2)
-    else
-        return khatri_rao(cat(L1.blocks...; dims=(1, 2)), cat(L2.blocks...; dims=(1, 2)), kv)
-    end
-end
+
 
 khatri_rao_lazy_commutator(A, blocksizes) = khatri_rao_lazy(kr_one(A), A, blocksizes) - khatri_rao_lazy(transpose(A), kr_one(A), blocksizes)
 khatri_rao_commutator(A, blocksizes) = khatri_rao(kr_one(A), A, blocksizes) - khatri_rao(transpose(A), kr_one(A), blocksizes)
-khatri_rao_commutator(A::BlockDiagonal{<:Any,<:Diagonal}, blocksizes) = khatri_rao_commutator(Diagonal(A), blocksizes)
 
-kr_one(m::BlockDiagonal) = BlockDiagonal(kr_one.(blocks(m)))
 kr_one(m) = Eye{eltype(m)}(size(m, 1))

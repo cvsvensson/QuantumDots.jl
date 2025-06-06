@@ -628,7 +628,7 @@ end
     Random.seed!(1234)
 
     N = 2
-    H = hilbert_space(Base.product(1:N,(:↑, :↓)))
+    H = hilbert_space(Base.product(1:N, (:↑, :↓)))
     b = fermions(H)
     standard_hopping = QuantumDots.hopping(1, b[1, :↑], b[2, :↑]) + QuantumDots.hopping(1, b[1, :↓], b[2, :↓])
     standard_pairing = QuantumDots.pairing(1, b[1, :↑], b[2, :↓]) - QuantumDots.pairing(1, b[1, :↓], b[2, :↑])
@@ -660,6 +660,7 @@ end
 
 @testitem "transport" begin
     using OrdinaryDiffEqTsit5, LinearSolve, Random, LinearAlgebra
+    using BlockDiagonals
     import DifferentiationInterface as AD
     using ForwardDiff, FiniteDifferences
     Random.seed!(1234)
@@ -672,7 +673,7 @@ end
         # qn = QuantumDots.NoSymmetry()
         # qn = ParityConservation()
         N = 1
-        H = hilbert_space(1:N,qn)
+        H = hilbert_space(1:N, qn)
         a = fermions(H)
         bd(m) = QuantumDots.blockdiagonal(m, H)
         get_hamiltonian(μ) = bd(μ * sum(a[i]'a[i] for i in 1:N))
@@ -802,7 +803,7 @@ end
 
     N = 2
     qn = QuantumDots.NoSymmetry()
-    H = hilbert_space(1:N,qn)
+    H = hilbert_space(1:N, qn)
     a = fermions(H)
     bd(m) = blockdiagonal(m, H)
     hamiltonian = bd(sum(a[n]'a[n] for n in 1:N) + 0.2 * (sum(a[n]a[n+1] + hc for n in 1:N-1)))

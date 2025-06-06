@@ -67,18 +67,8 @@ function changebasis(lead::NormalLead, H::DiagonalizedHamiltonian)
 end
 
 trnorm(rho, n) = tr(reshape(rho, n, n))
-vecdp(bd::BlockDiagonal) = mapreduce(vec, vcat, blocks(bd))
 original_hamiltonian(E, vecs) = vecs * Diagonal(E) * vecs'
-function remove_high_energy_states(ham::DiagonalizedHamiltonian{<:Any,<:BlockDiagonal}, ΔE)
-    E0 = minimum(eigenvalues(ham))
-    sectors = blocks(ham)
-    Is = map(eig -> findall(<(ΔE + E0), eig.values), sectors)
-    newblocks = map((eig, I) -> eig.vectors[:, I], sectors, Is)
-    newvals = map((eig, I) -> eig.values[I], sectors, Is)
-    E = reduce(vcat, newvals)
-    vecs = BlockDiagonal(newblocks)
-    DiagonalizedHamiltonian(E, vecs, original_hamiltonian(E, vecs))
-end
+
 function remove_high_energy_states(ham::DiagonalizedHamiltonian, ΔE)
     vals = eigenvalues(ham)
     vecs = eigenvectors(ham)

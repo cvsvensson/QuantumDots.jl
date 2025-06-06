@@ -11,10 +11,11 @@ function isorderedpartition(Hs, H::AbstractHilbertSpace)
     partition = map(keys, Hs)
     isorderedpartition(partition, H.jw)
 end
-function isorderedsubsystem(Hsub, H::AbstractHilbertSpace)
-    isorderedsubsystem(Hsub.jw, H.jw)
-end
+isorderedsubsystem(Hsub::AbstractHilbertSpace, H::AbstractHilbertSpace) = isorderedsubsystem(Hsub.jw, H.jw)
+isorderedsubsystem(Hsub::AbstractHilbertSpace, jw::JordanWignerOrdering) = isorderedsubsystem(Hsub.jw, jw)
 # ispartition(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = ispartition(H.jw, jw)
+issubsystem(subsystem::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = issubsystem(subsystem.jw, jw)
+issubsystem(subsystem::AbstractFockHilbertSpace, H::AbstractFockHilbertSpace) = issubsystem(subsystem.jw, H.jw)
 
 
 struct SimpleFockHilbertSpace{L} <: AbstractFockHilbertSpace
