@@ -33,6 +33,8 @@ end
 Construct a BlockDiagonal version of `m` using the symmetry of `basis`. No checking is done to ensure this is a faithful representation.
 """
 blockdiagonal(m::AbstractMatrix, basis::SymmetricFockHilbertSpace) = blockdiagonal(m, basis.symmetry)
+blockdiagonal(m::AbstractMatrix, ::SimpleFockHilbertSpace) = m
+blockdiagonal(m::AbstractMatrix, ::FockHilbertSpace) = m
 blockdiagonal(::Type{T}, m::AbstractMatrix, basis::SymmetricFockHilbertSpace) where {T} = blockdiagonal(T, m, basis.symmetry)
 
 blockdiagonal(m::AbstractMatrix, ::NoSymmetry) = m

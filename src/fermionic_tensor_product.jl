@@ -535,16 +535,16 @@ canonical_embedding(m, b, bnew) = embedding(m, b, bnew, false)
 
 
 """
-    partial_trace(m::AbstractMatrix,  bfull::AbstractBasis, bsub::AbstractBasis)
+    partial_trace(m::AbstractMatrix,  bHfull::AbstractHilbertSpace, Hsub::AbstractHilbertSpace)
 
 Compute the partial trace of a matrix `m`, leaving the subsystem defined by the basis `bsub`.
 """
-function partial_trace(m::AbstractMatrix{T}, H::AbstractHilbertSpace, Hout::AbstractHilbertSpace, phase_factors=use_partial_trace_phase_factors(H, Hout)) where {T}
-    mout = zeros(T, size(Hout))
-    partial_trace!(mout, m, H, Hout, phase_factors)
+function partial_trace(m::AbstractMatrix{T}, H::AbstractHilbertSpace, Hsub::AbstractHilbertSpace, phase_factors=use_partial_trace_phase_factors(H, Hsub)) where {T}
+    mout = zeros(T, size(Hsub))
+    partial_trace!(mout, m, H, Hsub, phase_factors)
 end
 
-use_partial_trace_phase_factors(b1::AbstractHilbertSpace, b2::AbstractHilbertSpace) = use_wedge_phase_factors((b1,), b2)
+use_partial_trace_phase_factors(H::AbstractHilbertSpace, Hsub::AbstractHilbertSpace) = use_wedge_phase_factors((H,), Hsub)
 
 partial_trace(Hs::Pair{<:AbstractHilbertSpace,<:AbstractHilbertSpace}, phase_factors=use_partial_trace_phase_factors(first(Hs), last(Hs))) = m -> partial_trace(m, first(Hs), last(Hs), phase_factors)
 partial_trace(m, Hs::Pair{<:AbstractHilbertSpace,<:AbstractHilbertSpace}, phase_factors=use_partial_trace_phase_factors(first(Hs), last(Hs))) = partial_trace(m, first(Hs), last(Hs), phase_factors)

@@ -88,7 +88,7 @@ function Base.:^(a::FermionSym, b)
 end
 
 """ 
-    eval_in_basis(a, f::AbstractBasis)
+    eval_in_basis(a, f)
 
 Evaluate an expression with fermions in a basis `f`. 
 

@@ -561,3 +561,231 @@ function many_body_hamiltonian(ham::AbstractMatrix, Δ::AbstractMatrix, H::Abstr
     c = fermions(H)
     sum((ham[i, j] * c[i]' * c[j] - conj(ham[i, j]) * c[i] * c[j]') / 2 - (Δ[i, j] * c[i] * c[j] - conj(Δ[i, j]) * c[i]' * c[j]') / 2 for (i, j) in Base.product(keys(c), keys(c)))
 end
+
+
+@testitem "BdG" begin
+    using QuantumDots.SkewLinearAlgebra, LinearAlgebra, Random, SparseArrays
+    Random.seed!(1234)
+
+    N = 2
+    labels = 1:N
+    μ1 = rand()
+    μ2 = rand()
+    b = QuantumDots.FermionBdGBasis(labels)
+    length(QuantumDots.FermionBdGBasis(1:2, (:a, :b))) == 4
+
+    @test all(f == b[n] for (n, f) in enumerate(b))
+
+    @test iszero(b[1] * b[1])
+    @test iszero(b[1]' * b[1]')
+    @test iszero(*(b[1], b[1]; symmetrize=false))
+    @test iszero(*(b[1]', b[1]'; symmetrize=false))
+    @test QuantumDots.cell(1, b)[1] == b[1]
+    @test length(QuantumDots.cell(1, b)) == 1
+
+    @test b[1] isa QuantumDots.BdGFermion
+    @test b[1]' isa QuantumDots.BdGFermion
+    @test b[1] * b[1] isa SparseMatrixCSC
+    @test b[1].hole
+    @test !b[1]'.hole
+    @test b[1] + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - b[1] isa QuantumDots.QuasiParticle
+    @test norm(QuantumDots.rep(b[1] - b[1])) == 0
+    @test QuantumDots.rep(b[1] + b[1]) == 2QuantumDots.rep(b[1])
+
+    qp = b[1] + 1im * b[2]
+    @test keys(qp.weights).values == [(1, :h), (2, :h)]
+    @test keys(qp'.weights).values == [(1, :p), (2, :p)]
+    @test qp.weights.values == [1, 1im]
+    @test qp'.weights.values == [1, -1im]
+    @test qp[1, :h] == 1
+    @test qp'[1, :p] == 1
+    @test qp[2, :p] == 0
+
+    A = Matrix(μ1 * b[1]' * b[1] + μ2 * b[2]' * b[2])
+    Abdg = QuantumDots.BdGMatrix(A)
+    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(A))
+    vals2, vecs2 = diagonalize(Abdg, QuantumDots.NormalEigenAlg())
+    @test norm(vals - sort([-μ1, -μ2, μ1, μ2])) < 1e-14
+    @test QuantumDots.ground_state_parity(vals, vecs) == 1
+    vals_skew, vecs_skew = diagonalize(A, QuantumDots.SkewEigenAlg())
+    vals_skew ≈ vals
+    (vecs_skew' * vecs)^2 ≈ I
+    @test QuantumDots.ground_state_parity(vals_skew, vecs_skew) == 1
+
+    vals, vecs = QuantumDots.enforce_ph_symmetry(eigen(Matrix(μ1 * b[1]' * b[1] - μ2 * b[2]' * b[2])))
+    @test QuantumDots.ground_state_parity(vals, vecs) == -1
+
+    t = Δ = 1
+    get_ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ=exp(1im), V=0))
+    poor_mans_ham = get_ham(b)
+    vals, vecs = eigen(poor_mans_ham)
+    es0, ops0 = QuantumDots.enforce_ph_symmetry(vals, vecs)
+    es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
+    es2, ops2 = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.SkewEigenAlg())
+    @test es0 ≈ es
+    @test es0 ≈ es2
+    @test I ≈ ops0' * ops0
+    @test I ≈ ops' * ops
+    @test I ≈ ops2' * ops2
+    @test poor_mans_ham ≈ ops0 * Diagonal(es0) * ops0'
+    @test poor_mans_ham ≈ ops * Diagonal(es) * ops'
+    @test poor_mans_ham ≈ ops2 * Diagonal(es2) * ops2'
+
+    get_ham(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0, t, Δ, V=0))
+    poor_mans_ham = get_ham(b)
+    es, ops = diagonalize(BdGMatrix(poor_mans_ham), QuantumDots.NormalEigenAlg())
+
+    @test QuantumDots.check_ph_symmetry(es, ops)
+    @test norm(sort(es, by=abs)[1:2]) < 1e-12
+    qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
+    @test all(map(qp -> iszero(qp * qp), qps))
+
+    b_mb = hilbert_space(labels)
+    poor_mans_ham_mb = get_ham(fermions(b_mb))
+    es_mb, states = eigen(poor_mans_ham_mb)
+    P = parityoperator(b_mb)
+
+    parity(v) = v' * P * v
+    gs_odd = parity(states[:, 1]) ≈ -1 ? states[:, 1] : states[:, 2]
+    gs_even = parity(states[:, 1]) ≈ 1 ? states[:, 1] : states[:, 2]
+
+    # majcoeffs = QuantumDots.majorana_coefficients(gs_odd, gs_even, b_mb)
+    # majcoeffsbdg = QuantumDots.majorana_coefficients(qps[2])
+    # @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
+    # @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
+
+    gs_parity = QuantumDots.ground_state_parity(es, ops)
+    @test gs_parity ≈ parity(states[:, 1])
+    ρeven, ρodd = if gs_parity == 1
+        one_particle_density_matrix(qps[1:2]),
+        one_particle_density_matrix(qps[[1, 3]])
+    else
+        one_particle_density_matrix(qps[[1, 3]]),
+        one_particle_density_matrix(qps[1:2])
+    end
+    ρeven_mb = one_particle_density_matrix(gs_even * gs_even', b_mb)
+    ρodd_mb = one_particle_density_matrix(gs_odd * gs_odd', b_mb)
+    f_mb = fermions(b_mb)
+    qps_mb = map(qp -> QuantumDots.many_body_fermion(qp, f_mb), qps)
+
+    @test ρeven ≈ ρeven_mb
+    @test ρodd ≈ ρodd_mb
+    @test ρodd[[1, 3], [1, 3]] ≈ ρeven[[1, 3], [1, 3]]
+    @test ρodd[[2, 4], [2, 4]] ≈ ρeven[[2, 4], [2, 4]]
+
+    @test (gs_parity == 1 ? ρeven : ρodd) ≈ QuantumDots.one_particle_density_matrix(ops)
+
+    @test poor_mans_ham ≈ mapreduce((e, qp) -> e * qp' * qp / 2, +, es, qps)
+
+    qp = qps[2]
+    @test qp isa QuantumDots.QuasiParticle
+    @test 2 * qp isa QuantumDots.QuasiParticle
+    @test qp * 2 isa QuantumDots.QuasiParticle
+    @test qp / 2 isa QuantumDots.QuasiParticle
+    @test qp + qp isa QuantumDots.QuasiParticle
+    @test qp - qp isa QuantumDots.QuasiParticle
+    @test qp + b[1] isa QuantumDots.QuasiParticle
+    @test b[1] + qp isa QuantumDots.QuasiParticle
+    @test qp - b[1] isa QuantumDots.QuasiParticle
+    @test b[1] - qp isa QuantumDots.QuasiParticle
+    @test abs(QuantumDots.majorana_polarization(qp)) ≈ 1
+
+    @test qp[(1, :h)] == qp[1, :h]
+    @test typeof(qp * b[1]) <: AbstractMatrix
+    @test typeof(b[1] * qp) <: AbstractMatrix
+
+    us, vs = (rand(length(labels)), rand(length(labels)))
+    normalize!(us)
+    normalize!(vs)
+    vs = vs - dot(us, vs) * us
+    vs = normalize!(vs) / sqrt(2)
+    us = normalize!(us) / sqrt(2)
+    χ = sum(us .* [b[i] for i in keys(b)]) + sum(vs .* [b[i]' for i in keys(b)])
+    @test iszero(χ * χ)
+    @test iszero(χ' * χ')
+    χ_mb = sum(us .* [fmb[i] for i in keys(b_mb)]) + sum(vs .* [fmb[i]' for i in keys(b)])
+    @test χ_mb ≈ QuantumDots.many_body_fermion(χ, fmb)
+    @test χ_mb' ≈ QuantumDots.many_body_fermion(χ', fmb)
+
+    @test all(fmb[k] ≈ QuantumDots.many_body_fermion(b[k], fmb) for k in 1:N)
+    @test all(fmb[k]' ≈ QuantumDots.many_body_fermion(b[k]', fmb) for k in 1:N)
+
+
+    # Longer kitaev 
+    b = QuantumDots.FermionBdGBasis(1:5)
+    b_mb = hilbert_space(1:5, ParityConservation())
+    f_mb = fermions(b_mb)
+    ham2(b) = Matrix(QuantumDots.kitaev_hamiltonian(b; μ=0.1, t=1.1, Δ=1.0, V=0))
+    pmmbdgham = ham2(b)
+    pmmham = blockdiagonal(ham2(f_mb), b_mb)
+    es, ops = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.SkewEigenAlg(1e-10))
+    es2, ops2 = diagonalize(BdGMatrix(pmmbdgham), QuantumDots.NormalEigenAlg(1e-10))
+    @test QuantumDots.check_ph_symmetry(es, ops)
+    qps = map(op -> QuantumDots.QuasiParticle(op, b), eachcol(ops))
+    @test all(map(qp -> iszero(qp * qp), qps))
+
+    eig = diagonalize(pmmham)
+    fullsectors = QuantumDots.blocks(eig; full=true)
+    oddvals = fullsectors[1].values
+    evenvals = fullsectors[2].values
+    oddvecs = fullsectors[1].vectors
+    evenvecs = fullsectors[2].vectors
+
+    # majcoeffs = QuantumDots.majorana_coefficients(oddvecs[:, 1], evenvecs[:, 1], b_mb)
+    # majcoeffsbdg = QuantumDots.majorana_coefficients(qps[5])
+    # @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[1], majcoeffsbdg[1])) < 1e-12
+    # @test norm(map((m1, m2) -> abs2(m1) - abs2(m2), majcoeffs[2], majcoeffsbdg[2])) < 1e-12
+
+    m = rand(10, 10)
+    @test !QuantumDots.isantisymmetric(m)
+    @test !QuantumDots.isbdgmatrix(m, m, m, m)
+    H = Matrix(Hermitian(rand(ComplexF64, 2, 2)))
+    Δ = rand(ComplexF64, 2, 2)
+    Δ = Δ - transpose(Δ)
+
+    @test QuantumDots.isantisymmetric(Δ)
+    @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
+
+    bdgm = BdGMatrix(H, Δ)
+    @test size(bdgm) == (4, 4)
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm)
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
+
+    @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+    @test QuantumDots.skew_to_bdg(QuantumDots.bdg_to_skew(bdgm)) ≈ bdgm
+
+    @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
+    @test iszero(bdgm - bdgm)
+    if VERSION ≥ v"1.10-"
+        hpbdgm = hermitianpart(bdgm)
+        @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+        @test hpbdgm ≈ hermitianpart!(bdgm)
+    end
+
+    m = sprand(10, 10, 0.1)
+    @test !QuantumDots.isantisymmetric(m)
+    @test !QuantumDots.isbdgmatrix(m, m, m, m)
+    H = Matrix(Hermitian(sprand(ComplexF64, 10, 10, 0.1)))
+    Δ = sprand(ComplexF64, 10, 10, 0.1)
+    Δ = Δ - transpose(Δ)
+
+    @test QuantumDots.isantisymmetric(Δ)
+    @test QuantumDots.isbdgmatrix(H, Δ, -conj(H), -conj(Δ))
+
+    bdgm = BdGMatrix(H, Δ)
+    @test size(bdgm) == (20, 20)
+    @test Matrix(bdgm) == [bdgm[i, j] for i in axes(bdgm, 1), j in axes(bdgm, 2)] == collect(bdgm) == bdgm[:, :]
+    @test Matrix(bdgm) ≈ hvcat(bdgm)
+
+    @test QuantumDots.bdg_to_skew(bdgm) == QuantumDots.bdg_to_skew(Matrix(bdgm))
+
+    @test 2 * bdgm ≈ bdgm + bdgm ≈ bdgm * 2
+    @test iszero(bdgm - bdgm)
+    if VERSION ≥ v"1.10-"
+        hpbdgm = hermitianpart(bdgm)
+        @test Matrix(hpbdgm) ≈ hermitianpart(Matrix(bdgm))
+        @test hpbdgm ≈ hermitianpart!(bdgm)
+    end
+
+end
