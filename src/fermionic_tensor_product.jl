@@ -379,9 +379,9 @@ end
         vals3, vecs3 = eigen(h3)
 
         # test wedging with I (UniformScaling)
-        H3w = wedge([h1, I], Hs => H3) + wedge([I, h2], Hs => H3)
-        @test H3w == H3
-        @test wedge([I, I], Hs => H3) == one(H3)
+        h3w = wedge([h1, I], Hs => H3) + wedge([I, h2], Hs => H3)
+        @test h3w == h3
+        @test wedge([I, I], Hs => H3) == one(h3)
 
         vals3w = map(sum, Base.product(vals1, vals2)) |> vec
         p = sortperm(vals3w)
