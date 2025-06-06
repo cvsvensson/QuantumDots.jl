@@ -55,7 +55,7 @@ qubit_operator(c, ::QubitOp{:H}) = 1 / sqrt(2) * (qubit_operator(c, QubitOp{:Z}(
     H2 = qubit_hilbert_space(2:3)
     H = wedge(H1, H2)
     @test !QuantumDots.isfermionic(H)
-    @test sort(svdvals(reshape(v2, H, (H1, H2))) .^ 2) ≈ eigvals(partial_trace(v2, H, H1))
+    @test sort(svdvals(reshape(v2, H, (H1, H2))) .^ 2) ≈ eigvals(partial_trace(v2*v2', H, H1))
 
     ## Test that partial trace is the adjoint of embedding
     using LinearMaps
