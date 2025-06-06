@@ -20,10 +20,9 @@ function consistent_ordering(subsystem, jw::JordanWignerOrdering)::Bool
     end
     return true
 end
-
 function ispartition(partition, jw::JordanWignerOrdering)
-    length(jw) == sum(length, partition) || return false
-    allunique(Iterators.flatten(partition)) || return false
+    length(jw) == sum(length ∘ keys, partition) || return false
+    allunique(partition) || return false
     injw = in(jw.labels)
     injw2 = Base.Fix1(all, injw)
     all(injw2, partition)

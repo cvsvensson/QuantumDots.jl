@@ -30,6 +30,7 @@ function embedding_unitary(partition, fockstates, jw::JordanWignerOrdering)
     end
     return Diagonal(phases)
 end
+embedding_unitary(partition, H::AbstractFockHilbertSpace) = embedding_unitary(partition, focknumbers(H), H.jw)
 
 
 function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrdering)
@@ -47,6 +48,7 @@ function bipartite_embedding_unitary(X, Xbar, fockstates, jw::JordanWignerOrderi
     end
     return Diagonal(phases)
 end
+bipartite_embedding_unitary(X, Xbar, H::AbstractFockHilbertSpace) = bipartite_embedding_unitary(X, Xbar, focknumbers(H), H.jw)
 
 @testitem "Embedding unitary" begin
     # Appendix C.4

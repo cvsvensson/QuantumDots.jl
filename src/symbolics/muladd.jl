@@ -61,7 +61,7 @@ struct FermionAdd{C,D}
             k, v = first(dict)
             v * k
         else
-            all(isone(_coeff(k)) for (k, v) in dict)
+            # all(isone(k.coeff) for (k, v) in dict)
             new{C,D}(coeff, dict)
         end
     end
@@ -139,7 +139,6 @@ end
 Base.:^(a::Union{FermionMul,FermionAdd}, b) = Base.power_by_squaring(a, b)
 
 
-_coeff(a::FermionMul) = a.coeff
 Base.:*(x::Number, a::AbstractFermionSym) = iszero(x) ? 0 : FermionMul(x, [a])
 Base.:*(x::Number, a::FermionMul) = iszero(x) ? 0 : FermionMul(x * a.coeff, a.factors)
 Base.:*(x::Number, a::FermionAdd) = iszero(x) ? 0 : FermionAdd(x * a.coeff, Dict(k => v * x for (k, v) in collect(a.dict)))

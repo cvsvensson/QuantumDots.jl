@@ -14,6 +14,7 @@ end
 function isorderedsubsystem(Hsub, H::AbstractHilbertSpace)
     isorderedsubsystem(Hsub.jw, H.jw)
 end
+# ispartition(H::AbstractFockHilbertSpace, jw::JordanWignerOrdering) = ispartition(H.jw, jw)
 
 
 struct SimpleFockHilbertSpace{L} <: AbstractFockHilbertSpace
