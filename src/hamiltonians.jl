@@ -36,7 +36,7 @@ _kitaev_2site(f1, f2; t, Δ, V) = hopping(-t, f1, f2) + V * coulomb(f1, f2) + pa
 _kitaev_1site(f; μ) = -μ * numberop(f)
 
 function kitaev_hamiltonian(c; μ, t, Δ, V=0)
-    N = nbr_of_modes(c)
+    N = length(c)
     indices = collect(keys(c))
     h1s = (_kitaev_1site(c[k]; μ=getvalue(μ, j, N)) for (j, k) in enumerate(indices))
     h2s = (_kitaev_2site(c[k], c[indices[mod1(j + 1, N)]]; t=getvalue(t, j, N; size=2), Δ=getvalue(Δ, j, N; size=2), V=getvalue(V, j, N; size=2)) for (j,k) in enumerate(indices))

@@ -1,8 +1,8 @@
 [deps]
-AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
