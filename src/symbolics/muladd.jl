@@ -211,7 +211,7 @@ order_mul(x::Number) = x
 _labels(a::FermionMul) = [s.label for s in a.factors]
 matrix_representation(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, H::AbstractFockHilbertSpace) = matrix_representation(op, H.jw, focknumbers(H), focknumbers(H))
 function matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates)
-    outinds, ininds, amps, sparsetuple(op, labels, outstates, instates)
+    outinds, ininds, amps = sparsetuple(op, labels, outstates, instates)
     sparse(outinds, ininds, identity.(amps), length(outstates), length(instates))
 end
 matrix_representation(op, labels, instates) = matrix_representation(op, labels, instates, instates)
