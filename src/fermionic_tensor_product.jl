@@ -96,9 +96,9 @@ function fermionic_kron_vec!(mout, ms::Tuple, Hs::Tuple, H::AbstractFockHilbertS
 end
 
 """
-    embedding(m, b, bnew)
+    embedding(m, H, Hnew)
 
-Compute the fermionic embedding of a matrix `m` in the basis `b` into the basis `bnew`.
+Compute the fermionic embedding of a matrix `m` in the basis `H` into the basis `Hnew`.
 """
 function embedding(m, H::AbstractFockHilbertSpace, Hnew, phase_factors=isfermionic(H))
     # See eq. 20 in J. Phys. A: Math. Theor. 54 (2021) 393001
@@ -110,11 +110,14 @@ function embedding(m, H::AbstractFockHilbertSpace, Hnew, phase_factors=isfermion
 end
 function extension(m, H::AbstractFockHilbertSpace, Hbar, phase_factors=isfermionic(H))
     isdisjoint(keys(H), keys(Hbar)) || throw(ArgumentError("The bases of the two Hilbert spaces must be disjoint"))
-    Hs = (H, Hnew)
+    Hs = (H, Hbar)
     Hout = wedge(Hs)
     return fermionic_kron((m, I), Hs, Hout, phase_factors)
 end
 embedding(Hs::Pair{<:AbstractFockHilbertSpace,<:AbstractFockHilbertSpace}, phase_factors=isfermionic(first(Hs))) = m -> embedding(m, first(Hs), last(Hs), phase_factors)
+extension(Hs::Pair{<:AbstractFockHilbertSpace,<:AbstractFockHilbertSpace}, phase_factors=isfermionic(first(Hs))) = m -> extension(m, first(Hs), last(Hs), phase_factors)
+embedding(m, Hs::Pair{<:AbstractFockHilbertSpace,<:AbstractFockHilbertSpace}, phase_factors=isfermionic(first(Hs))) = embedding(m, first(Hs), last(Hs), phase_factors)
+extension(m, Hs::Pair{<:AbstractFockHilbertSpace,<:AbstractFockHilbertSpace}, phase_factors=isfermionic(first(Hs))) = extension(m, first(Hs), last(Hs), phase_factors)
 
 """
     wedge(ms, bs, b)

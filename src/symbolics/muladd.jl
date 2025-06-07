@@ -210,39 +210,42 @@ order_mul(x::Number) = x
 ## Instantiating sparse matrices
 _labels(a::FermionMul) = [s.label for s in a.factors]
 matrix_representation(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, H::AbstractFockHilbertSpace) = matrix_representation(op, H.jw, focknumbers(H), focknumbers(H))
-matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
+function matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates)
+    outinds, ininds, amps, sparsetuple(op, labels, outstates, instates)
+    sparse(outinds, ininds, identity.(amps), length(outstates), length(instates))
+end
 matrix_representation(op, labels, instates) = matrix_representation(op, labels, instates, instates)
 function sparsetuple(op, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates))))
-    indsout, ininds, amps = Int[], Int[], []
-    return sparsetuple!((indsout, ininds, amps), op, jw, outstates, instates; fock_to_outind)
+    outinds, ininds, amps = Int[], Int[], []
+    return sparsetuple!((outinds, ininds, amps), op, jw, outstates, instates; fock_to_outind)
 end
-function sparsetuple!((indsout, ininds, amps), op::FermionMul{C}, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates)))) where {C}
+function sparsetuple!((outinds, ininds, amps), op::FermionMul{C}, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates)))) where {C}
     digitpositions = reverse(siteindices(_labels(op), jw))
     daggers = reverse([s.creation for s in op.factors])
     for (n, f) in enumerate(instates)
         newfockstate, amp = togglefermions(digitpositions, daggers, f)
         if !iszero(amp)
-            push!(indsout, fock_to_outind[newfockstate])
+            push!(outinds, fock_to_outind[newfockstate])
             push!(amps, amp * op.coeff)
             push!(ininds, n)
         end
     end
-    return (indsout, ininds, amps)
+    return (outinds, ininds, amps)
 end
 function matrix_representation(op::FermionAdd{C}, jw, outstates, instates) where C
     fock_to_outind = Dict(map(reverse, enumerate(outstates)))
-    indsout = Int[]
+    outinds = Int[]
     ininds = Int[]
     amps = []
-    sizehint!(indsout, length(instates))
+    sizehint!(outinds, length(instates))
     sizehint!(ininds, length(instates))
     sizehint!(amps, length(instates))
     for op in fermionterms(op)
-        sparsetuple!((indsout, ininds, amps), op, jw, outstates, instates; fock_to_outind=fock_to_outind)
+        sparsetuple!((outinds, ininds, amps), op, jw, outstates, instates; fock_to_outind=fock_to_outind)
     end
-    return op.coeff * I + sparse(indsout, ininds, identity.(amps), length(outstates), length(instates))
+    return op.coeff * I + sparse(outinds, ininds, identity.(amps), length(outstates), length(instates))
 end
-sparsetuple!((indsout, ininds, amps), op::AbstractFermionSym, jw, outstates, instates; kwargs...) = sparsetuple!((indsout, ininds, amps), FermionMul(1, [op]), jw, outstates, instates; kwargs...)
+sparsetuple!((outinds, ininds, amps), op::AbstractFermionSym, jw, outstates, instates; kwargs...) = sparsetuple!((outinds, ininds, amps), FermionMul(1, [op]), jw, outstates, instates; kwargs...)
 
 @testitem "Instantiating symbolic fermions" begin
     using SparseArrays, LinearAlgebra

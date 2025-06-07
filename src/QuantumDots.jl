@@ -24,7 +24,7 @@ export parityoperator, numberoperator, fermions, majoranas, matrix_representatio
 export pretty_print
 export FermionBdGBasis, one_particle_density_matrix, BdGMatrix
 export tomatrix, StationaryStateProblem, LindbladSystem, conductance_matrix, PauliSystem, LazyLindbladSystem, NormalLead, CombinedLead
-export partial_trace, fermionic_kron, wedge, embedding, many_body_density_matrix
+export partial_trace, fermionic_kron, wedge, embedding, many_body_density_matrix, extension
 export @fermions, @majoranas
 export FermionConservation, NoSymmetry, ParityConservation, IndexConservation
 export project_on_parity, project_on_parities
@@ -70,22 +70,18 @@ import PrecompileTools
 
 PrecompileTools.@compile_workload begin
     H1 = hilbert_space(1:2)
-    H2 = hilbert_space(Base.product(1:2, (:s,)), ParityConservation())
-    H3 = hilbert_space(3:3, FermionConservation())
+    H2 = hilbert_space(3:3, ParityConservation())
     c1 = fermions(H1)
     c2 = fermions(H2)
-    c3 = fermions(H3)
     partial_trace(rand(4, 4) + hc, H1 => hilbert_space(1:1))
-    H = wedge(H1, H3)
-    Hs = (H1, H3)
-    reshape(H => Hs)(wedge(Hs => H)(c1[1], c3[3]))
-    cbdg = FermionBdGBasis(1:1, (:s,))
-    BdGMatrix(cbdg[1, :s]' * cbdg[1, :s])
+    H = wedge(H1, H2)
+    extension(c1[1], H1 => H2)
+    embedding(c1[1], H1 => H)
     @fermions f
     QuantumDots.eval_in_basis((f[1] * f[2]' + 1 + f[1])^2 * 2.0 + hc, c1)
     matrix_representation((f[1] * f[2]' + 1 + f[1])^2 * 2.0, H1)
     @majoranas γ
-    (γ[1] * γ[2] + 1 + γ[1])^2
+    (γ[1] * γ[2] + 1.0 + γ[1])^2
 end
 
 end
