@@ -79,7 +79,7 @@ function ordered_prod(a::MajoranaSym, b::MajoranaSym)
         throw(ArgumentError("Don't know how to multiply $a * $b"))
     end
 end
-eval_in_basis(a::MajoranaSym, f::AbstractBasis) = f[a.label]
+eval_in_basis(a::MajoranaSym, f) = f[a.label]
 
 TermInterface.operation(::MajoranaSym) = MajoranaSym
 TermInterface.arguments(a::MajoranaSym) = [a.label, a.basis]

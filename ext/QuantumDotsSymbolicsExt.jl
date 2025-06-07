@@ -1,9 +1,7 @@
 module QuantumDotsSymbolicsExt
 
-using QuantumDots, Symbolics, LinearAlgebra
-using QuantumDots.BlockDiagonals
-import QuantumDots: fastgenerator, fastblockdiagonal, TSL_generator,
-    NoSymmetry, TSL_hamiltonian, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
+using QuantumDots, Symbolics, LinearAlgebra, QuantumDots.BlockDiagonals
+import QuantumDots: fastgenerator, fastblockdiagonal, FermionBdGBasis, fermion_to_majorana, majorana_to_fermion,
     SymbolicMajoranaBasis, SymbolicFermionBasis
 
 function Symbolics._recursive_unwrap(val::Hermitian) # Fix for Symbolics >v.6.32
@@ -63,26 +61,6 @@ function Symbolics.build_function(H::BdGMatrix, params...; kwargs...)
     bdgmat, bdgmat!
 end
 
-
-function TSL_generator(qn=NoSymmetry(); blocks=qn !== NoSymmetry(), dense=false, bdg=false)
-    @variables μL, μC, μR, h, t, Δ, tsoc, U
-    c = if !bdg
-        FermionBasis((:L, :C, :R), (:↑, :↓); qn)
-    elseif bdg && qn == NoSymmetry()
-        FermionBdGBasis(Tuple(collect(Base.product((:L, :C, :R), (:↑, :↓)))))
-    end
-    fdense = dense ? Matrix : identity
-    fblock = blocks ? m -> blockdiagonal(m, c) : identity
-    f = fblock ∘ fdense
-    H = TSL_hamiltonian(c; μL, μC, μR, h, t, Δ, tsoc, U) |> f
-    _tsl, _tsl! = build_function(H, μL, μC, μR, h, t, Δ, tsoc, U, expression=Val{false})
-    tsl(; μL, μC, μR, h, t, Δ, tsoc, U) = _tsl(μL, μC, μR, h, t, Δ, tsoc, U)
-    tsl!(m; μL, μC, μR, h, t, Δ, tsoc, U) = (_tsl!(m, μL, μC, μR, h, t, Δ, tsoc, U);
-    m)
-    randparams = (; zip((:μL, :μC, :μR, :h, :t, :Δ, :tsoc, :U), rand(8))...)
-    m = TSL_hamiltonian(c; randparams...) |> f
-    return tsl, tsl!, m, c
-end
 
 function fermion_to_majorana(f::SymbolicFermionBasis, a::SymbolicMajoranaBasis, b::SymbolicMajoranaBasis; leijnse_convention=true)
     a.universe == b.universe || throw(ArgumentError("Majorana bases must anticommute"))

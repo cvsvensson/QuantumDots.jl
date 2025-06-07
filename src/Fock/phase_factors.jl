@@ -13,32 +13,34 @@ end
 function consistent_ordering(subsystem, jw::JordanWignerOrdering)::Bool
     lastpos = 0
     for label in subsystem
+        haskey(jw.ordering, label) || return false
         newpos = jw.ordering[label]
         newpos > lastpos || return false
         lastpos = newpos
     end
     return true
 end
-function ispartition(bs, b::FermionBasis)
-    partition = map(keys, bs)
-    ispartition(partition, b.jw)
-end
-function isorderedpartition(bs, b::FermionBasis)
-    partition = map(keys, bs)
-    isorderedpartition(partition, b.jw)
-end
 function ispartition(partition, jw::JordanWignerOrdering)
-    length(jw) == sum(length, partition) || return false
-    allunique(Iterators.flatten(partition)) || return false
-    injw = in(jw.labels)
-    injw2 = Base.Fix1(all, injw)
-    all(injw2, partition)
+    modes = union(mode_ordering.(partition)...)
+    length(jw) == length(modes) || return false
+    injw = in(Set(keys(jw)))
+    all(injw, modes) || return false
+    return true
 end
 function isorderedpartition(partition, jw::JordanWignerOrdering)
     ispartition(partition, jw) || return false
     for subsystem in partition
         consistent_ordering(subsystem, jw) || return false
     end
+    return true
+end
+function isorderedsubsystem(subsystem, jw::JordanWignerOrdering)
+    consistent_ordering(subsystem, jw) || return false
+    issubsystem(subsystem, jw) || return false
+    return true
+end
+function issubsystem(subsystem, jw::JordanWignerOrdering)
+    all(in(s, jw) for s in subsystem) || return false
     return true
 end
 
