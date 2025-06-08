@@ -61,7 +61,7 @@ struct FermionAdd{C,D}
             k, v = first(dict)
             v * k
         else
-            all(isone(_coeff(k)) for (k, v) in dict)
+            # all(isone(k.coeff) for (k, v) in dict)
             new{C,D}(coeff, dict)
         end
     end
@@ -139,7 +139,6 @@ end
 Base.:^(a::Union{FermionMul,FermionAdd}, b) = Base.power_by_squaring(a, b)
 
 
-_coeff(a::FermionMul) = a.coeff
 Base.:*(x::Number, a::AbstractFermionSym) = iszero(x) ? 0 : FermionMul(x, [a])
 Base.:*(x::Number, a::FermionMul) = iszero(x) ? 0 : FermionMul(x * a.coeff, a.factors)
 Base.:*(x::Number, a::FermionAdd) = iszero(x) ? 0 : FermionAdd(x * a.coeff, Dict(k => v * x for (k, v) in collect(a.dict)))
@@ -210,48 +209,54 @@ order_mul(x::Number) = x
 
 ## Instantiating sparse matrices
 _labels(a::FermionMul) = [s.label for s in a.factors]
-SparseArrays.sparse(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, labels, instates::AbstractVector) = sparse(op, labels, instates, instates)
-SparseArrays.sparse(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates::AbstractVector) = sparse(sparsetuple(op, labels, outstates, instates)..., length(outstates), length(instates))
-function sparsetuple(op::FermionMul{C}, labels, outstates, instates; fock_to_outind=Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))) where {C}
-    outfocks = FockNumber[]
-    ininds_final = Int[]
-    amps = C[]
-    sizehint!(outfocks, length(instates))
-    sizehint!(ininds_final, length(instates))
-    sizehint!(amps, length(instates))
-    digitpositions = reverse(siteindices(_labels(op), labels))
+matrix_representation(op::Union{<:FermionAdd,<:FermionMul,<:FermionAdd,<:AbstractFermionSym}, H::AbstractFockHilbertSpace) = matrix_representation(op, H.jw, focknumbers(H), focknumbers(H))
+function matrix_representation(op::Union{<:FermionMul,<:AbstractFermionSym}, labels, outstates, instates)
+    outinds, ininds, amps = sparsetuple(op, labels, outstates, instates)
+    sparse(outinds, ininds, identity.(amps), length(outstates), length(instates))
+end
+matrix_representation(op, labels, instates) = matrix_representation(op, labels, instates, instates)
+function sparsetuple(op, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates))))
+    outinds, ininds, amps = Int[], Int[], []
+    return sparsetuple!((outinds, ininds, amps), op, jw, outstates, instates; fock_to_outind)
+end
+function sparsetuple!((outinds, ininds, amps), op::FermionMul{C}, jw, outstates, instates; fock_to_outind=Dict(map(reverse, enumerate(outstates)))) where {C}
+    digitpositions = reverse(siteindices(_labels(op), jw))
     daggers = reverse([s.creation for s in op.factors])
     for (n, f) in enumerate(instates)
         newfockstate, amp = togglefermions(digitpositions, daggers, f)
         if !iszero(amp)
-            push!(outfocks, newfockstate)
+            push!(outinds, fock_to_outind[newfockstate])
             push!(amps, amp * op.coeff)
-            push!(ininds_final, n)
+            push!(ininds, n)
         end
     end
-    indsout = map(i -> fock_to_outind[i], outfocks)
-    return (indsout, ininds_final, amps)
+    return (outinds, ininds, amps)
 end
-function SparseArrays.sparse(op::FermionAdd, labels, outstates, instates::AbstractVector)
-    fock_to_outind = Dict(map(p -> Pair(reverse(p)...), enumerate(outstates)))
-    tuples = [sparsetuple(op, labels, outstates, instates; fock_to_outind) for op in fermionterms(op)]
-    indsout = mapreduce(Base.Fix2(Base.getindex, 1), vcat, tuples)
-    indsin_final = mapreduce(Base.Fix2(Base.getindex, 2), vcat, tuples)
-    amps = mapreduce(Base.Fix2(Base.getindex, 3), vcat, tuples)
-    return op.coeff * I + sparse(indsout, indsin_final, amps, length(outstates), length(instates))
-
+function matrix_representation(op::FermionAdd{C}, jw, outstates, instates) where C
+    fock_to_outind = Dict(map(reverse, enumerate(outstates)))
+    outinds = Int[]
+    ininds = Int[]
+    amps = []
+    sizehint!(outinds, length(instates))
+    sizehint!(ininds, length(instates))
+    sizehint!(amps, length(instates))
+    for op in fermionterms(op)
+        sparsetuple!((outinds, ininds, amps), op, jw, outstates, instates; fock_to_outind=fock_to_outind)
+    end
+    return op.coeff * I + sparse(outinds, ininds, identity.(amps), length(outstates), length(instates))
 end
-sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(FermionMul(1, [op]), labels, outstates, instates)
+sparsetuple!((outinds, ininds, amps), op::AbstractFermionSym, jw, outstates, instates; kwargs...) = sparsetuple!((outinds, ininds, amps), FermionMul(1, [op]), jw, outstates, instates; kwargs...)
 
 @testitem "Instantiating symbolic fermions" begin
     using SparseArrays, LinearAlgebra
+    using QuantumDots: eval_in_basis
     @fermions f
     N = 4
     labels = 1:N
-    fmb = FermionBasis(labels)
+    H = FockHilbertSpace(labels)
+    fmb = fermions(H)
     fockstates = map(FockNumber, 0:2^N-1)
-    jw = JordanWignerOrdering(labels)
-    get_mat(op) = sparse(op, jw, fockstates, fockstates)
+    get_mat(op) = matrix_representation(op, H)
     @test all(get_mat(f[l]) == fmb[l] for l in labels)
     @test all(get_mat(f[l]') == fmb[l]' for l in labels)
     @test all(get_mat(f[l]') == get_mat(f[l])' for l in labels)
@@ -263,17 +268,17 @@ sparsetuple(op::AbstractFermionSym, labels, outstates, instates) = sparsetuple(F
     mat = sum(fmb[l]' * fmb[l] for l in labels)
     @test newmat == mat
 
-    @test all(sparse(sum(f[l]' * f[l] for l in labels), jw, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
+    @test all(matrix_representation(sum(f[l]' * f[l] for l in labels), H.jw, QuantumDots.fockstates(N, n)) == n * I for n in 1:N)
 
-    @test all(QuantumDots.eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
-    @test all(QuantumDots.eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)
-    @test all(QuantumDots.eval_in_basis(f[l]' * f[l], fmb) == fmb[l]'fmb[l] for l in labels)
-    @test all(QuantumDots.eval_in_basis(f[l] + f[l]', fmb) == fmb[l] + fmb[l]' for l in labels)
+    @test all(eval_in_basis(f[l], fmb) == fmb[l] for l in labels)
+    @test all(eval_in_basis(f[l]', fmb) == fmb[l]' for l in labels)
+    @test all(eval_in_basis(f[l]' * f[l], fmb) == fmb[l]'fmb[l] for l in labels)
+    @test all(eval_in_basis(f[l] + f[l]', fmb) == fmb[l] + fmb[l]' for l in labels)
 end
 
 ## Convert to expression
-eval_in_basis(a::FermionMul, f::AbstractBasis) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
-eval_in_basis(a::FermionAdd, f::AbstractBasis) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
+eval_in_basis(a::FermionMul, f) = a.coeff * mapfoldl(Base.Fix2(eval_in_basis, f), *, a.factors)
+eval_in_basis(a::FermionAdd, f) = a.coeff * I + mapfoldl(Base.Fix2(eval_in_basis, f), +, fermionterms(a))
 
 ##
 TermInterface.head(a::Union{FermionMul,FermionAdd}) = operation(a)

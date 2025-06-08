@@ -59,7 +59,8 @@ function Base.isless(a::FermionSym, b::FermionSym)
     end
 end
 Base.:(==)(a::FermionSym, b::FermionSym) = a.creation == b.creation && a.label == b.label && a.basis == b.basis
-Base.hash(a::FermionSym, h::UInt) = hash(a.creation, hash(a.label, hash(a.basis)))
+Base.hash(a::FermionSym, h::UInt) = hash(a.creation, hash(a.label, hash(a.basis, h)))
+Base.hash(a::FermionSym) = hash(a.creation, hash(a.label, hash(a.basis)))
 
 function ordered_prod(a::FermionSym, b::FermionSym)
     a_uni = a.basis.universe
@@ -87,18 +88,18 @@ function Base.:^(a::FermionSym, b)
 end
 
 """ 
-    eval_in_basis(a, f::AbstractBasis)
+    eval_in_basis(a, f)
 
 Evaluate an expression with fermions in a basis `f`. 
 
 # Examples
 ```julia
 @fermions a
-f = FermionBasis(1:2)
+f = fermions(hilbert_space(1:2))
 QuantumDots.eval_in_basis(a[1]'*a[2] + hc, f)
 ```
 """
-eval_in_basis(a::FermionSym, f::AbstractBasis) = a.creation ? f[a.label]' : f[a.label]
+eval_in_basis(a::FermionSym, f) = a.creation ? f[a.label]' : f[a.label]
 
 
 @testitem "SymbolicFermions" begin

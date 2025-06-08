@@ -28,11 +28,13 @@ using QuantumDots
 N = 2 # number of fermions
 spatial_labels = 1:N 
 internal_labels = (:↑,:↓)
-c = FermionBasis(spatial_labels, internal_labels)
+labels = Base.product(spatial_labels, internal_labels) 
+H = hilbert_space(labels) 
+c = fermions(H) #fermionic annihilation operators
 
 ```
 
-Indexing into the basis like returns sparse representations of the fermionic operators, so that one can write down Hamiltonians in a natural way
+Indexing into `c` returns sparse representations of the fermionic operators, so that one can write down Hamiltonians in a natural way
 ```julia
 H_hopping = c[1,:↑]'c[2,:↑] + c[1,:↓]'c[2,:↓] + hc 
 H_coulomb = sum(c[n,:↑]'c[n,:↑]c[n,:↓]'c[n,:↓] for n in spatial_labels)

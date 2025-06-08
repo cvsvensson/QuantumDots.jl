@@ -1,97 +1,74 @@
-blockinds(i::Integer, sym::AbelianFockSymmetry) = blockinds(i, values(sym.qntoblocksizes))
-blockinds(inds::Dims, sym::AbelianFockSymmetry) = map(i -> blockinds(i, sym), inds)
-blockinds(sym::AbelianFockSymmetry) = sizestoinds(values(sym.qntoblocksizes))
 
-qninds(qns::Tuple, sym::AbelianFockSymmetry) = map(qn -> qninds(qn, sym), qns)
-qninds(qn, sym::AbelianFockSymmetry) = sym.qntoinds[qn]
+"""
+    struct FockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
+
+FockSymmetry represents a symmetry that is diagonal in fock space, i.e. particle number conservation, parity, spin consvervation.
+
+## Fields
+- `indtofockdict::IF`: A dictionary mapping indices to Fock states.
+- `focktoinddict::FI`: A dictionary mapping Fock states to indices.
+- `qntoblocksizes::Dictionary{QN,Int}`: A dictionary mapping quantum numbers to block sizes.
+- `qntofockstates::Dictionary{QN,Vector{Int}}`: A dictionary mapping quantum numbers to Fock states.
+- `qntoinds::Dictionary{QN,Vector{Int}}`: A dictionary mapping quantum numbers to indices.
+- `conserved_quantity::QNfunc`: A function that computes the conserved quantity from a fock number.
+"""
+struct FockSymmetry{IF,FI,QN,QNfunc} <: AbstractSymmetry
+    indtofockdict::IF
+    focktoinddict::FI
+    qntoblocksizes::Dictionary{QN,Int}
+    qntofockstates::Dictionary{QN,Vector{FockNumber}}
+    qntoinds::Dictionary{QN,Vector{Int}}
+    conserved_quantity::QNfunc
+end
+
+Base.:(==)(sym1::FockSymmetry, sym2::FockSymmetry) = sym1.indtofockdict == sym2.indtofockdict && sym1.focktoinddict == sym2.focktoinddict && sym1.qntoblocksizes == sym2.qntoblocksizes && sym1.qntofockstates == sym2.qntofockstates && sym1.qntoinds == sym2.qntoinds #&& sym1.conserved_quantity == sym2.conserved_quantity
+
+
+blockinds(i::Integer, sym::FockSymmetry) = blockinds(i, values(sym.qntoblocksizes))
+blockinds(inds::Dims, sym::FockSymmetry) = map(i -> blockinds(i, sym), inds)
+blockinds(sym::FockSymmetry) = sizestoinds(values(sym.qntoblocksizes))
+
+qninds(qns::Tuple, sym::FockSymmetry) = map(qn -> qninds(qn, sym), qns)
+qninds(qn, sym::FockSymmetry) = sym.qntoinds[qn]
 blockinds(inds::Dims, sizes) = map(n -> blockinds(n, sizes), inds)
 blockinds(i::Integer, sizes) = sizestoinds(sizes)[i]
 
 sizestoinds(sizes) = accumulate((a, b) -> last(a) .+ (1:b), sizes, init=0:0)::Vector{UnitRange{Int}}
-abstract type AbstractQuantumNumber end
 
 """
-    focksymmetry(fockstates, qn)
+    focksymmetry(focknumbers, qn)
 
-Constructs an `AbelianFockSymmetry` object that represents the symmetry of a many-body fermionic system. 
+Constructs a `FockSymmetry` object that represents the symmetry of a many-body system. 
 
 # Arguments
-- `fockstates`: The fockstates to iterate over
+- `focknumbers`: The focknumbers to iterate over
 - `qn`: A function that takes an integer representing a fock state and returns corresponding quantum number.
 """
-function focksymmetry(fockstates, qn)
-    oldinds = eachindex(fockstates)
-    qntooldinds = group(ind -> qn(fockstates[ind]), oldinds)
+function focksymmetry(_focknumbers, qn; allowed_qns=nothing)
+    focknumbers = copy(_focknumbers)
+    if allowed_qns !== nothing
+        allowed_qns_set = Set(allowed_qns)
+        filter!(f -> qn(f) in allowed_qns_set, focknumbers)
+    end
+    sort!(focknumbers, by=f -> f.f)
+    oldinds = eachindex(focknumbers)
+    qntooldinds = group(ind -> qn(focknumbers[ind]), oldinds)
     sortkeys!(qntooldinds)
     oldindfromnew = vcat(qntooldinds...)
     blocksizes = map(length, qntooldinds)
     newindfromold = map(first, sort!(collect(enumerate(oldindfromnew)), by=last))
-    indtofockdict = map(i -> fockstates[i], oldindfromnew)
+    indtofockdict = map(i -> focknumbers[i], oldindfromnew)
     indtofock(ind) = indtofockdict[ind]
-    focktoinddict = Dictionary(fockstates, newindfromold)
+    focktoinddict = Dictionary(focknumbers, newindfromold)
     qntoinds = map(oldinds -> map(oldind -> newindfromold[oldind], oldinds), qntooldinds)
-    qntofockstates = map(oldinds -> fockstates[oldinds], qntooldinds)
-    AbelianFockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
+    qntofockstates = map(oldinds -> focknumbers[oldinds], qntooldinds)
+    FockSymmetry(indtofockdict, focktoinddict, blocksizes, qntofockstates, qntoinds, qn)
 end
 focksymmetry(::AbstractVector, ::NoSymmetry) = NoSymmetry()
 instantiate(::NoSymmetry, labels) = NoSymmetry()
-indtofock(ind, sym::AbelianFockSymmetry) = FockNumber(sym.indtofockdict[ind])
-focktoind(f, sym::AbelianFockSymmetry) = sym.focktoinddict[f]
-
-"""
-    fermion_sparse_matrix(fermion_number, totalsize, sym)
-
-Constructs a sparse matrix of size `totalsize` representing a fermionic operator at bit position `fermion_number` in a many-body fermionic system with symmetry `sym`. 
-"""
-function fermion_sparse_matrix(fermion_number, totalsize, sym)
-    ininds = 1:totalsize
-    amps = Int[]
-    ininds_final = Int[]
-    outinds = Int[]
-    sizehint!(amps, totalsize)
-    sizehint!(ininds_final, totalsize)
-    sizehint!(outinds, totalsize)
-    for n in ininds
-        f = indtofock(n, sym)
-        newfockstate, amp = removefermion(fermion_number, f)
-        if !iszero(amp)
-            push!(amps, amp)
-            push!(ininds_final, focktoind(f, sym))
-            push!(outinds, focktoind(newfockstate, sym))
-        end
-    end
-    return sparse(outinds, ininds_final, amps, totalsize, totalsize)
-end
-
-
-"""
-    blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis)
-
-Construct a BlockDiagonal version of `m` using the symmetry of `basis`. No checking is done to ensure this is a faithful representation.
-"""
-blockdiagonal(m::AbstractMatrix, basis::AbstractManyBodyBasis) = blockdiagonal(m, basis.symmetry)
-blockdiagonal(::Type{T}, m::AbstractMatrix, basis::AbstractManyBodyBasis) where {T} = blockdiagonal(T, m, basis.symmetry)
-
-blockdiagonal(m::AbstractMatrix, ::NoSymmetry) = m
-function blockdiagonal(m::AbstractMatrix, sym::AbelianFockSymmetry)
-    blockinds = values(sym.qntoinds)
-    BlockDiagonal([m[block, block] for block in blockinds])
-end
-function blockdiagonal(::Type{T}, m::AbstractMatrix, sym::AbelianFockSymmetry) where {T}
-    blockinds = values(sym.qntoinds)
-    BlockDiagonal([T(m[block, block]) for block in blockinds])
-end
-function blockdiagonal(m::Hermitian, sym::AbelianFockSymmetry)
-    blockinds = values(sym.qntoinds)
-    Hermitian(BlockDiagonal([m[block, block] for block in blockinds]))
-end
-function blockdiagonal(::Type{T}, m::Hermitian, sym::AbelianFockSymmetry) where {T}
-    blockinds = values(sym.qntoinds)
-    Hermitian(BlockDiagonal([T(m[block, block]) for block in blockinds]))
-end
-
-focktoind(fs::FockNumber, b::AbstractBasis) = focktoind(fs, symmetry(b))
-indtofock(ind, b::AbstractBasis) = indtofock(ind, symmetry(b))
+indtofock(ind, sym::FockSymmetry) = FockNumber(sym.indtofockdict[ind])
+focktoind(f, sym::FockSymmetry) = sym.focktoinddict[f]
+focknumbers(sym::FockSymmetry) = sym.indtofockdict
 
 focktoind(fs::FockNumber, ::NoSymmetry) = fs.f + 1
 indtofock(ind, ::NoSymmetry) = FockNumber(ind - 1)
@@ -139,17 +116,14 @@ instantiate(qn::FermionConservation, ::JordanWignerOrdering) = qn
 @testitem "ConservedFermions" begin
     labels = 1:4
     conservedlabels = 1:4
-    qn = FermionConservation(conservedlabels) 
-    c1 = FermionBasis(labels; qn)
-    c2 = FermionBasis(labels; qn=QuantumDots.fermionnumber)
-    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
-    c1 = FermionBasis(labels)
-    c2 = FermionBasis(labels; qn=FermionConservation(()))
-    @test all(c1 == c2 for (c1, c2) in zip(c1, c2))
+    qn = FermionConservation(conservedlabels)
+    c1 = hilbert_space(labels, qn)
+    c2 = hilbert_space(labels, FermionConservation())
+    @test c1 == c2
 
     conservedlabels = 2:2
     qn = FermionConservation(conservedlabels)
-    c1 = FermionBasis(labels; qn)
+    c1 = hilbert_space(labels, qn)
     @test all(c1.symmetry.qntoblocksizes .== 2^(length(labels) - length(conservedlabels)))
 end
 
@@ -170,10 +144,10 @@ instantiate(qn::ParityConservation, labels) = qn
 @testitem "ProductSymmetry" begin
     labels = 1:4
     qn = FermionConservation() * ParityConservation()
-    c = FermionBasis(labels; qn)
+    c = hilbert_space(labels, qn)
     @test keys(c.symmetry.qntoinds).values == [(n, (-1)^n) for n in 0:4]
     qn = prod(FermionConservation([l], c.jw) for l in labels)
-    @test all(FermionBasis(labels; qn).symmetry.qntoblocksizes .== 1)
+    @test all(hilbert_space(labels, qn).symmetry.qntoblocksizes .== 1)
 end
 
 struct IndexConservation{L} <: AbstractSymmetry
@@ -185,16 +159,23 @@ IndexConservation(index, jw::JordanWignerOrdering) = FermionConservation(filter(
     labels = 1:4
     qn = IndexConservation(1)
     qn2 = FermionConservation(1:1)
-    c = FermionBasis(labels; qn)
-    c2 = FermionBasis(labels; qn=qn2)
-    @test all(c == c2 for (c, c2) in zip(c, c2))
+    c = hilbert_space(labels, qn)
+    c2 = hilbert_space(labels, qn2)
+    @test c == c2
 
     spatial_labels = 1:1
     spin_labels = (:↑, :↓)
-    all_labels = collect(Base.product(spatial_labels, spin_labels))[:]
+    all_labels = Base.product(spatial_labels, spin_labels)
     qn = IndexConservation(:↑) * IndexConservation(:↓)
-    c = FermionBasis(all_labels; qn)
+    c = hilbert_space(all_labels, qn)
     @test all(c.symmetry.qntoblocksizes .== 1)
 end
 
 instantiate(f::F, labels) where {F} = f
+
+
+promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F}, s2::FockSymmetry{<:Any,<:Any,<:Any,F}) where {F} = s1.conserved_quantity
+promote_symmetry(s1::FockSymmetry{<:Any,<:Any,<:Any,F1}, s2::FockSymmetry{<:Any,<:Any,<:Any,F2}) where {F1,F2} = s1 == s2 ? s1.conserved_quantity : NoSymmetry()
+promote_symmetry(::NoSymmetry, ::S) where {S} = NoSymmetry()
+promote_symmetry(::S, ::NoSymmetry) where {S} = NoSymmetry()
+promote_symmetry(::NoSymmetry, ::NoSymmetry) = NoSymmetry()
