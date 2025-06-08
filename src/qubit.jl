@@ -1,4 +1,4 @@
-function qubit_sparse_matrix(qubit_number, H::AbstractFockHilbertSpace)
+function qubit_lowering_sparse_matrix(qubit_number, H::AbstractFockHilbertSpace)
     sparse_fockoperator(f -> lower_qubit(qubit_number, f), H)
 end
 
@@ -13,7 +13,7 @@ struct QubitOp{S} end
 function QubitOperators(H::AbstractFockHilbertSpace)
     M = length(H.jw)
     labelvec = keys(H.jw)
-    reps = [1.0 * complex(qubit_sparse_matrix(n, H)) for n in 1:M]
+    reps = [1.0 * complex(qubit_lowering_sparse_matrix(n, H)) for n in 1:M]
     ops = OrderedDict{Any,eltype(reps)}(zip(labelvec, reps))
     for (k, op) in Base.product(labelvec, (:Z, :X, :Y, :H))
         ops[k, op] = qubit_operator(ops[k], QubitOp{op}())
